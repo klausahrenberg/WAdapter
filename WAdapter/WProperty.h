@@ -2,15 +2,21 @@
 #define W_PROPERTY_H
 
 #include <Arduino.h>
+#include "WJson.h"
 
 enum WPropertyType {
-	BOOLEAN, DOUBLE, INTEGER, BYTE, STRING
+	BOOLEAN, DOUBLE, INTEGER, LONG, BYTE, STRING
+};
+
+enum WPropertyVisibility {
+	ALL, NONE, MQTT, WEBTHING
 };
 
 union WPropertyValue {
 	bool asBoolean;
 	double asDouble;
 	int asInteger;
+	unsigned long asLong;
 	byte asByte;
 	//String* asString;
 	char* string;
@@ -26,6 +32,16 @@ public:
 
 	WProperty(String id, String title, String description, WPropertyType type, byte length) {
 		initialize(id, title, description, type, length);
+	}
+
+	~WProperty() {
+		if(this->value.string) {
+		    delete[] this->value.string;
+		}
+	}
+
+	void setOnValueRequest(TOnPropertyChange onValueRequest) {
+		this->onValueRequest = onValueRequest;
 	}
 
 	void setOnChange(TOnPropertyChange onChange) {
@@ -100,7 +116,38 @@ public:
 		this->valueNull = true;
 	}
 
-	void setFromJson(JsonVariant value) {
+	bool parse(String value) {
+		if ((!isReadOnly()) && (value != nullptr)) {
+			switch (getType()) {
+			case BOOLEAN: {
+				setBoolean(value.equals("true"));
+				return true;
+			}
+			case DOUBLE: {
+				setDouble(value.toDouble());
+				return true;
+			}
+			case INTEGER: {
+				setInteger(value.toInt());
+				return true;
+			}
+			case LONG: {
+				setLong(value.toInt());
+				return true;
+			}
+			case BYTE: {
+				setByte(value.toInt());
+				return true;
+			}
+			case STRING:
+				setString(value);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/*void setFromJson(JsonVariant value) {
 		if ((!isReadOnly()) && (value != nullptr)) {
 			switch (getType()) {
 			case BOOLEAN: {
@@ -124,9 +171,12 @@ public:
 				break;
 			}
 		}
-	}
+	}*/
+
+
 
 	bool getBoolean() {
+		requestValue();
 		return (!this->valueNull ? this->value.asBoolean : false);
 	}
 
@@ -150,6 +200,7 @@ public:
 	}
 
 	double getDouble() {
+		requestValue();
 		return (!this->valueNull ? this->value.asDouble : 0.0);
 	}
 
@@ -175,6 +226,7 @@ public:
 	}
 
 	int getInteger() {
+		requestValue();
 		return (!this->valueNull ? this->value.asInteger : 0);
 	}
 
@@ -190,11 +242,33 @@ public:
 		}
 	}
 
+	unsigned long getLong() {
+		requestValue();
+		return (!this->valueNull ? this->value.asLong : 0);
+	}
+
+	void setLong(unsigned long newValue) {
+		if (type != LONG) {
+			return;
+		}
+		bool changed = ((this->valueNull) || (this->value.asLong != newValue));
+		if (changed) {
+			WPropertyValue valueB;
+			valueB.asLong = newValue;
+			this->setValue(valueB);
+		}
+	}
+
 	bool equalsInteger(int number) {
 		return ((!this->valueNull) && (this->value.asInteger == number));
 	}
 
+	bool equalsLong(unsigned long number) {
+		return ((!this->valueNull) && (this->value.asLong == number));
+	}
+
 	byte getByte() {
+		requestValue();
 		return (!this->valueNull ? this->value.asByte : 0x00);
 	}
 
@@ -215,7 +289,12 @@ public:
 	}
 
 	String getString() {
+		requestValue();
 		return (!this->valueNull ? String(value.string) : "");
+	}
+
+	const char* c_str() {
+		return (!this->valueNull ? value.string : "");
 	}
 
 	WPropertyValue getValue() {
@@ -226,9 +305,14 @@ public:
 		if (type != STRING) {
 			return;
 		}
+		int l = newValue.length();
+		if (l > length) {
+			l = length;
+		}
 		bool changed = ((this->valueNull) || (strcmp(value.string, newValue.c_str()) != 0));
 		if (changed) {
-			strcpy(value.string, newValue.c_str());
+			strncpy(value.string, newValue.c_str(), l);
+			value.string[l] = '\0';
 			this->valueNull = false;
 			valueChanged();
 			notify();
@@ -259,90 +343,96 @@ public:
 		this->multipleOf = multipleOf;
 	}
 
-	virtual void toJson(JsonObject& json) {
+	virtual void toJsonValue(WJson* json) {
 		switch (getType()) {
 		case BOOLEAN:
-			json[getId()] = getBoolean();
+			json->property(getId(), getBoolean());
 			break;
 		case DOUBLE:
-			json[getId()] = getDouble();
+			json->property(getId(), getDouble());
 			break;
 		case INTEGER:
-			json[getId()] = getInteger();
+			json->property(getId(), getInteger());
+			break;
+		case LONG:
+			json->property(getId(), getLong());
 			break;
 		case BYTE:
-			json[getId()] = getByte();
+			json->property(getId(), getByte());
 			break;
 		case STRING:
-			json[getId()] = getString();
+			json->property(getId(), getString());
 			break;
 		}
 	}
 
-	virtual String structToJson(JsonObject& json, String deviceHRef, String nameHRef) {
+	virtual void toJsonStructure(WJson* json, String deviceHRef) {
+		json->beginObject(getId());
+		//title
 		if (this->getTitle() != "") {
-			json["title"] = this->getTitle();
+			json->property("title", getTitle());
 		}
+		//description
 		if (this->getDescription() != "") {
-			json["description"] = this->getDescription();
+			json->property("description", this->getDescription());
 		}
-	    switch (this->getType()) {
-	    case BOOLEAN:
-	    	json["type"] = "boolean";
-	    	break;
-	    case DOUBLE:
-	    case INTEGER:
-	    case BYTE:
-	    	json["type"] = "number";
-	    	break;
-	    case STRING:
-	    	json["type"] = "string";
-	    	break;
-	    }
-
-	    if (this->isReadOnly()) {
-	    	json["readOnly"] = true;
-	    }
-
-	    if (this->getUnit() != "") {
-	    	json["unit"] = this->getUnit();
-	    }
-
-	    if (this->getMultipleOf() > 0.0) {
-	    	json["multipleOf"] = this->getMultipleOf();
-	    }
-
-	    if (hasEnum()) {
-	    	JsonArray propEnum = json.createNestedArray("enum");
-	    	WProperty* propE = this->firstEnum;
-	    	while (propE != nullptr) {
-	    		switch (this->getType()) {
-	    		case BOOLEAN:
-	    			propEnum.add(propE->getBoolean());
-	    		   	break;
-	    		case DOUBLE:
-	    			propEnum.add(propE->getDouble());
-	    		  	break;
-	    		case INTEGER:
-	    			propEnum.add(propE->getInteger());
-	    			break;
-	    		case BYTE:
-	    			propEnum.add(propE->getByte());
-	    			break;
-	    		case STRING:
-	    			propEnum.add(propE->getString());
-	    		  	break;
-	    		}
-	    		propE = propE->next;
-	    	}
+		//type
+		switch (this->getType()) {
+		case BOOLEAN:
+			json->property("type", "boolean");
+			break;
+		case DOUBLE:
+		case INTEGER:
+		case LONG:
+		case BYTE:
+			json->property("type", "number");
+			break;
+		default:
+			json->property("type", "string");
+			break;
 		}
-
-	    if (this->getAtType() != "") {
-	    	json["@type"] = this->getAtType();
-	    }
-	    String result = deviceHRef + "/properties/" + this->getId();
-	    json[nameHRef] = result;
-	    return result;
+		//readOnly
+		if (this->isReadOnly()) {
+			json->property("readOnly", true);
+		}
+		//unit
+		if (this->getUnit() != "") {
+			json->property("unit", this->getUnit());
+		}
+		//multipleOf
+		if (this->getMultipleOf() > 0.0) {
+			json->property("multipleOf", this->getMultipleOf());
+		}
+		//enum
+		if (hasEnum()) {
+			json->beginArray("enum");
+			WProperty* propE = this->firstEnum;
+			while (propE != nullptr) {
+				switch (this->getType()) {
+				case BOOLEAN:
+					json->boolean(propE->getBoolean());
+				   	break;
+				case DOUBLE:
+				case INTEGER:
+				case LONG:
+				case BYTE:
+					json->number(propE->getByte());
+					break;
+				case STRING:
+					json->string(propE->getString());
+				  	break;
+				}
+				propE = propE->next;
+			}
+			json->endArray();
+		}
+		//aType
+		if (this->getAtType() != "") {
+			json->property("@type", this->getAtType());
+		}
+		toJsonStructureAdditionalParameters(json);
+		json->property("href", deviceHRef + "/properties/" + this->getId());
+		json->endObject();
 	}
 
 	WProperty* next;
@@ -371,6 +461,15 @@ public:
 		}
 		WProperty* valueE = new WProperty("", "", "", this->type, 0);
 		valueE->setInteger(enumNumber);
+		this->addEnum(valueE);
+	}
+
+	void addEnumLong(unsigned long enumNumber) {
+		if (type != LONG) {
+			return;
+		}
+		WProperty* valueE = new WProperty("", "", "", this->type, 0);
+		valueE->setLong(enumNumber);
 		this->addEnum(valueE);
 	}
 
@@ -408,20 +507,16 @@ public:
 		return (firstEnum != nullptr);
 	}
 
-	bool isSupportingMqtt() {
-		return this->supportingMqtt;
+	WPropertyVisibility getVisibility() {
+		return visibility;
 	}
 
-	void setSupportingMqtt(bool supportingMqtt) {
-		this->supportingMqtt = supportingMqtt;
+	void setVisibility(WPropertyVisibility visibility) {
+		this->visibility = visibility;
 	}
 
-	bool isSupportingWebthing() {
-		return this->supportingWebthing;
-	}
-
-	void setSupportingWebthing(bool supportingWebthing) {
-		this->supportingWebthing = supportingWebthing;
+	bool isVisible(WPropertyVisibility visibility) {
+		return ((this->visibility == ALL) || (this->visibility == visibility));
 	}
 
 protected:
@@ -432,10 +527,11 @@ protected:
 		this->title = title;
 		this->description = description;
 		this->type = type;
-		this->supportingMqtt = true;
+		this->visibility = ALL;
 		this->supportingWebthing = true;
 		this->valueNull = true;
 		this->requested = false;
+		this->valueRequesting = false;
 		this->readOnly = false;
 		this->unit = "";
 		this->multipleOf = 0.0;
@@ -450,6 +546,9 @@ protected:
 			break;
 		case INTEGER:
 			this->length = 2;
+			break;
+		case LONG:
+			this->length = 4;
 			break;
 		case BYTE:
 		case BOOLEAN:
@@ -468,11 +567,16 @@ protected:
 	virtual void valueChanged() {
 	}
 
+	virtual void toJsonStructureAdditionalParameters(WJson* json) {
+
+	}
+
 private:
 	String id;
 	String title;
 	String description;
 	WPropertyType type;
+	WPropertyVisibility visibility;
 	bool supportingMqtt;
 	bool supportingWebthing;
 	byte length;
@@ -480,21 +584,34 @@ private:
 	String unit;
 	double multipleOf;
 	TOnPropertyChange onChange;
+	TOnPropertyChange onValueRequest;
 	TOnPropertyChange deviceNotification;
 	WPropertyValue value = {false};
 	bool valueNull;
 	bool requested;
+	bool valueRequesting;
 
 	WProperty* firstEnum = nullptr;
 
 	void notify() {
-		if (onChange) {
-			onChange(this);
-		}
-		if (deviceNotification) {
-			deviceNotification(this);
+		if (!valueRequesting) {
+			if (onChange) {
+				onChange(this);
+			}
+			if (deviceNotification) {
+				deviceNotification(this);
+			}
 		}
 	}
+
+	void requestValue() {
+		if (onValueRequest) {
+			valueRequesting = true;
+			onValueRequest(this);
+			valueRequesting = false;
+		}
+	}
+
 };
 
 #endif

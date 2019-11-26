@@ -28,11 +28,9 @@ public:
 		this->maximum = maximum;
 	}
 
-	String structToJson(JsonObject& json, String deviceHRef, String nameHRef) {
-		String result = this->WProperty::structToJson(json, deviceHRef, nameHRef);
-		json["minimum"] = this->getMinimum();
-		json["maximum"] = this->getMaximum();
-		return result;
+	void toJsonStructureAdditionalParameters(WJson* json) {
+		json->property("minimum", this->getMinimum());
+		json->property("maximum", this->getMaximum());
 	}
 
 protected:

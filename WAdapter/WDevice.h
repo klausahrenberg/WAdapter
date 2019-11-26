@@ -1,32 +1,41 @@
 #ifndef W_DEVICE_H
 #define W_DEVICE_H
 
-#include "ESPAsyncWebServer.h"
+#include "ESP8266WebServer.h"
 #include "WProperty.h"
 #include "WLevelProperty.h"
 #include "WOnOffProperty.h"
 #include "WStringProperty.h"
+#include "WIntegerProperty.h"
+#include "WLongProperty.h"
 #include "WTemperatureProperty.h"
+#include "WTargetTemperatureProperty.h"
+#include "WHeatingCoolingProperty.h"
 #include "WLed.h"
 
 const String DEVICE_TYPE_ON_OFF_SWITCH = "OnOffSwitch";
 const String DEVICE_TYPE_LIGHT = "Light";
 const String DEVICE_TYPE_TEMPERATURE_SENSOR = "TemperatureSensor";
+const String DEVICE_TYPE_THERMOSTAT = "Thermostat";
+const String DEVICE_TYPE_TEXT_DISPLAY = "TextDisplay";
+
+class WNetwork;
 
 class WDevice {
 public:
-	WDevice(bool debug, String id, String name, String type) {
-		this->debug = debug;
+	WDevice(WNetwork* network, String id, String name, String type) {
+		this->network = network;
 		this->id = id;
 		this->name = name;
 		this->type = type;
-		this->providingConfigPage = false;
+		this->visibility = ALL;
+		this->providingConfigPage = true;
 		this->lastStateNotify = 0;
 		this->stateNotifyInterval = 300000;
 	}
 
 	~WDevice() {
-		if (webSocket) delete webSocket;
+		//if (webSocket) delete webSocket;
 	}
 
 	String getId() {
@@ -73,41 +82,42 @@ public:
 		return nullptr;
 	}
 
-	virtual void toJson(JsonObject& json) {
+	virtual void toJsonValues(WJson* response, WPropertyVisibility visibility) {
+		response->beginObject();
 		WProperty* property = this->firstProperty;
 		while (property != nullptr) {
-			property->toJson(json);
-			property = property->next;
+			if (property->isVisible(visibility)) {
+				property->toJsonValue(response);
+				property = property->next;
+			} else {
+				property = property->next;
+			}
 		}
+		response->endObject();
 	}
 
-    virtual String structToJson(JsonObject& json, String deviceHRef) {
-    	String result = deviceHRef + "/things/" + this->getId();
-    	json["name"] = this->getName();
-    	json["href"] = result;
-    	json["@context"] = "https://iot.mozilla.org/schemas";
-
-    	JsonArray typeJson = json.createNestedArray("@type");
-    	typeJson.add(getType());
-    	/*char** type = device->getType();
-    	while ((*type) != nullptr) {
-    		typeJson.add(*type);
-    		type++;
-    	}*/
-
-    	JsonObject props = json.createNestedObject("properties");
-
+	virtual void toJsonStructure(WJson* json, String deviceHRef, WPropertyVisibility visibility) {
+		json->beginObject();
+		json->property("name", this->getName());
+		String result = deviceHRef + "/things/" + this->getId();
+		json->property("href", result);
+		json->property("@context", "https://iot.mozilla.org/schemas");
+		//type
+		json->beginArray("@type");
+		json->string(getType());
+		json->endArray();
+		//properties
+		json->beginObject("properties");
 		WProperty* property = this->firstProperty;
-    	while (property != nullptr) {
-    		if (property->isSupportingWebthing()) {
-    			JsonObject prop = props.createNestedObject(property->getId());
-    			JsonObject& refProp = prop;
-    			property->structToJson(refProp, result, "href");
-    		}
-    		property = property->next;
-    	}
-    	return result;
-    }
+		while (property != nullptr) {
+			if (property->isVisible(visibility)) {
+				property->toJsonStructure(json, result);
+			}
+			property = property->next;
+		}
+		json->endObject();
+		json->endObject();
+	}
 
     virtual void loop(unsigned long now) {
     	if (statusLed != nullptr) {
@@ -128,7 +138,7 @@ public:
     	return "";
     }
 
-    virtual void saveConfigPage(AsyncWebServerRequest *request) {
+    virtual void saveConfigPage(ESP8266WebServer* server) {
 
     }
 
@@ -159,13 +169,25 @@ public:
     	return true;
     }
 
-    AsyncWebSocket* getWebSocket() {
+    /*AsyncWebSocket* getWebSocket() {
     	return webSocket;
     }
 
     void setWebSocket(AsyncWebSocket* webSocket) {
     	this->webSocket = webSocket;
+    }*/
+
+    WPropertyVisibility getVisibility() {
+    	return visibility;
     }
+
+	void setVisibility(WPropertyVisibility visibility) {
+		this->visibility = visibility;
+	}
+
+	bool isVisible(WPropertyVisibility visibility) {
+		return ((this->visibility == ALL) || (this->visibility == visibility));
+	}
 
     WDevice* next = nullptr;
     WProperty* firstProperty = nullptr;
@@ -175,24 +197,18 @@ public:
     unsigned long lastStateNotify;
     int stateNotifyInterval;
 protected:
+    WNetwork* network;
     WLed* statusLed = nullptr;
     bool providingConfigPage;
-
-    void log(String debugMessage) {
-    	if (debug) {
-    		Serial.println(debugMessage);
-    	}
-    }
+    WPropertyVisibility visibility;
 
 private:
-    bool debug;
 	String id;
 	String name;
 	String type;
-	AsyncWebSocket* webSocket = nullptr;
+	//AsyncWebSocket* webSocket = nullptr;
 
 	void notify() {
-		log("notified about change at a property");
 		this->lastStateNotify = 0;
 	}
 
