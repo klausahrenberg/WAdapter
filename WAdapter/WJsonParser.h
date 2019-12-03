@@ -66,7 +66,7 @@ private:
 	String currentKey;
 	WDevice *device;
 
-	WProperty* processKeyValue(String key, String value) {
+	WProperty* processKeyValue(const char* key, const char* value) {
 		WProperty* result = nullptr;
 		if (device != nullptr) {
 			result = device->getPropertyById(key);
@@ -245,7 +245,7 @@ private:
 		} else if (popped == STACK_STRING) {
 			if (currentKey != "") {
 				buffer[bufferPos] = '\0';
-				result = processKeyValue(currentKey, String(buffer));
+				result = processKeyValue(currentKey.c_str(), buffer);
 			}
 			//buffer[bufferPos] = '\0';
 			//myListener->value(String(buffer));
@@ -445,7 +445,7 @@ private:
 		WProperty* result = false;
 		if (currentKey != "") {
 			buffer[bufferPos] = '\0';
-			result = processKeyValue(currentKey, String(buffer));
+			result = processKeyValue(currentKey.c_str(), buffer);
 		}
 		bufferPos = 0;
 		state = STATE_AFTER_VALUE;
@@ -470,9 +470,9 @@ private:
 		WProperty* result = false;
 		if (currentKey != "") {
 			buffer[bufferPos] = '\0';
-			String value = String(buffer);
-			if (value.equals("true")) {
-				result = processKeyValue(currentKey, value);
+			//String value = String(buffer);
+			if (strcmp(buffer, "true") == 0) {
+				result = processKeyValue(currentKey.c_str(), "true");
 			}
 		}
 		bufferPos = 0;
@@ -484,9 +484,9 @@ private:
 		WProperty* result = false;
 		if (currentKey != "") {
 			buffer[bufferPos] = '\0';
-			String value = String(buffer);
-			if (value.equals("false")) {
-				result = processKeyValue(currentKey, value);
+			//String value = String(buffer);
+			if (strcmp(buffer, "false") == 0) {
+				result = processKeyValue(currentKey.c_str(), "false");
 			}
 		}
 		bufferPos = 0;

@@ -5,8 +5,8 @@
 
 class WTemperatureProperty: public WProperty {
 public:
-	WTemperatureProperty(String id, String title, String description)
-	: WProperty(id, title, description, DOUBLE) {
+	WTemperatureProperty(const char* id, const char* title)
+	: WProperty(id, title, DOUBLE) {
 		this->atType = "TemperatureProperty";
 		this->setUnit("celsius");
 	}

@@ -46,7 +46,7 @@ public:
 				EEPROM.put(settingItem->address, setting->getDouble());
 				break;
 			case STRING:
-				writeString(settingItem->address, setting->getLength(), setting->getString());
+				writeString(settingItem->address, setting->getLength(), setting->c_str());
 				break;
 			}
 			settingItem = settingItem->next;
@@ -104,7 +104,7 @@ public:
 					break;
 				case STRING:
 					String rs = readString(settingItem->address, property->getLength());
-					property->setString(rs);
+					property->setString(rs.c_str());
 					break;
 				}
 				EEPROM.end();
@@ -112,10 +112,10 @@ public:
 		}
 	}
 
-	WProperty* registerBoolean(String id, bool defaultValue) {
+	WProperty* registerBoolean(const char* id, bool defaultValue) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = new WProperty(id, "", "", BOOLEAN);
+			setting = new WProperty(id, id, BOOLEAN);
 			//setting->length = 1;
 			WSettingItem* settingItem = addSetting(setting);
 			if (existsSettings()) {
@@ -129,20 +129,20 @@ public:
 		return setting;
 	}
 
-	bool getBoolean(String id) {
+	bool getBoolean(const char* id) {
 		WProperty* setting = getSetting(id);
 		return (setting != nullptr ? setting->getBoolean() : false);
 	}
 
-	void setBoolean(String id, bool value) {
+	void setBoolean(const char* id, bool value) {
 		WProperty* setting = registerBoolean(id, value);
 		setting->setBoolean(value);
 	}
 
-	WProperty* registerByte(String id, byte defaultValue) {
+	WProperty* registerByte(const char* id, byte defaultValue) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = new WProperty(id, "", "", BYTE);
+			setting = new WProperty(id, id, BYTE);
 			//setting->length = 1;
 			WSettingItem* settingItem = addSetting(setting);
 			if (existsSettings()) {
@@ -156,20 +156,20 @@ public:
 		return setting;
 	}
 
-	byte getByte(String id) {
+	byte getByte(const char* id) {
 		WProperty* setting = getSetting(id);
 		return (setting != nullptr ? setting->getByte() : 0x00);
 	}
 
-	void setByte(String id, byte value) {
+	void setByte(const char* id, byte value) {
 		WProperty* setting = registerByte(id, value);
 		setting->setByte(value);
 	}
 
-	WProperty* registerInteger(String id, int defaultValue) {
+	WProperty* registerInteger(const char* id, int defaultValue) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = new WProperty(id, "", "", INTEGER);
+			setting = new WProperty(id, id, INTEGER);
 			//setting->length = 2;
 			WSettingItem* settingItem = addSetting(setting);
 			if (existsSettings()) {
@@ -186,20 +186,20 @@ public:
 		return setting;
 	}
 
-	int getInteger(String id) {
+	int getInteger(const char* id) {
 		WProperty* setting = getSetting(id);
 		return (setting != nullptr ? setting->getInteger() : 0);
 	}
 
-	void setInteger(String id, int value) {
+	void setInteger(const char* id, int value) {
 		WProperty* setting = registerInteger(id, value);
 		setting->setInteger(value);
 	}
 
-	WProperty* registerDouble(String id, double defaultValue) {
+	WProperty* registerDouble(const char* id, double defaultValue) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = new WProperty(id, "", "", DOUBLE);
+			setting = new WProperty(id, id, DOUBLE);
 			WSettingItem* settingItem = addSetting(setting);
 			if (existsSettings()) {
 				EEPROM.begin(EEPROM_SIZE);
@@ -214,25 +214,25 @@ public:
 		return setting;
 	}
 
-	double getDouble(String id) {
+	double getDouble(const char* id) {
 		WProperty* setting = getSetting(id);
 		return (setting != nullptr ? setting->getDouble() : 0.0);
 	}
 
-	void setDouble(String id, double value) {
+	void setDouble(const char* id, double value) {
 		WProperty* setting = registerDouble(id, value);
 		setting->setDouble(value);
 	}
 
-	WProperty* registerString(String id, byte length, String defaultValue) {
+	WProperty* registerString(const char* id, byte length, const char* defaultValue) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = new WProperty(id, "", "", STRING, length);
+			setting = new WProperty(id, id, STRING, length);
 			//setting->length = length + 1;
 			WSettingItem* settingItem = addSetting(setting);
 			if (existsSettings()) {
 				EEPROM.begin(EEPROM_SIZE);
-				String rs = readString(settingItem->address, setting->getLength());
+				const char* rs = readString(settingItem->address, setting->getLength());
 				setting->setString(rs);
 				EEPROM.end();
 			} else {
@@ -242,12 +242,12 @@ public:
 		return setting;
 	}
 
-	String getString(String id) {
+	const char* getString(const char* id) {
 		WProperty* setting = getSetting(id);
-		return (setting != nullptr ? setting->getString() : "");
+		return (setting != nullptr ? setting->c_str() : "");
 	}
 
-	void setString(String id, String value) {
+	void setString(const char* id, const char* value) {
 		WProperty* setting = registerString(id, 32, value);
 		setting->setString(value);
 	}
@@ -273,8 +273,8 @@ private:
 	WSettingItem* firstSetting = nullptr;
 	WSettingItem* lastSetting = nullptr;
 
-	String readString(int address, int length) {
-		char data[length]; //Max 100 Bytes
+	const char* readString(int address, int length) {
+		char* data = new char[length]; //Max 100 Bytes
 		for (int i = 0; i < length; i++) {
 			byte k = EEPROM.read(address + i);
 			data[i] = k;
@@ -282,11 +282,11 @@ private:
 				break;
 			}
 		}
-		return String(data);
+		return data;
 	}
 
-	void writeString(int address, int length, String value) {
-		int size = value.length();
+	void writeString(int address, int length, const char* value) {
+		int size = strlen(value);
 		if (size + 1 >= length) {
 			size = length - 1;
 		}

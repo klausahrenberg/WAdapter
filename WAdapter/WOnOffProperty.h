@@ -5,8 +5,8 @@
 
 class WOnOffProperty: public WProperty {
 public:
-	WOnOffProperty(String id, String title, String description)
-	: WProperty(id, title, description, BOOLEAN) {
+	WOnOffProperty(const char* id, const char* title)
+	: WProperty(id, title, BOOLEAN) {
 		this->atType = "OnOffProperty";
 	}
 

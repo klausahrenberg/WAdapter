@@ -5,8 +5,8 @@
 
 class WLevelProperty: public WProperty {
 public:
-	WLevelProperty(String id, String title, String description, double minimum, double maximum)
-	: WProperty(id, title, description, DOUBLE) {
+	WLevelProperty(const char* id, const char* title, double minimum, double maximum)
+	: WProperty(id, title, DOUBLE) {
 		this->atType = "LevelProperty";
 		this->minimum = minimum;
 		this->maximum = maximum;
@@ -29,8 +29,8 @@ public:
 	}
 
 	void toJsonStructureAdditionalParameters(WJson* json) {
-		json->property("minimum", this->getMinimum());
-		json->property("maximum", this->getMaximum());
+		json->propertyDouble("minimum", this->getMinimum());
+		json->propertyDouble("maximum", this->getMaximum());
 	}
 
 protected:

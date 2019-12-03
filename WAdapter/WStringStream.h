@@ -67,6 +67,37 @@ public:
     	return this->maxLength;
     }
 
+    char charAt(int index) {
+    	return this->string[index];
+    }
+
+    /*bool setCharAt(int index, char value) {
+    	if (index < maxLength) {
+    		string[index] = value;
+    		Serial.print("set char at index ");
+    		Serial.print(index);
+    		Serial.print(" to value '");
+    		Serial.print(value);
+    		Serial.print("' (pos ");
+    		Serial.print(position);
+    		Serial.print(", length ");
+    		Serial.print(strlen(string));
+    		Serial.print(") now: '");
+    		if (position <= index) {
+    			for (int i = position; i < index; i++) {
+    				this->string[i] = ' ';
+    			}
+    			position = index + 1;
+    			string[position] = '\0';
+    		}
+    		Serial.print(string);
+    		Serial.println("'");
+    		return true;
+    	} else {
+    		return false;
+    	}
+    }*/
+
     char* c_str() {
     	return this->string;
     }

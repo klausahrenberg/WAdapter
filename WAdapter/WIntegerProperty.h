@@ -5,8 +5,8 @@
 
 class WIntegerProperty: public WProperty {
 public:
-	WIntegerProperty(String id, String title, String description)
-	: WProperty(id, title, description, INTEGER) {
+	WIntegerProperty(const char* id, const char* title)
+	: WProperty(id, title, INTEGER) {
 		this->atType = "IntegerProperty";
 	}
 

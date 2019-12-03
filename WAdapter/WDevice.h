@@ -13,45 +13,47 @@
 #include "WHeatingCoolingProperty.h"
 #include "WLed.h"
 
-const String DEVICE_TYPE_ON_OFF_SWITCH = "OnOffSwitch";
-const String DEVICE_TYPE_LIGHT = "Light";
-const String DEVICE_TYPE_TEMPERATURE_SENSOR = "TemperatureSensor";
-const String DEVICE_TYPE_THERMOSTAT = "Thermostat";
-const String DEVICE_TYPE_TEXT_DISPLAY = "TextDisplay";
+const char* DEVICE_TYPE_ON_OFF_SWITCH = "OnOffSwitch";
+const char* DEVICE_TYPE_LIGHT = "Light";
+const char* DEVICE_TYPE_TEMPERATURE_SENSOR = "TemperatureSensor";
+const char* DEVICE_TYPE_THERMOSTAT = "Thermostat";
+const char* DEVICE_TYPE_TEXT_DISPLAY = "TextDisplay";
 
 class WNetwork;
 
 class WDevice {
 public:
-	WDevice(WNetwork* network, String id, String name, String type) {
+	WDevice(WNetwork* network, const char* id, const char* name, const char* type) {
 		this->network = network;
 		this->id = id;
 		this->name = name;
 		this->type = type;
 		this->visibility = ALL;
+		//this->webSocket = nullptr;
 		this->providingConfigPage = true;
 		this->lastStateNotify = 0;
 		this->stateNotifyInterval = 300000;
+		this->lastStateWaitForResponse = false;
 	}
 
 	~WDevice() {
 		//if (webSocket) delete webSocket;
 	}
 
-	String getId() {
+	const char* getId() {
 		return id;
 	}
 
-	String getName() {
+	const char* getName() {
 		return name;
 	}
 
-	String getType() {
+	const char* getType() {
 		return type;
 	}
 
 	void addProperty(WProperty* property) {
-		property->setDeviceNotification(std::bind(&WDevice::notify, this));
+		property->setDeviceNotification(std::bind(&WDevice::onPropertyChange, this));
 		if (lastProperty == nullptr) {
 			firstProperty = property;
 			lastProperty = property;
@@ -71,10 +73,10 @@ public:
 		}
 	}
 
-	WProperty* getPropertyById(String propertyId) {
+	WProperty* getPropertyById(const char* propertyId) {
 		WProperty* property = this->firstProperty;
 		while (property != nullptr) {
-			if (property->getId().equals(propertyId)) {
+			if (strcmp(property->getId(), propertyId) == 0) {
 				return property;
 			}
 			property = property->next;
@@ -96,12 +98,14 @@ public:
 		response->endObject();
 	}
 
-	virtual void toJsonStructure(WJson* json, String deviceHRef, WPropertyVisibility visibility) {
+	virtual void toJsonStructure(WJson* json, const char* deviceHRef, WPropertyVisibility visibility) {
 		json->beginObject();
-		json->property("name", this->getName());
-		String result = deviceHRef + "/things/" + this->getId();
-		json->property("href", result);
-		json->property("@context", "https://iot.mozilla.org/schemas");
+		json->propertyString("name", this->getName());
+		String result(deviceHRef);
+		result.concat("/things/");
+		result.concat(this->getId());
+		json->propertyString("href", result.c_str());
+		json->propertyString("@context", "https://iot.mozilla.org/schemas");
 		//type
 		json->beginArray("@type");
 		json->string(getType());
@@ -111,7 +115,7 @@ public:
 		WProperty* property = this->firstProperty;
 		while (property != nullptr) {
 			if (property->isVisible(visibility)) {
-				property->toJsonStructure(json, result);
+				property->toJsonStructure(json, property->getId(), result.c_str());
 			}
 			property = property->next;
 		}
@@ -123,6 +127,9 @@ public:
     	if (statusLed != nullptr) {
     		statusLed->loop(now);
     	}
+    	/*if (webSocket != nullptr) {
+    		webSocket->loop();
+    	}*/
     	WPin* pin = this->firstPin;
     	while (pin != nullptr) {
     		pin->loop(now);
@@ -169,11 +176,11 @@ public:
     	return true;
     }
 
-    /*AsyncWebSocket* getWebSocket() {
+    /*WebSocketsServer* getWebSocket() {
     	return webSocket;
     }
 
-    void setWebSocket(AsyncWebSocket* webSocket) {
+    void setWebSocket(WebSocketsServer* webSocket) {
     	this->webSocket = webSocket;
     }*/
 
@@ -190,11 +197,13 @@ public:
 	}
 
     WDevice* next = nullptr;
+    //WebSocketsServer* webSocket;
     WProperty* firstProperty = nullptr;
     WProperty* lastProperty = nullptr;
     WPin* firstPin = nullptr;
     WPin* lastPin = nullptr;
     unsigned long lastStateNotify;
+    bool lastStateWaitForResponse;
     int stateNotifyInterval;
 protected:
     WNetwork* network;
@@ -203,12 +212,11 @@ protected:
     WPropertyVisibility visibility;
 
 private:
-	String id;
-	String name;
-	String type;
-	//AsyncWebSocket* webSocket = nullptr;
+	const char* id;
+	const char* name;
+	const char* type;
 
-	void notify() {
+	void onPropertyChange() {
 		this->lastStateNotify = 0;
 	}
 

@@ -3,14 +3,14 @@
 
 #include "WProperty.h"
 
-const String VALUE_OFF = "off";
-const String VALUE_HEATING = "heating";
-const String VALUE_COOLING = "cooling";
+const char* VALUE_OFF = "off";
+const char* VALUE_HEATING = "heating";
+const char* VALUE_COOLING = "cooling";
 
 class WHeatingCoolingProperty: public WProperty {
 public:
-	WHeatingCoolingProperty(String id, String title, String description)
-	: WProperty(id, title, description, STRING) {
+	WHeatingCoolingProperty(const char* id, const char* title)
+	: WProperty(id, title, STRING) {
 		this->atType = "HeatingCoolingProperty";
 		this->setReadOnly(true);
 		this->addEnumString(VALUE_OFF);

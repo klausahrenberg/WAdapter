@@ -5,8 +5,8 @@
 
 class WStringProperty: public WProperty {
 public:
-	WStringProperty(String id, String title, String description, byte length)
-	: WProperty(id, title, description, STRING, length) {
+	WStringProperty(const char* id, const char* title, byte length)
+	: WProperty(id, title, STRING, length) {
 		this->atType = "StringProperty";
 	}
 

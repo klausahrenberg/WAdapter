@@ -18,7 +18,6 @@ union WPropertyValue {
 	int asInteger;
 	unsigned long asLong;
 	byte asByte;
-	//String* asString;
 	char* string;
 };
 
@@ -26,15 +25,23 @@ class WProperty {
 public:
 	typedef std::function<void(WProperty* property)> TOnPropertyChange;
 
-	WProperty(String id, String title, String description, WPropertyType type) {
-		initialize(id, title, description, type, (type == STRING ? 32 : 0));
+	WProperty(const char* id, const char* title, WPropertyType type) {
+		initialize(id, title, type, (type == STRING ? 32 : 0));
 	}
 
-	WProperty(String id, String title, String description, WPropertyType type, byte length) {
-		initialize(id, title, description, type, length);
+	WProperty(const char* id, const char* title, WPropertyType type, byte length) {
+		initialize(id, title, type, length);
 	}
 
 	~WProperty() {
+		delete this->id;
+		delete this->title;
+		if (this->unit) {
+			delete this->unit;
+		}
+		if (this->atType) {
+			delete this->atType;
+		}
 		if(this->value.string) {
 		    delete[] this->value.string;
 		}
@@ -52,28 +59,12 @@ public:
 		this->deviceNotification = deviceNotification;
 	}
 
-	String getId() {
+	const char* getId() {
 		return id;
 	}
 
-	void setId(String id) {
-		this->id = id;
-	}
-
-	String getTitle() {
+	const char* getTitle() {
 		return title;
-	}
-
-	void setTitle(String title) {
-		this->title = title;
-	}
-
-	String getDescription() {
-		return description;
-	}
-
-	void setDescription(String description) {
-		this->description = description;
 	}
 
 	WPropertyType getType() {
@@ -88,7 +79,7 @@ public:
 		this->type = type;
 	}
 
-	String getAtType() {
+	const char* getAtType() {
 		return atType;
 	}
 
@@ -140,40 +131,12 @@ public:
 				return true;
 			}
 			case STRING:
-				setString(value);
+				setString(value.c_str());
 				return true;
 			}
 		}
 		return false;
 	}
-
-	/*void setFromJson(JsonVariant value) {
-		if ((!isReadOnly()) && (value != nullptr)) {
-			switch (getType()) {
-			case BOOLEAN: {
-				setBoolean(value.as<bool>());
-				break;
-			}
-			case DOUBLE: {
-				setDouble(value.as<double>());
-				break;
-			}
-			case INTEGER: {
-				setInteger(value.as<int>());
-				break;
-			}
-			case BYTE: {
-				setByte(value.as<byte>());
-				break;
-			}
-			case STRING:
-				setString(value.as<String>());
-				break;
-			}
-		}
-	}*/
-
-
 
 	bool getBoolean() {
 		requestValue();
@@ -288,10 +251,10 @@ public:
 		return ((!this->valueNull) && (this->value.asByte == number));
 	}
 
-	String getString() {
+	/*String getString() {
 		requestValue();
 		return (!this->valueNull ? String(value.string) : "");
-	}
+	}*/
 
 	const char* c_str() {
 		return (!this->valueNull ? value.string : "");
@@ -301,7 +264,25 @@ public:
 	    return this->value;
 	}
 
-	void setString(String newValue) {
+	void setString(const char* newValue) {
+		if (type != STRING) {
+			return;
+		}
+		bool changed = ((this->valueNull) || (strcmp(value.string, newValue) != 0));
+		if (changed) {
+			int l = strlen(newValue);
+			if (l > length) {
+				l = length;
+			}
+			strncpy(value.string, newValue, l);
+			value.string[l] = '\0';
+			this->valueNull = false;
+			valueChanged();
+			notify();
+		}
+	}
+
+	/*void setString(String newValue) {
 		if (type != STRING) {
 			return;
 		}
@@ -317,7 +298,7 @@ public:
 			valueChanged();
 			notify();
 		}
-	}
+	}*/
 
 	bool isReadOnly() {
 		return readOnly;
@@ -327,11 +308,11 @@ public:
 		this->readOnly = readOnly;
 	}
 
-	String getUnit() {
+	const char* getUnit() {
 		return unit;
 	}
 
-	void setUnit(String unit) {
+	void setUnit(const char* unit) {
 		this->unit = unit;
 	}
 
@@ -346,62 +327,58 @@ public:
 	virtual void toJsonValue(WJson* json) {
 		switch (getType()) {
 		case BOOLEAN:
-			json->property(getId(), getBoolean());
+			json->propertyBoolean(getId(), getBoolean());
 			break;
 		case DOUBLE:
-			json->property(getId(), getDouble());
+			json->propertyDouble(getId(), getDouble());
 			break;
 		case INTEGER:
-			json->property(getId(), getInteger());
+			json->propertyInteger(getId(), getInteger());
 			break;
 		case LONG:
-			json->property(getId(), getLong());
+			json->propertyLong(getId(), getLong());
 			break;
 		case BYTE:
-			json->property(getId(), getByte());
+			json->propertyByte(getId(), getByte());
 			break;
 		case STRING:
-			json->property(getId(), getString());
+			json->propertyString(getId(), c_str());
 			break;
 		}
 	}
 
-	virtual void toJsonStructure(WJson* json, String deviceHRef) {
-		json->beginObject(getId());
+	virtual void toJsonStructure(WJson* json, const char* memberName, const char* deviceHRef) {
+		json->beginObject(memberName);
 		//title
 		if (this->getTitle() != "") {
-			json->property("title", getTitle());
-		}
-		//description
-		if (this->getDescription() != "") {
-			json->property("description", this->getDescription());
+			json->propertyString("title", getTitle());
 		}
 		//type
 		switch (this->getType()) {
 		case BOOLEAN:
-			json->property("type", "boolean");
+			json->propertyString("type", "boolean");
 			break;
 		case DOUBLE:
 		case INTEGER:
 		case LONG:
 		case BYTE:
-			json->property("type", "number");
+			json->propertyString("type", "number");
 			break;
 		default:
-			json->property("type", "string");
+			json->propertyString("type", "string");
 			break;
 		}
 		//readOnly
 		if (this->isReadOnly()) {
-			json->property("readOnly", true);
+			json->propertyBoolean("readOnly", true);
 		}
 		//unit
 		if (this->getUnit() != "") {
-			json->property("unit", this->getUnit());
+			json->propertyString("unit", this->getUnit());
 		}
 		//multipleOf
 		if (this->getMultipleOf() > 0.0) {
-			json->property("multipleOf", this->getMultipleOf());
+			json->propertyDouble("multipleOf", this->getMultipleOf());
 		}
 		//enum
 		if (hasEnum()) {
@@ -416,10 +393,10 @@ public:
 				case INTEGER:
 				case LONG:
 				case BYTE:
-					json->number(propE->getByte());
+					json->numberByte(propE->getByte());
 					break;
 				case STRING:
-					json->string(propE->getString());
+					json->string(propE->c_str());
 				  	break;
 				}
 				propE = propE->next;
@@ -428,10 +405,10 @@ public:
 		}
 		//aType
 		if (this->getAtType() != "") {
-			json->property("@type", this->getAtType());
+			json->propertyString("@type", this->getAtType());
 		}
 		toJsonStructureAdditionalParameters(json);
-		json->property("href", deviceHRef + "/properties/" + this->getId());
+		json->propertyString("href", deviceHRef, "/properties/", this->getId());
 		json->endObject();
 	}
 
@@ -441,7 +418,7 @@ public:
 		if (type != BOOLEAN) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", "", this->type, 0);
+		WProperty* valueE = new WProperty("", "", this->type, 0);
 		valueE->setBoolean(enumBoolean);
 		this->addEnum(valueE);
 	}
@@ -450,7 +427,7 @@ public:
 		if (type != DOUBLE) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", "", this->type, 0);
+		WProperty* valueE = new WProperty("", "", this->type, 0);
 		valueE->setDouble(enumNumber);
 		this->addEnum(valueE);
 	}
@@ -459,7 +436,7 @@ public:
 		if (type != INTEGER) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", "", this->type, 0);
+		WProperty* valueE = new WProperty("", "", this->type, 0);
 		valueE->setInteger(enumNumber);
 		this->addEnum(valueE);
 	}
@@ -468,7 +445,7 @@ public:
 		if (type != LONG) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", "", this->type, 0);
+		WProperty* valueE = new WProperty("", "", this->type, 0);
 		valueE->setLong(enumNumber);
 		this->addEnum(valueE);
 	}
@@ -477,16 +454,16 @@ public:
 		if (type != BYTE) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", "", this->type, 0);
+		WProperty* valueE = new WProperty("", "", this->type, 0);
 		valueE->setByte(enumByte);
 		this->addEnum(valueE);
 	}
 
-	void addEnumString(String enumString) {
+	void addEnumString(const char* enumString) {
 		if (type != STRING) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", "", this->type, this->length - 1);
+		WProperty* valueE = new WProperty("", "", this->type, this->length - 1);
 		valueE->setString(enumString);
 		this->addEnum(valueE);
 	}
@@ -520,12 +497,11 @@ public:
 	}
 
 protected:
-	String atType;
+	const char* atType;
 
-	void initialize(String id, String title, String description, WPropertyType type, byte length) {
+	void initialize(const char* id, const char* title, WPropertyType type, byte length) {
 		this->id = id;
 		this->title = title;
-		this->description = description;
 		this->type = type;
 		this->visibility = ALL;
 		this->supportingWebthing = true;
@@ -572,16 +548,15 @@ protected:
 	}
 
 private:
-	String id;
-	String title;
-	String description;
+	const char* id;
+	const char* title;
 	WPropertyType type;
 	WPropertyVisibility visibility;
 	bool supportingMqtt;
 	bool supportingWebthing;
 	byte length;
 	bool readOnly;
-	String unit;
+	const char* unit;
 	double multipleOf;
 	TOnPropertyChange onChange;
 	TOnPropertyChange onValueRequest;

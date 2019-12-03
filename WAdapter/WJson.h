@@ -18,33 +18,23 @@ public:
 	}
 
 	WJson& beginObject() {
+		return beginObject("");
+	}
+
+	WJson& beginObject(const char* name) {
 		if (!separatorAlreadyCalled) {
 			ifSeparator();
 			separatorAlreadyCalled = true;
+		}
+		if (name != "") {
+			memberName(name);
 		}
 		stream->print(SBEGIN);
 		firstElement = true;
 		return *this;
 	}
 
-	WJson& beginObject(String name) {
-		if (!separatorAlreadyCalled) {
-			ifSeparator();
-			separatorAlreadyCalled = true;
-		}
-		memberName(name);
-		stream->print(SBEGIN);
-		firstElement = true;
-		return *this;
-	}
-
-	WJson& memberName(String name) {
-		string(name);
-		stream->print(DPOINT);
-		return *this;
-	}
-
-	WJson& memberName(char *name) {
+	WJson& memberName(const char *name) {
 		string(name);
 		stream->print(DPOINT);
 		return *this;
@@ -70,7 +60,7 @@ public:
 		return *this;
 	}
 
-	WJson& beginArray(String name) {
+	WJson& beginArray(const char* name) {
 
 		if (!separatorAlreadyCalled) {
 			ifSeparator();
@@ -88,7 +78,7 @@ public:
 		return *this;
 	}
 
-	WJson& property(String name, char *value) {
+	WJson& propertyString(const char* name, const char *value) {
 		ifSeparator();
 		separatorAlreadyCalled = true;
 		memberName(name);
@@ -97,88 +87,70 @@ public:
 		return *this;
 	}
 
-	WJson& property(String name, String value) {
+	WJson& propertyString(const char* name, const char *value1, const char *value2) {
 		ifSeparator();
 		separatorAlreadyCalled = true;
 		memberName(name);
-		string(value);
+		string(value1, value2);
 		separatorAlreadyCalled = false;
 		return *this;
 	}
 
-	WJson& property(String name, int value) {
+	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3) {
 		ifSeparator();
 		separatorAlreadyCalled = true;
 		memberName(name);
-		number(value);
+		string(value1, value2, value3);
 		separatorAlreadyCalled = false;
 		return *this;
 	}
 
-	WJson& property(String name, unsigned int value) {
+	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3, const char *value4) {
 		ifSeparator();
 		separatorAlreadyCalled = true;
 		memberName(name);
-		number(value);
+		string(value1, value2, value3, value4);
 		separatorAlreadyCalled = false;
 		return *this;
 	}
 
-	WJson& property(String name, long value) {
+	WJson& propertyInteger(const char* name, int value) {
 		ifSeparator();
 		separatorAlreadyCalled = true;
 		memberName(name);
-		number(value);
+		numberInteger(value);
 		separatorAlreadyCalled = false;
 		return *this;
 	}
 
-	WJson& property(String name, unsigned long value) {
+	WJson& propertyLong(const char* name, unsigned long value) {
 		ifSeparator();
 		separatorAlreadyCalled = true;
 		memberName(name);
-		number(value);
+		numberLong(value);
 		separatorAlreadyCalled = false;
 		return *this;
 	}
 
-	WJson& property(String name, short value) {
+	WJson& propertyByte(const char* name, byte value) {
 		ifSeparator();
 		separatorAlreadyCalled = true;
 		memberName(name);
-		number(value);
+		numberByte(value);
 		separatorAlreadyCalled = false;
 		return *this;
 	}
 
-	WJson& property(String name, unsigned short value) {
+	WJson& propertyDouble(const char* name, double value) {
 		ifSeparator();
 		separatorAlreadyCalled = true;
 		memberName(name);
-		number(value);
+		numberDouble(value);
 		separatorAlreadyCalled = false;
 		return *this;
 	}
 
-	WJson& property(String name, byte value) {
-		ifSeparator();
-		separatorAlreadyCalled = true;
-		memberName(name);
-		number(value);
-		separatorAlreadyCalled = false;
-		return *this;
-	}
-
-	WJson& property(String name, double value) {
-		ifSeparator();
-		separatorAlreadyCalled = true;
-		memberName(name);
-		number(value);
-		separatorAlreadyCalled = false;
-		return *this;
-	}
-
-	WJson& property(String name, bool value) {
+	WJson& propertyBoolean(const char* name, bool value) {
 		ifSeparator();
 		separatorAlreadyCalled = true;
 		memberName(name);
@@ -187,7 +159,7 @@ public:
 		return *this;
 	}
 
-	WJson& string(char *text) {
+	WJson& string(const char *text) {
 		if (!separatorAlreadyCalled)
 			ifSeparator();
 		stream->print(QUOTE);
@@ -196,65 +168,61 @@ public:
 		return *this;
 	}
 
-	WJson& string(String text) {
+	WJson& string(const char *text1, const char *text2) {
 		if (!separatorAlreadyCalled)
 			ifSeparator();
 		stream->print(QUOTE);
-		stream->print(text);
+		stream->print(text1);
+		stream->print(text2);
 		stream->print(QUOTE);
 		return *this;
 	}
 
-	WJson& number(int number) {
+	WJson& string(const char *text1, const char *text2, const char *text3) {
+		if (!separatorAlreadyCalled)
+			ifSeparator();
+		stream->print(QUOTE);
+		stream->print(text1);
+		stream->print(text2);
+		stream->print(text3);
+		stream->print(QUOTE);
+		return *this;
+	}
+
+	WJson& string(const char *text1, const char *text2, const char *text3, const char *text4) {
+		if (!separatorAlreadyCalled)
+			ifSeparator();
+		stream->print(QUOTE);
+		stream->print(text1);
+		stream->print(text2);
+		stream->print(text3);
+		stream->print(text4);
+		stream->print(QUOTE);
+		return *this;
+	}
+
+	WJson& numberInteger(int number) {
 		if(!separatorAlreadyCalled)
 		ifSeparator();
 		stream->print(number, DEC);
 		return *this;
 	}
 
-	WJson& number(unsigned int number) {
+	WJson& numberLong(unsigned long number) {
 		if (!separatorAlreadyCalled)
 			ifSeparator();
 		stream->print(number, DEC);
 		return *this;
 	}
 
-	WJson& number(long number) {
+	WJson& numberByte(byte number) {
 		if (!separatorAlreadyCalled)
 			ifSeparator();
 		stream->print(number, DEC);
 		return *this;
 	}
 
-	WJson& number(unsigned long number) {
-		if (!separatorAlreadyCalled)
-			ifSeparator();
-		stream->print(number, DEC);
-		return *this;
-	}
-
-	WJson& number(short number) {
-		if (!separatorAlreadyCalled)
-			ifSeparator();
-		stream->print(number, DEC);
-		return *this;
-	}
-
-	WJson& number(unsigned short number) {
-		if (!separatorAlreadyCalled)
-			ifSeparator();
-		stream->print(number, DEC);
-		return *this;
-	}
-
-	WJson& number(byte number) {
-		if (!separatorAlreadyCalled)
-			ifSeparator();
-		stream->print(number, DEC);
-		return *this;
-	}
-
-	WJson& number(double number) {
+	WJson& numberDouble(double number) {
 		if (!separatorAlreadyCalled)
 			ifSeparator();
 		stream->print(number);
