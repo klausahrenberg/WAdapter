@@ -11,6 +11,7 @@
 #include "WTemperatureProperty.h"
 #include "WTargetTemperatureProperty.h"
 #include "WHeatingCoolingProperty.h"
+#include "WThermostatModeProperty.h"
 #include "WLed.h"
 
 const char* DEVICE_TYPE_ON_OFF_SWITCH = "OnOffSwitch";
@@ -141,11 +142,10 @@ public:
     	return providingConfigPage;
     }
 
-    virtual String getConfigPage() {
-    	return "";
+    virtual void printConfigPage(WStringStream* page) {
     }
 
-    virtual void saveConfigPage(ESP8266WebServer* server) {
+    virtual void saveConfigPage(ESP8266WebServer* webServer) {
 
     }
 

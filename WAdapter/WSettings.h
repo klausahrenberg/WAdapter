@@ -2,9 +2,10 @@
 #define W_SETTINGS_H
 
 #include "EEPROM.h"
+#include "WLog.h"
 #include "WProperty.h"
 
-const byte STORED_FLAG = 0x15;
+const byte STORED_FLAG = 0x16;
 const int EEPROM_SIZE = 512;
 
 class WSettingItem {
@@ -16,8 +17,8 @@ public:
 
 class WSettings {
 public:
-	WSettings(bool debug) {
-		this->debug = debug;
+	WSettings(WLog* log) {
+		this->log = log;
 		EEPROM.begin(EEPROM_SIZE);
 		this->_existsSettings = (EEPROM.read(0) == STORED_FLAG);
 		EEPROM.end();
@@ -30,6 +31,7 @@ public:
 			WProperty* setting = settingItem->value;
 			switch (setting->getType()){
 			case BOOLEAN:
+				//log->notice(F("Save boolean to EEPROM: id='%s'; value=%T"), setting->getId(), setting->getBoolean());
 				EEPROM.write(settingItem->address, (setting->getBoolean() ? 0xFF : 0x00));
 				break;
 			case BYTE:
@@ -268,7 +270,7 @@ protected:
 		return settingItem;
 	}
 private:
-	bool debug;
+	WLog* log;
 	bool _existsSettings;
 	WSettingItem* firstSetting = nullptr;
 	WSettingItem* lastSetting = nullptr;
@@ -294,12 +296,6 @@ private:
 			EEPROM.write(address + i, value[i]);
 		}
 		EEPROM.write(address + size, '\0');
-	}
-
-	void log(String debugMessage) {
-		if (debug) {
-			Serial.println(debugMessage);
-		}
 	}
 
 };

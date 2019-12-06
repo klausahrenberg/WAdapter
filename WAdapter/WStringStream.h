@@ -12,7 +12,7 @@ public:
     }
 
     ~WStringStream() {
-    	if(this->string) {
+    	if (this->string) {
     		delete[] this->string;
     	}
     }
@@ -71,34 +71,57 @@ public:
     	return this->string[index];
     }
 
-    /*bool setCharAt(int index, char value) {
-    	if (index < maxLength) {
-    		string[index] = value;
-    		Serial.print("set char at index ");
-    		Serial.print(index);
-    		Serial.print(" to value '");
-    		Serial.print(value);
-    		Serial.print("' (pos ");
-    		Serial.print(position);
-    		Serial.print(", length ");
-    		Serial.print(strlen(string));
-    		Serial.print(") now: '");
-    		if (position <= index) {
-    			for (int i = position; i < index; i++) {
-    				this->string[i] = ' ';
-    			}
-    			position = index + 1;
-    			string[position] = '\0';
-    		}
-    		Serial.print(string);
-    		Serial.println("'");
-    		return true;
-    	} else {
-    		return false;
-    	}
-    }*/
+    size_t printAndReplace(const __FlashStringHelper *toPrint, const char* wc1) {
+    	return printAndReplace(toPrint, wc1, nullptr, nullptr, nullptr);
+    }
 
-    char* c_str() {
+    size_t printAndReplace(const __FlashStringHelper *toPrint, const char* wc1, const char* wc2) {
+    	return printAndReplace(toPrint, wc1, wc2, nullptr, nullptr);
+    }
+
+    size_t printAndReplace(const __FlashStringHelper *toPrint, const char* wc1, const char* wc2, const char* wc3) {
+    	return printAndReplace(toPrint, wc1, wc2, wc3, nullptr);
+    }
+
+    size_t printAndReplace(const __FlashStringHelper *toPrint, const char* wc1, const char* wc2, const char* wc3, const char* wc4) {
+    	PGM_P p = reinterpret_cast<PGM_P>(toPrint);
+    	size_t n = 0;
+    	int wcCount = (wc1 != nullptr ? 1 : 0);
+    	wcCount = (wc2 != nullptr ? 2 : wcCount);
+    	wcCount = (wc3 != nullptr ? 3 : wcCount);
+    	wcCount = (wc4 != nullptr ? 4 : wcCount);
+    	int wcIndex = 0;
+    	//int lp = strlen(toPrint);
+    	while (1) {
+    	//for (int i = 0; i < lp; i++) {
+    		unsigned char c = pgm_read_byte(p++);
+    		if (c == 0) break;
+    		if ((c == '%') && (wcIndex < wcCount)) {
+    			c = pgm_read_byte(p++);
+    			if (c == 's') {
+    				//wildcard
+    				const char* wc = (wcIndex == 0 ? wc1 : (wcIndex == 1 ? wc2 : (wcIndex == 2 ? wc3 : wc4)));
+    				wcIndex++;
+    				for (int b = 0; b < strlen(wc); b++) {
+    					if (write(wc[b])) n++;
+    					else break;
+    				}
+    			} else {
+    				if (write('%')) n++;
+    				else break;
+    				if (write(c)) n++;
+    				else break;
+    			}
+    		} else {
+    			//just copy
+    			if (write(c)) n++;
+    			else break;
+    		}
+    	}
+		return n;
+    }
+
+    const char* c_str() {
     	return this->string;
     }
 

@@ -226,6 +226,10 @@ public:
 		return ((!this->valueNull) && (this->value.asInteger == number));
 	}
 
+	bool equalsString(const char* toCompare) {
+		return ((!this->valueNull) && (strcmp(this->value.string, toCompare) == 0));
+	}
+
 	bool equalsLong(unsigned long number) {
 		return ((!this->valueNull) && (this->value.asLong == number));
 	}
@@ -251,13 +255,9 @@ public:
 		return ((!this->valueNull) && (this->value.asByte == number));
 	}
 
-	/*String getString() {
+	char* c_str() {
 		requestValue();
-		return (!this->valueNull ? String(value.string) : "");
-	}*/
-
-	const char* c_str() {
-		return (!this->valueNull ? value.string : "");
+		return value.string;
 	}
 
 	WPropertyValue getValue() {
@@ -270,13 +270,18 @@ public:
 		}
 		bool changed = ((this->valueNull) || (strcmp(value.string, newValue) != 0));
 		if (changed) {
-			int l = strlen(newValue);
-			if (l > length) {
-				l = length;
+			if (newValue != nullptr) {
+				int l = strlen(newValue);
+				if (l > length) {
+					l = length;
+				}
+				strncpy(value.string, newValue, l);
+				value.string[l] = '\0';
+				this->valueNull = false;
+			} else {
+				value.string[0] = '\0';
+				this->valueNull = true;
 			}
-			strncpy(value.string, newValue, l);
-			value.string[l] = '\0';
-			this->valueNull = false;
 			valueChanged();
 			notify();
 		}
@@ -516,6 +521,7 @@ protected:
 		case STRING:
 			this->length = length;
 			value.string = new char[length + 1];
+			value.string[0] = '\0';
 			break;
 		case DOUBLE:
 			this->length = sizeof(double);

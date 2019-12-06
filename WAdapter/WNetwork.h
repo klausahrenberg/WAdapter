@@ -27,8 +27,10 @@
 #define SIZE_MQTT_PACKET 1024
 #define SIZE_JSON_PACKET 1024
 #define NO_LED -1
-const String CONFIG_PASSWORD = "12345678";
-const String APPLICATION_JSON = "application/json";
+const char* CONFIG_PASSWORD = "12345678";
+const char* APPLICATION_JSON = "application/json";
+const char* TEXT_HTML = "text/html";
+const char* TEXT_PLAIN = "text/plain";
 
 WiFiEventHandler gotIpEventHandler, disconnectedEventHandler;
 WiFiClient wifiClient;
@@ -52,7 +54,7 @@ public:
 		this->deepSleepFlag = nullptr;
 		this->deepSleepSeconds = 0;
 		//this->webSocket = nullptr;
-		settings = new WSettings(debug);
+		settings = new WSettings(wlog);
 		settingsFound = loadSettings();
 		this->mqttClient = nullptr;
 		lastMqttConnect = lastWifiConnect = 0;
@@ -106,7 +108,7 @@ public:
 					//Workaround: if disconnect is not called, WIFI connection fails after first startup
 					WiFi.disconnect();
 					WiFi.hostname(getHostName());
-					WiFi.begin(getSsid(), getPassword().c_str());
+					WiFi.begin(getSsid(), getPassword());
 					while ((waitForWifiConnection) && (WiFi.status() != WL_CONNECTED)) {
 						delay(500);
 						if (millis() - now >= 5000) {
@@ -132,7 +134,7 @@ public:
 		if ((isWifiConnected()) && (isSupportingMqtt())
 				&& (!mqttClient->connected())
 				&& ((lastMqttConnect == 0) || (now - lastMqttConnect > 300000))
-				&& (!getMqttServer().equals(""))) {
+				&& (strcmp(getMqttServer(), "") != 0)) {
 			mqttReconnect();
 			lastMqttConnect = now;
 		}
@@ -200,14 +202,6 @@ public:
 		this->onConfigurationFinished = onConfigurationFinished;
 	}
 
-	/*bool publishMqtt(String topic, JsonObject& json) {
-	 return publishMqttImpl(getMqttTopic() + (topic != "" ? "/" + topic : ""), json);
-	 }
-
-	 bool publishMqtt(String topic, String payload) {
-	 return publishMqttImpl(getMqttTopic() + (topic != "" ? "/" + topic : ""), payload);
-	 }*/
-
 	bool publishMqtt(const char* topic, const char* key, const char* value) {
 		if (this->isSupportingMqtt()) {
 			if (isMqttConnected()) {
@@ -224,8 +218,8 @@ public:
 					return false;
 				}
 			} else {
-				if (!getMqttServer().equals("")) {
-					wlog->notice("Can't send MQTT. Not connected to server: %s", getMqttServer().c_str());
+				if (strcmp(getMqttServer(), "") != 0) {
+					wlog->notice("Can't send MQTT. Not connected to server: %s", getMqttServer());
 				}
 				return false;
 			}
@@ -239,9 +233,9 @@ public:
 			webServer = new ESP8266WebServer(80);
 			if (WiFi.status() != WL_CONNECTED) {
 				//Create own AP
-				wlog->notice(F("Start AccessPoint for configuration. SSID '%s'; password '%s'"), apSsid.c_str(), CONFIG_PASSWORD.c_str());
+				wlog->notice(F("Start AccessPoint for configuration. SSID '%s'; password '%s'"), apSsid.c_str(), CONFIG_PASSWORD);
 				dnsApServer = new DNSServer();
-				WiFi.softAP(apSsid.c_str(), CONFIG_PASSWORD.c_str());
+				WiFi.softAP(apSsid.c_str(), CONFIG_PASSWORD);
 				dnsApServer->setErrorReplyCode(DNSReplyCode::NoError);
 				dnsApServer->start(53, "*", WiFi.softAPIP());
 			} else {
@@ -335,6 +329,10 @@ public:
 		return this->updateRunning;
 	}
 
+	bool isDebug() {
+		return this->debug;
+	}
+
 	bool isSoftAP() {
 		return ((isWebServerRunning()) && (dnsApServer != nullptr));
 	}
@@ -379,11 +377,11 @@ public:
 		return this->ssid->c_str();
 	}
 
-	String getPassword() {
+	const char* getPassword() {
 		return settings->getString("password");
 	}
 
-	String getMqttServer() {
+	const char* getMqttServer() {
 		return settings->getString("mqttServer");
 	}
 
@@ -391,11 +389,11 @@ public:
 		return this->mqttTopic->c_str();
 	}
 
-	String getMqttUser() {
+	const char* getMqttUser() {
 		return settings->getString("mqttUser");
 	}
 
-	String getMqttPassword() {
+	const char* getMqttPassword() {
 		return settings->getString("mqttPassword");
 	}
 
@@ -579,12 +577,12 @@ private:
 	bool mqttReconnect() {
 		if (this->isSupportingMqtt()) {
 			wlog->notice(F("Connect to MQTT server: %s; user: '%s'; password: '%s'; clientName: '%s'"),
-					   getMqttServer().c_str(), getMqttUser().c_str(), getMqttPassword().c_str(), getClientName(true).c_str());
+					   getMqttServer(), getMqttUser(), getMqttPassword(), getClientName(true).c_str());
 			// Attempt to connect
 			this->mqttClient->setServer(getMqttServer(), 1883);
 			if (mqttClient->connect(getClientName(true).c_str(),
-					getMqttUser().c_str(), //(mqttUser != "" ? mqttUser.c_str() : NULL),
-					getMqttPassword().c_str())) { //(mqttPassword != "" ? mqttPassword.c_str() : NULL))) {
+					getMqttUser(), //(mqttUser != "" ? mqttUser.c_str() : NULL),
+					getMqttPassword())) { //(mqttPassword != "" ? mqttPassword.c_str() : NULL))) {
 				wlog->notice(F("Connected to MQTT server."));
 				if (this->deepSleepSeconds == 0) {
 					//Send device structure and status
@@ -667,37 +665,36 @@ private:
 	void handleHttpRootRequest() {
 		if (isWebServerRunning()) {
 			if (restartFlag.equals("")) {
-				String page = FPSTR(HTTP_HEAD_BEGIN);
-				page.replace("{v}", applicationName);
-				page += FPSTR(HTTP_SCRIPT);
-				page += FPSTR(HTTP_STYLE);
-				//page += _customHeadElement;
-				page += FPSTR(HTTP_HEAD_END);
-				page += getHttpCaption();
+				WStringStream* page = new WStringStream(2048);
+				page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), applicationName.c_str());
+				page->print(FPSTR(HTTP_SCRIPT));
+				page->print(FPSTR(HTTP_STYLE));
+				page->print(FPSTR(HTTP_HEAD_END));
+				printHttpCaption(page);
 				WDevice *device = firstDevice;
 				while (device != nullptr) {
 					if (device->isProvidingConfigPage()) {
-						page += FPSTR(HTTP_BUTTON_DEVICE);
-						page.replace("{di}", device->getId());
-						page.replace("{dn}", device->getName());
+						page->printAndReplace(FPSTR(HTTP_BUTTON_DEVICE), device->getId(), device->getName());
 					}
 					device = device->next;
 				}
-				page += FPSTR(HTTP_PAGE_ROOT);
-				page += FPSTR(HTTP_BODY_END);
-				webServer->send(200, "text/html", page);
+				page->print(FPSTR(HTTP_PAGE_ROOT));
+				page->print(FPSTR(HTTP_BODY_END));
+				webServer->send(200, TEXT_HTML, page->c_str());
+				delete page;
 			} else {
-				String page = FPSTR(HTTP_HEAD_BEGIN);
-				page.replace("{v}", F("Info"));
-				page += FPSTR(HTTP_SCRIPT);
-				page += FPSTR(HTTP_STYLE);
-				page += F("<meta http-equiv=\"refresh\" content=\"10\">");
-				page += FPSTR(HTTP_HEAD_END);
-				page += restartFlag;
-				page += F("<br><br>");
-				page += F("Module will reset in a few seconds...");
-				page += FPSTR(HTTP_BODY_END);
-				webServer->send(200, "text/html", page);
+				WStringStream* page = new WStringStream(2048);
+				page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Info");
+				page->print(FPSTR(HTTP_SCRIPT));
+				page->print(FPSTR(HTTP_STYLE));
+				page->print("<meta http-equiv=\"refresh\" content=\"10\">");
+				page->print(FPSTR(HTTP_HEAD_END));
+				page->print(restartFlag);
+				page->print("<br><br>");
+				page->print("Module will reset in a few seconds...");
+				page->print(FPSTR(HTTP_BODY_END));
+				webServer->send(200, TEXT_HTML, page->c_str());
+				delete page;
 			}
 		}
 	}
@@ -705,15 +702,16 @@ private:
 	void handleHttpDeviceConfiguration(WDevice *&device) {
 		if (isWebServerRunning()) {
 			wlog->notice(F("Device config page"));
-			String page = FPSTR(HTTP_HEAD_BEGIN);
-			page.replace("{v}", "Device Configuration");
-			page += FPSTR(HTTP_SCRIPT);
-			page += FPSTR(HTTP_STYLE);
-			page += FPSTR(HTTP_HEAD_END);
-			page += getHttpCaption();
-			page += device->getConfigPage();
-			page += FPSTR(HTTP_BODY_END);
-			webServer->send(200, "text/html", page);
+			WStringStream* page = new WStringStream(3072);
+			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Device Configuration");
+			page->print(FPSTR(HTTP_SCRIPT));
+			page->print(FPSTR(HTTP_STYLE));
+			page->print(FPSTR(HTTP_HEAD_END));
+			printHttpCaption(page);
+			device->printConfigPage(page);
+			page->print(FPSTR(HTTP_BODY_END));
+			webServer->send(200, TEXT_HTML, page->c_str());
+			delete page;
 		}
 
 	}
@@ -721,28 +719,19 @@ private:
 	void handleHttpNetworkConfiguration() {
 		if (isWebServerRunning()) {
 			wlog->notice(F("Network config page"));
-			String page = FPSTR(HTTP_HEAD_BEGIN);
-			page.replace("{v}", "Network Configuration");
-			page += FPSTR(HTTP_SCRIPT);
-			page += FPSTR(HTTP_STYLE);
-			page += FPSTR(HTTP_HEAD_END);
-			page += getHttpCaption();
-			page += FPSTR(HTTP_PAGE_CONFIGURATION);
-			page += FPSTR(HTTP_BODY_END);
-
-			page.replace("{i}", getIdx());
-			page.replace("{s}", getSsid());
-			page.replace("{p}", getPassword());
-			page.replace("{wt}",
-					(this->isSupportingWebThing() ? "checked" : ""));
-			page.replace("{mq}", (this->isSupportingMqtt() ? "checked" : ""));
-			page.replace("{mqg}",
-					(this->isSupportingMqtt() ? "block" : "none"));
-			page.replace("{ms}", getMqttServer());
-			page.replace("{mu}", getMqttUser());
-			page.replace("{mp}", getMqttPassword());
-			page.replace("{mt}", getMqttTopic());
-			webServer->send(200, "text/html", page);
+			WStringStream* page = new WStringStream(3072);
+			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Network Configuration");
+			page->print(FPSTR(HTTP_SCRIPT));
+			page->print(FPSTR(HTTP_STYLE));
+			page->print(FPSTR(HTTP_HEAD_END));
+			printHttpCaption(page);
+			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_STYLE), (this->isSupportingMqtt() ? "block" : "none"));
+			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_GENERAL), getIdx(), getSsid(), getPassword());
+			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_SERVICE), (this->isSupportingWebThing() ? "checked" : ""), (this->isSupportingMqtt() ? "checked" : ""));
+			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_MQTT), getMqttServer(), getMqttUser(), getMqttPassword(), getMqttTopic());
+			page->print(FPSTR(HTTP_BODY_END));
+			webServer->send(200, TEXT_HTML, page->c_str());
+			delete page;
 		}
 	}
 
@@ -758,12 +747,12 @@ private:
 			settings->setString("mqttPassword", webServer->arg("mp").c_str());
 			this->mqttTopic->setString(webServer->arg("mt").c_str());
 			if ((startWebServerAutomaticly) && (!isSupportingWebThing())
-					&& ((!isSupportingMqtt()) || (getMqttServer().equals(""))
-							|| (getMqttTopic() == ""))) {
+					&& ((!isSupportingMqtt()) || (strcmp(getMqttServer(), "") == 0)
+							|| (strcmp(getMqttTopic(), "") == 0))) {
 				//if mqqt is completely unspecified, activate webthings
 				this->supportingWebThing->setBoolean(true);
 			}
-			this->saveSettings();
+			settings->save();
 			this->restart(F("Settings saved."));
 		}
 	}
@@ -772,50 +761,58 @@ private:
 		if (isWebServerRunning()) {
 			wlog->notice(F("handleHttpSaveDeviceConfiguration "), device->getId());
 			device->saveConfigPage(webServer);
-			this->saveSettings();
+			settings->save();
+			delay(300);
 			this->restart(F("Device settings saved."));
 		}
 	}
 
 	void handleHttpInfo() {
 		if (isWebServerRunning()) {
-			String page = FPSTR(HTTP_HEAD_BEGIN);
-			page.replace("{v}", "Info");
-			page += FPSTR(HTTP_SCRIPT);
-			page += FPSTR(HTTP_STYLE);
-			page += FPSTR(HTTP_HEAD_END);
-			page += getHttpCaption();
-			page += F("<table>");
-			page += F("<tr><th>Chip ID:</th><td>");
-			page += ESP.getChipId();
-			page += F("</td></tr>");
-			page += F("<tr><th>Flash Chip ID:</th><td>");
-			page += ESP.getFlashChipId();
-			page += F("</td></tr>");
-			page += F("<tr><th>IDE Flash Size:</th><td>");
-			page += ESP.getFlashChipSize();
-			page += F("</td></tr>");
-			page += F("<tr><th>Real Flash Size:</th><td>");
-			page += ESP.getFlashChipRealSize();
-			page += F("</td></tr>");
-			page += F("<tr><th>IP address:</th><td>");
-			page += this->getDeviceIpAsString();
-			page += F("</td></tr>");
-			page += F("<tr><th>MAC address:</th><td>");
-			page += WiFi.macAddress();
-			page += F("</td></tr>");
-			page += F("<tr><th>Current sketch size:</th><td>");
-			page += ESP.getSketchSize();
-			page += F("</td></tr>");
-			page += F("<tr><th>Available sketch size:</th><td>");
-			page += ESP.getFreeSketchSpace();
-			page += F("</td></tr>");
-			page += F("<tr><th>Free heap size:</th><td>");
-			page += system_get_free_heap_size();
-			page += F("</td></tr>");
-			page += F("</table>");
-			page += FPSTR(HTTP_BODY_END);
-			webServer->send(200, "text/html", page);
+			WStringStream* page = new WStringStream(2048);
+			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Info");
+			page->print(FPSTR(HTTP_SCRIPT));
+			page->print(FPSTR(HTTP_STYLE));
+			page->print(FPSTR(HTTP_HEAD_END));
+			printHttpCaption(page);
+			page->print("<table>");
+			page->print("<tr><th>Chip ID:</th><td>");
+			page->print(ESP.getChipId());
+			page->print("</td></tr>");
+			page->print("<tr><th>Flash Chip ID:</th><td>");
+			page->print(ESP.getFlashChipId());
+			page->print("</td></tr>");
+			page->print("<tr><th>IDE Flash Size:</th><td>");
+			page->print(ESP.getFlashChipSize());
+			page->print("</td></tr>");
+			page->print("<tr><th>Real Flash Size:</th><td>");
+			page->print(ESP.getFlashChipRealSize());
+			page->print("</td></tr>");
+			page->print("<tr><th>IP address:</th><td>");
+			page->print(this->getDeviceIpAsString());
+			page->print("</td></tr>");
+			page->print("<tr><th>MAC address:</th><td>");
+			page->print(WiFi.macAddress());
+			page->print("</td></tr>");
+			page->print("<tr><th>Current sketch size:</th><td>");
+			page->print(ESP.getSketchSize());
+			page->print("</td></tr>");
+			page->print("<tr><th>Available sketch size:</th><td>");
+			page->print(ESP.getFreeSketchSpace());
+			page->print("</td></tr>");
+			page->print("<tr><th>Free heap size:</th><td>");
+			page->print(ESP.getFreeHeap());
+			page->print("</td></tr>");
+			page->print("<tr><th>Largest free heap block:</th><td>");
+			page->print(ESP.getMaxFreeBlockSize());
+			page->print("</td></tr>");
+			page->print("<tr><th>Heap fragmentation:</th><td>");
+			page->print(ESP.getHeapFragmentation());
+			page->print(" %</td></tr>");
+			page->print("</table>");
+			page->print(FPSTR(HTTP_BODY_END));
+			webServer->send(200, TEXT_HTML, page->c_str());
+			delete page;
 		}
 	}
 
@@ -826,9 +823,13 @@ private:
 		}
 	}
 
-	String getHttpCaption() {
-		return "<h2>" + String(applicationName) + "</h2><h3>Revision " + String(firmwareVersion)
-				+ (debug ? " (debug)" : "") + "</h3>";
+	void printHttpCaption(WStringStream* page) {
+		page->print("<h2>");
+		page->print(applicationName);
+		page->print("</h2><h3>Revision ");
+		page->print(firmwareVersion);
+		page->print(debug ? " (debug)" : "");
+		page->print("</h3>");
 	}
 
 	String getClientName(bool lowerCase) {
@@ -859,15 +860,16 @@ private:
 
 	void handleHttpFirmwareUpdate() {
 		if (isWebServerRunning()) {
-			String page = FPSTR(HTTP_HEAD_BEGIN);
-			page.replace("{v}", "Firmware update");
-			page += FPSTR(HTTP_SCRIPT);
-			page += FPSTR(HTTP_STYLE);
-			page += FPSTR(HTTP_HEAD_END);
-			page += getHttpCaption();
-			page += FPSTR(HTTP_FORM_FIRMWARE);
-			page += FPSTR(HTTP_BODY_END);
-			webServer->send(200, "text/html", page);
+			WStringStream* page = new WStringStream(2048);
+			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Firmware update");
+			page->print(FPSTR(HTTP_SCRIPT));
+			page->print(FPSTR(HTTP_STYLE));
+			page->print(FPSTR(HTTP_HEAD_END));
+			printHttpCaption(page);
+			page->print(FPSTR(HTTP_FORM_FIRMWARE));
+			page->print(FPSTR(HTTP_BODY_END));
+			webServer->send(200, TEXT_HTML, page->c_str());
+			delete page;
 		}
 	}
 
@@ -952,10 +954,11 @@ private:
 	}
 
 	void restart(String reasonMessage) {
+		//webServer->send(302, TEXT_HTML, reasonMessage);
 		this->restartFlag = reasonMessage;
-		webServer->send(302, "text/html", reasonMessage);
-		webServer->sendHeader("Location", "/config",true);
-		webServer->send(302, "text/plain", "");
+		//Redirect
+		webServer->sendHeader("Location", "/config", true);
+		webServer->send(302, TEXT_PLAIN, "");
 		//webServer->redirect("/config");
 	}
 
@@ -963,10 +966,8 @@ private:
 		this->idx = settings->registerString("idx", 32,	this->getClientName(true).c_str());
 		this->ssid = settings->registerString("ssid", 32, "");
 		settings->registerString("password", 64, "");
-		this->supportingWebThing = settings->registerBoolean(
-				"supportingWebThing", true);
-		this->supportingMqtt = settings->registerBoolean("supportingMqtt",
-				false);
+		this->supportingWebThing = settings->registerBoolean("supportingWebThing", true);
+		this->supportingMqtt = settings->registerBoolean("supportingMqtt", false);
 		settings->registerString("mqttServer", 32, "");
 		settings->registerString("mqttUser", 32, "");
 		settings->registerString("mqttPassword", 64, "");
@@ -979,23 +980,19 @@ private:
 			if ((isSupportingMqtt()) && (this->mqttClient != nullptr)) {
 				this->disconnectMqtt();
 			}
-			settingsStored = ((getSsid() != "")
-					&& (((isSupportingMqtt()) && (!getMqttServer().equals("")))
+			settingsStored = ((strcmp(getSsid(), "") != 0)
+					&& (((isSupportingMqtt()) && (strcmp(getMqttServer(), "") != 0))
 							|| (isSupportingWebThing())));
 			if (settingsStored) {
 				wlog->notice(F("Settings loaded successfully:"));
 			} else {
 				wlog->notice(F("Settings are not complete:"));
 			}
-			wlog->notice(F("SSID '%s'; MQTT enabled: %t; MQTT server '%s'; WebThings enabled: %t"),
-								  getSsid(), isSupportingMqtt(), getMqttServer().c_str(), isSupportingWebThing());
+			wlog->notice(F("SSID '%s'; MQTT enabled: %T; MQTT server '%s'; WebThings enabled: %T"),
+								  getSsid(), isSupportingMqtt(), getMqttServer(), isSupportingWebThing());
 		}
 		EEPROM.end();
 		return settingsStored;
-	}
-
-	void saveSettings() {
-		settings->save();
 	}
 
 	void handleUnknown() {
