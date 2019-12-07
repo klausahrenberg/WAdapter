@@ -25,7 +25,7 @@
 #include "WLog.h"
 
 #define SIZE_MQTT_PACKET 1024
-#define SIZE_JSON_PACKET 1024
+#define SIZE_JSON_PACKET 1280
 #define NO_LED -1
 const char* CONFIG_PASSWORD = "12345678";
 const char* APPLICATION_JSON = "application/json";
@@ -250,9 +250,9 @@ public:
 			WDevice *device = this->firstDevice;
 			while (device != nullptr) {
 				if (device->isProvidingConfigPage()) {
-					String deviceBase("/device_");
-					deviceBase.concat(device->getId());
-					webServer->on(deviceBase.c_str(), HTTP_GET,	std::bind(&WNetwork::handleHttpDeviceConfiguration, this, device));
+					String did("/");
+					did.concat(device->getId());
+					webServer->on(did, HTTP_GET, std::bind(&WNetwork::handleHttpDeviceConfiguration, this, device));
 					String deviceConfiguration("/saveDeviceConfiguration_");
 					deviceConfiguration.concat(device->getId());
 					webServer->on(deviceConfiguration.c_str(), HTTP_GET, std::bind(&WNetwork::handleHttpSaveDeviceConfiguration, this, device));
@@ -672,13 +672,19 @@ private:
 				page->print(FPSTR(HTTP_HEAD_END));
 				printHttpCaption(page);
 				WDevice *device = firstDevice;
+				page->printAndReplace(FPSTR(HTTP_BUTTON), "wifi", "get", "Configure network");
 				while (device != nullptr) {
 					if (device->isProvidingConfigPage()) {
-						page->printAndReplace(FPSTR(HTTP_BUTTON_DEVICE), device->getId(), device->getName());
+						String s("Configure ");
+						s.concat(device->getName());
+						page->printAndReplace(FPSTR(HTTP_BUTTON), device->getId(), "get", s.c_str());
+						//page->printAndReplace(FPSTR(HTTP_BUTTON_DEVICE), device->getId(), device->getName());
 					}
 					device = device->next;
 				}
-				page->print(FPSTR(HTTP_PAGE_ROOT));
+				page->printAndReplace(FPSTR(HTTP_BUTTON), "firmware", "get", "Update firmware");
+				page->printAndReplace(FPSTR(HTTP_BUTTON), "info", "get", "Info");
+				page->printAndReplace(FPSTR(HTTP_BUTTON), "reset", "post", "Reset");
 				page->print(FPSTR(HTTP_BODY_END));
 				webServer->send(200, TEXT_HTML, page->c_str());
 				delete page;
@@ -1113,7 +1119,6 @@ private:
 			webServer->send(422);
 			return;
 		}
-
 		WJsonParser parser;
 		WProperty* property = parser.parse(device, webServer->arg("plain").c_str());
 		if (property != nullptr) {

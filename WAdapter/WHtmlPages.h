@@ -80,36 +80,14 @@ const static char HTTP_BODY_END[]           PROGMEM = R"=====(
 </html>
 )=====";
 
-const static char HTTP_BUTTON_DEVICE[]         PROGMEM = R"=====(
-        	<div>
-        		<form action="/device_%s" method="get">
-        			<button>Configure %s</button>
-        		</form>
-        	</div>
+const static char HTTP_BUTTON[]    PROGMEM = R"=====(
+	<div>
+        <form action="/%s" method="%s">
+        	<button>%s</button>
+        </form>
+    </div>
 )=====";
 
-const static char HTTP_PAGE_ROOT[]         PROGMEM = R"=====(
-        	<div>
-        		<form action="/wifi" method="get">
-        			<button>Configure network</button>
-        		</form>
-        	</div>
-        	<div>
-        		<form action="/firmware" method="get">
-        			<button>Update firmware</button>
-        		</form>
-        	</div>
-        	<div>
-        		<form action="/info" method="get">
-        			<button>Info</button>
-        		</form>
-        	</div>
-        	<div>
-        		<form action="/reset" method="post">
-        			<button>Reset</button>
-        		</form>
-        	</div>
-)=====";
 
 const static char HTTP_PAGE_CONFIGURATION_STYLE[]    PROGMEM = R"=====(
 <style>
@@ -121,6 +99,7 @@ const static char HTTP_PAGE_CONFIGURATION_STYLE[]    PROGMEM = R"=====(
 }
 </style>
 )=====";
+
 const static char HTTP_PAGE_CONFIGURATION_GENERAL[]    PROGMEM = R"=====(
 <form method='get' action='saveConfiguration'>
 	<div>
@@ -136,6 +115,7 @@ const static char HTTP_PAGE_CONFIGURATION_GENERAL[]    PROGMEM = R"=====(
 		<input type="password" id='p' name='p' length=64 placeholder='' value='%s'>
 	</div>
 )=====";
+
 const static char HTTP_PAGE_CONFIGURATION_SERVICE[]    PROGMEM = R"=====(
 	<div>
 		<label>
@@ -150,6 +130,7 @@ const static char HTTP_PAGE_CONFIGURATION_SERVICE[]    PROGMEM = R"=====(
 		</label>
 	</div>
 )=====";
+
 const static char HTTP_PAGE_CONFIGURATION_MQTT[]    PROGMEM = R"=====(
 	<div id="mqttGroup">
 		<div>

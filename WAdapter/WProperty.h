@@ -501,6 +501,10 @@ public:
 		return ((this->visibility == ALL) || (this->visibility == visibility));
 	}
 
+	void setAtType(const char* atType) {
+		this->atType = atType;
+	}
+
 protected:
 	const char* atType;
 

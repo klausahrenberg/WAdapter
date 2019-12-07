@@ -10,8 +10,6 @@
 #include "WLongProperty.h"
 #include "WTemperatureProperty.h"
 #include "WTargetTemperatureProperty.h"
-#include "WHeatingCoolingProperty.h"
-#include "WThermostatModeProperty.h"
 #include "WLed.h"
 
 const char* DEVICE_TYPE_ON_OFF_SWITCH = "OnOffSwitch";
