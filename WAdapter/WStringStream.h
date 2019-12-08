@@ -7,12 +7,20 @@ class WStringStream : public Stream {
 public:
     WStringStream(unsigned int maxLength) {
     	this->maxLength = maxLength;
+    	this->keepString = false;
+    	this->string = new char[maxLength + 1];
+    	this->flush();
+    }
+
+    WStringStream(unsigned int maxLength, bool keepString) {
+    	this->maxLength = maxLength;
+    	this->keepString = keepString;
     	this->string = new char[maxLength + 1];
     	this->flush();
     }
 
     ~WStringStream() {
-    	if (this->string) {
+    	if ((!keepString) && (this->string)) {
     		delete[] this->string;
     	}
     }
@@ -194,6 +202,7 @@ public:
 
 private:
     char* string;
+    bool keepString;
     unsigned int maxLength;
     unsigned int position;
 };

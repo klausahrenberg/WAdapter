@@ -11,8 +11,8 @@ const long SWITCH_SENSITIVENESS = 10;
 
 class WSwitch: public WPin {
 public:
-	WSwitch(bool debug, int switchPin, byte mode)
-	: WPin(debug, switchPin, INPUT) {
+	WSwitch(int switchPin, byte mode)
+	: WPin(switchPin, INPUT) {
 		startTime = 0;
 		_pressed = false;
 		_pressedLong = false;
@@ -42,29 +42,29 @@ public:
 						state = !state;
 						_pressed = true;
 						if ((this->mode == MODE_BUTTON) || (this->mode == MODE_SWITCH)) {
-							log("Switch pressed short. pin:" + String(this->getPin()));
+							//log("Switch pressed short. pin:" + String(this->getPin()));
 							if (getProperty() != nullptr) {
 								getProperty()->setBoolean(!getProperty()->getBoolean());
 							}
-							notify(false);
+							//notify(false);
 						}
 					}
 					if (this->mode == MODE_BUTTON_LONG_PRESS) {
 						if (now - startTime >= longPressDuration && !_pressedLong) {
 							_pressedLong = true;
-							log("Switch pressed long. pin:" + String(this->getPin()));
-							notify(true);
+							//log("Switch pressed long. pin:" + String(this->getPin()));
+							//notify(true);
 						}
 					}
 				}
 			} else if (currentState == HIGH && startTime > 0) {
 				if ((_pressed) && (!_pressedLong) &&
 					((this->mode == MODE_BUTTON_LONG_PRESS) || ((this->mode == MODE_SWITCH) && (now - startTime >= switchChangeDuration)))) {
-					log("Switch pressed short. pin:" + String(this->getPin()));
+					//log("Switch pressed short. pin:" + String(this->getPin()));
 					if (getProperty() != nullptr) {
 						getProperty()->setBoolean(!getProperty()->getBoolean());
 					}
-					notify(false);
+					//notify(false);
 				}
 				startTime = 0;
 				_pressedLong = false;

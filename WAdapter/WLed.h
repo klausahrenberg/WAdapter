@@ -5,8 +5,8 @@
 
 class WLed: public WPin {
 public:
-	WLed(bool debug, int ledPin)
-		: WPin(debug, ledPin, OUTPUT) {
+	WLed(int ledPin)
+		: WPin(ledPin, OUTPUT) {
 		this->blinkMillis = 0;
 		this->ledOn = false;
 		if (this->isInitialized()) {

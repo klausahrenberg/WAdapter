@@ -5,11 +5,9 @@
 
 class WPin {
 public:
-	WPin* next = nullptr;
-
-	WPin(bool debug, int pin, int mode) {
-		this->debug = debug;
+	WPin(int pin, int mode) {
 		this->pin = pin;
+		this->property = nullptr;
 		if (this->isInitialized() && ((mode == INPUT) || (mode == OUTPUT) || (mode == INPUT_PULLUP))) {
 			pinMode(this->pin, mode);
 		}
@@ -29,13 +27,9 @@ public:
 	virtual void loop(unsigned long now) {
 	}
 
-protected:
+	WPin* next = nullptr;
 
-	void log(String debugMessage) {
-		if (debug) {
-			Serial.println(debugMessage);
-		}
-	}
+protected:
 
 	virtual bool isInitialized() {
 		return (pin > -1);
@@ -44,8 +38,8 @@ protected:
 	int getPin() {
 		return pin;
 	}
+
 private:
-	bool debug;
 	int pin;
 	WProperty* property;
 };

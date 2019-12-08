@@ -202,6 +202,19 @@ const static char HTTP_TEXT_FIELD[]    PROGMEM = R"=====(
 	</div>
 )=====";
 
+const static char HTTP_COMBOBOX_BEGIN[]         PROGMEM = R"=====(
+        <div>
+			%s<br>
+        	<select name="%s">
+)=====";
+const static char HTTP_COMBOBOX_ITEM[]         PROGMEM = R"=====(        		
+				<option value="%s" %s>%s</option>                  
+)=====";
+const static char HTTP_COMBOBOX_END[]         PROGMEM = R"=====(					
+			</select>
+        </div>
+)=====";
+
 const static char HTTP_CONFIG_SAVE_BUTTON[]         PROGMEM = R"=====(	
 		<div>
 			<button type='submit'>Save configuration</button>

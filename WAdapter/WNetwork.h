@@ -85,7 +85,7 @@ public:
 					});*/
 		}
 		if (statusLedPin != NO_LED) {
-			statusLed = new WLed(debug, statusLedPin);
+			statusLed = new WLed(statusLedPin);
 			statusLed->setOn(true, 500);
 		} else {
 			statusLed = nullptr;

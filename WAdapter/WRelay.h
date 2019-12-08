@@ -5,8 +5,8 @@
 
 class WRelay: public WPin {
 public:
-	WRelay(bool debug, int relayPin, bool highIsOn)
-	: WPin(debug, relayPin, OUTPUT) {
+	WRelay(int relayPin, bool highIsOn)
+	: WPin(relayPin, OUTPUT) {
 		this->highIsOn = highIsOn;
 		if (this->isInitialized()) {
 			digitalWrite(this->getPin(), (highIsOn ? LOW : HIGH));
