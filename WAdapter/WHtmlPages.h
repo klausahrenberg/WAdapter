@@ -202,6 +202,14 @@ const static char HTTP_TEXT_FIELD[]    PROGMEM = R"=====(
 	</div>
 )=====";
 
+const static char HTTP_CHECKBOX[]         PROGMEM = R"=====(					
+		<div>
+			<label>
+				<input type="checkbox" name="%s" value="true" %s>%s
+			</label>
+		</div>
+)=====";
+
 const static char HTTP_COMBOBOX_BEGIN[]         PROGMEM = R"=====(
         <div>
 			%s<br>

@@ -7,9 +7,11 @@
 #include "WOnOffProperty.h"
 #include "WStringProperty.h"
 #include "WIntegerProperty.h"
+#include "WLevelIntProperty.h"
 #include "WLongProperty.h"
 #include "WTemperatureProperty.h"
 #include "WTargetTemperatureProperty.h"
+#include "WColorProperty.h"
 #include "WLed.h"
 
 const char* DEVICE_TYPE_ON_OFF_SWITCH = "OnOffSwitch";
@@ -144,6 +146,13 @@ public:
     }
 
     virtual void saveConfigPage(ESP8266WebServer* webServer) {
+
+    }
+
+    virtual void bindWebServerCalls(ESP8266WebServer* webServer) {
+    }
+
+    virtual void handleUnknownMqttCallback(String completeTopic, String partialTopic, char *payload, unsigned int length) {
 
     }
 

@@ -59,6 +59,10 @@ public:
 		this->deviceNotification = deviceNotification;
 	}
 
+	void setSettingsNotification(TOnPropertyChange settingsNotification) {
+		this->settingsNotification = settingsNotification;
+	}
+
 	const char* getId() {
 		return id;
 	}
@@ -107,7 +111,7 @@ public:
 		this->valueNull = true;
 	}
 
-	bool parse(String value) {
+	virtual bool parse(String value) {
 		if ((!isReadOnly()) && (value != nullptr)) {
 			switch (getType()) {
 			case BOOLEAN: {
@@ -395,8 +399,14 @@ public:
 					json->boolean(propE->getBoolean());
 				   	break;
 				case DOUBLE:
+					json->numberDouble(propE->getDouble());
+					break;
 				case INTEGER:
+					json->numberInteger(propE->getInteger());
+					break;
 				case LONG:
+					json->numberLong(propE->getLong());
+					break;
 				case BYTE:
 					json->numberByte(propE->getByte());
 					break;
@@ -518,9 +528,13 @@ protected:
 		this->requested = false;
 		this->valueRequesting = false;
 		this->readOnly = false;
+		this->atType = "";
 		this->unit = "";
 		this->multipleOf = 0.0;
-		this->next = nullptr;;
+		this->onChange = nullptr;
+		this->deviceNotification = nullptr;
+		this->settingsNotification = nullptr;
+		this->next = nullptr;
 		switch (type) {
 		case STRING:
 			this->length = length;
@@ -571,6 +585,7 @@ private:
 	TOnPropertyChange onChange;
 	TOnPropertyChange onValueRequest;
 	TOnPropertyChange deviceNotification;
+	TOnPropertyChange settingsNotification;
 	WPropertyValue value = {false};
 	bool valueNull;
 	bool requested;
@@ -585,6 +600,9 @@ private:
 			}
 			if (deviceNotification) {
 				deviceNotification(this);
+			}
+			if (settingsNotification) {
+				settingsNotification(this);
 			}
 		}
 	}

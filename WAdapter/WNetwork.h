@@ -41,6 +41,7 @@ public:
 	typedef std::function<void(void)> THandlerFunction;
 	WNetwork(bool debug, String applicationName, String firmwareVersion,
 			bool startWebServerAutomaticly, int statusLedPin) {
+		WiFi.setAutoConnect(false);
 		WiFi.mode(WIFI_STA);
 		this->applicationName = applicationName;
 		this->firmwareVersion = firmwareVersion;
@@ -151,10 +152,10 @@ public:
 			device->loop(now);
 			if ((this->isMqttConnected()) && (this->isSupportingMqtt())
 					&& ((device->lastStateNotify == 0)
-							|| ((device->stateNotifyInterval > 0)
-									&& (now - device->lastStateNotify
-											> device->stateNotifyInterval)))
+							|| ((device->stateNotifyInterval > 0) && (now > device->lastStateNotify) &&
+							    (now - device->lastStateNotify > device->stateNotifyInterval)))
 					&& (device->isDeviceStateComplete())) {
+				wlog->notice(F("Notify interval is up -> Device state changed..."));
 				handleDeviceStateChange(device);
 			}
 			device = device->next;
@@ -202,27 +203,39 @@ public:
 		this->onConfigurationFinished = onConfigurationFinished;
 	}
 
-	bool publishMqtt(const char* topic, const char* key, const char* value) {
-		if (this->isSupportingMqtt()) {
-			if (isMqttConnected()) {
-				WStringStream* response = getResponseStream();
-				WJson json(response);
-				json.beginObject();
-				json.propertyString(key, value);
-				json.endObject();
-				if (mqttClient->publish(topic, response->c_str())) {
-					return true;
-				} else {
-					wlog->notice(F("Sending MQTT message failed, rc=%d"), mqttClient->state());
-					this->disconnectMqtt();
-					return false;
-				}
+	bool publishMqtt(const char* topic, WStringStream* response) {
+		wlog->notice(F("MQTT... '%s'"), topic);
+		wlog->notice(F("MQTT  .. '%s'"), response->c_str());
+		if (isMqttConnected()) {
+			wlog->notice(F("MQTT connected... "));
+			if (mqttClient->publish(topic, response->c_str())) {
+				wlog->notice(F("MQTT sent. Topic: '%s'"), topic);
+				return true;
 			} else {
-				if (strcmp(getMqttServer(), "") != 0) {
-					wlog->notice("Can't send MQTT. Not connected to server: %s", getMqttServer());
-				}
+				wlog->notice(F("Sending MQTT message failed, rc=%d"), mqttClient->state());
+				this->disconnectMqtt();
 				return false;
 			}
+		} else {
+			wlog->notice(F("MQTT not connected... "));
+			if (strcmp(getMqttServer(), "") != 0) {
+				wlog->notice(F("Can't send MQTT. Not connected to server: %s"), getMqttServer());
+			}
+			return false;
+		}
+		wlog->notice(F("publish MQTT mystery... "));
+	}
+
+	bool publishMqtt(const char* topic, const char* key, const char* value) {
+		if (this->isSupportingMqtt()) {
+			WStringStream* response = getResponseStream();
+			WJson json(response);
+			json.beginObject();
+			json.propertyString(key, value);
+			json.endObject();
+			return publishMqtt(topic, response);
+		} else {
+			return false;
 		}
 	}
 
@@ -427,26 +440,13 @@ public:
 		return wlog;
 	}
 
-	/*void dbg(String debugMessage) {
-		if (debug) {
-			Serial.println(debugMessage);
+	WStringStream* getResponseStream() {
+		if (responseStream == nullptr) {
+			responseStream = new WStringStream(SIZE_JSON_PACKET);
 		}
+		responseStream->flush();
+		return responseStream;
 	}
-
-	void dbg(String dm1, String dm2) {
-		if (debug) {
-			Serial.print(dm1);
-			Serial.println(dm2);
-		}
-	}
-
-	void dbg(String* dm1, String dm2, String dm3) {
-		if (debug) {
-			Serial.print(dm1);
-			Serial.print(dm2);
-			Serial.println(dm3);
-		}
-	}*/
 
 private:
 	WLog* wlog;
@@ -478,15 +478,8 @@ private:
 	int deepSleepSeconds;
 	//WebSocketsClient* webSocket;
 
-	WStringStream* getResponseStream() {
-		if (responseStream == nullptr) {
-			responseStream = new WStringStream(SIZE_JSON_PACKET);
-		}
-		responseStream->flush();
-		return responseStream;
-	}
-
 	void handleDeviceStateChange(WDevice *device) {
+		wlog->notice(F("Device state changed -> send device state..."));
 		String topic = String(getMqttTopic()) + "/things/" + String(device->getId()) + "/properties";
 		mqttSendDeviceState(topic, device);
 	}
@@ -500,6 +493,7 @@ private:
 			device->toJsonValues(&json, MQTT);
 			if (mqttClient->publish(topic.c_str(), response->c_str())) {
 				device->lastStateWaitForResponse = true;
+				wlog->notice(F("MQTT sent -wait for response"));
 			}
 			device->lastStateNotify = millis();
 			if ((deepSleepSeconds > 0)	&& ((!this->isSupportingWebThing())	|| (device->areAllPropertiesRequested()))) {
@@ -531,22 +525,27 @@ private:
 					if (topic.startsWith("properties")) {
 						topic = topic.substring(String("properties").length() + 1);
 						if (topic.equals("")) {
-							if (length > 0) {
-								//Check, if it's only response to a state before
-								if (!device->lastStateWaitForResponse) {
+							if (!device->lastStateWaitForResponse) {
+								if (length > 0) {
+									//Check, if it's only response to a state before
 									wlog->notice(F("Try to set several properties for device %s"), device->getId());
 									WJsonParser* parser = new WJsonParser();
-									if (parser->parse(device, (char *) payload) == nullptr) {
+									if (parser->parse(payload, device) == nullptr) {
 										wlog->notice(F("No properties updated for device %s"), device->getId());
 									} else {
 										wlog->notice(F("One or more properties updated for device %s"), device->getId());
 									}
+
+								} else {
+									wlog->notice(F("Empty payload for topic 'properties' -> send device state..."));
+									//Empty payload for topic 'properties' -> send device state
+									mqttSendDeviceState(String(ptopic), device);
 								}
-								device->lastStateWaitForResponse = false;
 							} else {
-								//Empty payload for topic 'properties' -> send device state
-								mqttSendDeviceState(String(ptopic), device);
+								device->lastStateWaitForResponse = false;
+								wlog->notice(F("No processing of mqtt message - just received response of last message..."));
 							}
+
 						} else {
 							//There are still some more topics after properties
 							//Try to find property with that topic and set single value
@@ -566,6 +565,9 @@ private:
 								//property->setFromJson(value);
 							}
 						}
+					} else {
+						//unknown, ask the device
+						device->handleUnknownMqttCallback(ptopic, topic, payload, length);
 					}
 				}
 			}
@@ -969,15 +971,15 @@ private:
 	}
 
 	bool loadSettings() {
-		this->idx = settings->registerString("idx", 32,	this->getClientName(true).c_str());
-		this->ssid = settings->registerString("ssid", 32, "");
-		settings->registerString("password", 64, "");
-		this->supportingWebThing = settings->registerBoolean("supportingWebThing", true);
-		this->supportingMqtt = settings->registerBoolean("supportingMqtt", false);
-		settings->registerString("mqttServer", 32, "");
-		settings->registerString("mqttUser", 32, "");
-		settings->registerString("mqttPassword", 64, "");
-		this->mqttTopic = settings->registerString("mqttTopic", 64, getIdx());
+		this->idx = settings->setString("idx", 32, this->getClientName(true).c_str());
+		this->ssid = settings->setString("ssid", 32, "");
+		settings->setString("password", 64, "");
+		this->supportingWebThing = settings->setBoolean("supportingWebThing", true);
+		this->supportingMqtt = settings->setBoolean("supportingMqtt", false);
+		settings->setString("mqttServer", 32, "");
+		settings->setString("mqttUser", 32, "");
+		settings->setString("mqttPassword", 64, "");
+		this->mqttTopic = settings->setString("mqttTopic", 64, getIdx());
 		bool settingsStored = settings->existsSettings();
 		if (settingsStored) {
 			if (getMqttTopic() == "") {
@@ -1120,7 +1122,7 @@ private:
 			return;
 		}
 		WJsonParser parser;
-		WProperty* property = parser.parse(device, webServer->arg("plain").c_str());
+		WProperty* property = parser.parse(webServer->arg("plain").c_str(), device);
 		if (property != nullptr) {
 			//response new value
 			wlog->notice(F("Set property value: %s (web request) %s"), property->getId(), webServer->arg("plain").c_str());
@@ -1252,6 +1254,7 @@ private:
 			String propertiesBase = deviceBase + "/properties";
 			webServer->on(propertiesBase.c_str(), HTTP_GET,	std::bind(&WNetwork::sendDeviceValues, this, device));
 			webServer->on(deviceBase.c_str(), HTTP_GET,	std::bind(&WNetwork::sendDeviceStructure, this, device));
+			device->bindWebServerCalls(webServer);
 
 
 			//Websocket

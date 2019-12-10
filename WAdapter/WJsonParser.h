@@ -29,16 +29,36 @@
 
 class WJsonParser {
 public:
+	typedef std::function<void(const char*, const char*)> TProcessKeyValueFunction;
 
 	WJsonParser() {
+		this->logging = false;
 		state = STATE_START_DOCUMENT;
 		bufferPos = 0;
 		unicodeEscapeBufferPos = 0;
 		unicodeBufferPos = 0;
 		characterCounter = 0;
+		kvFunction = nullptr;
 	}
 
-	WProperty* parse(WDevice *device, const char *payload) {
+	WJsonParser(bool logging) {
+		this->logging = logging;
+		state = STATE_START_DOCUMENT;
+		bufferPos = 0;
+		unicodeEscapeBufferPos = 0;
+		unicodeBufferPos = 0;
+		characterCounter = 0;
+		kvFunction = nullptr;
+	}
+
+	void parse(const char *payload, TProcessKeyValueFunction kvFunction) {
+		this->kvFunction = kvFunction;
+		for (int i = 0; i < strlen(payload); i++) {
+			parseChar(payload[i]);
+		}
+	}
+
+	WProperty* parse(const char *payload, WDevice *device) {
 		this->device = device;
 		WProperty* result = nullptr;
 		for (int i = 0; i < strlen(payload); i++) {
@@ -63,8 +83,16 @@ private:
 	int unicodeBufferPos = 0;
 	int characterCounter = 0;
 	int unicodeHighSurrogate = 0;
+	bool logging = false;
 	String currentKey;
-	WDevice *device;
+	WDevice *device = nullptr;
+	TProcessKeyValueFunction kvFunction;
+
+	void log(String message) {
+		if (logging) {
+			Serial.println(message);
+		}
+	}
 
 	WProperty* processKeyValue(const char* key, const char* value) {
 		WProperty* result = nullptr;
@@ -76,6 +104,8 @@ private:
 				}
 			}
 
+		} else if (kvFunction) {
+			kvFunction(key, value);
 		}
 		return result;
 	}
@@ -297,7 +327,7 @@ private:
 			// throw new ParsingError($this->_line_number, $this->_char_number,
 			// "Unexpected end of array encountered.");
 		}
-		//myListener->endArray();
+		log("jsonParser->endArray()");
 		state = STATE_AFTER_VALUE;
 		if (stackPos == 0) {
 			endDocument();
@@ -317,7 +347,7 @@ private:
 			// throw new ParsingError($this->_line_number, $this->_char_number,
 			// "Unexpected end of object encountered.");
 		}
-		//myListener->endObject();
+		log("jsonParser->endObject()");
 		state = STATE_AFTER_VALUE;
 		if (stackPos == 0) {
 			endDocument();

@@ -250,25 +250,13 @@ public:
 		lastInActivity = lastOutActivity = millis();
 	}
 
-	bool publish(const char *topic, const char *payload) {
-		return publish(topic, (const uint8_t*) payload, strlen(payload), false);
+	bool publish(const char* topic, const char* payload) {
+		return publish(topic, payload, strlen(payload), false);
 	}
 
-	bool publish(const char *topic, const char *payload, bool retained) {
-		return publish(topic, (const uint8_t*) payload, strlen(payload),
-				retained);
-	}
-
-	bool publish(const char *topic, const uint8_t *payload,
-			unsigned int plength) {
-		return publish(topic, payload, plength, false);
-	}
-
-	bool publish(const char *topic, const uint8_t *payload,
-			unsigned int plength, bool retained) {
+	bool publish(const char* topic, const char* payload, unsigned int plength, bool retained) {
 		if (connected()) {
-			if (this->getMaxPacketSize()
-					< MQTT_MAX_HEADER_SIZE + 2 + strlen(topic) + plength) {
+			if (this->getMaxPacketSize() < MQTT_MAX_HEADER_SIZE + 2 + strlen(topic) + plength) {
 				// Too long
 				return false;
 			}
@@ -288,7 +276,7 @@ public:
 		return false;
 	}
 
-	bool publish_P(const char *topic, const char *payload, bool retained) {
+	/*bool publish_P(const char *topic, const char *payload, bool retained) {
 		return publish_P(topic, (const uint8_t*) payload, strlen(payload),
 				retained);
 	}
@@ -337,7 +325,7 @@ public:
 		lastOutActivity = millis();
 
 		return rc == tlen + 4 + plength;
-	}
+	}*/
 
 	bool beginPublish(const char *topic, unsigned int plength, bool retained) {
 		if (connected()) {
@@ -520,12 +508,6 @@ public:
 		return this->maxPacketSize;
 	}
 
-	void log(String debugMessage) {
-		if (debug) {
-			Serial.println(debugMessage);
-		}
-	}
-
 private:
 	bool debug;
 	Client *_client;
@@ -654,13 +636,17 @@ private:
 	}
 
 	uint16_t writeString(const char *string, uint8_t *buf, uint16_t pos) {
-		const char *idp = string;
+		//const char *idp = string;
 		uint16_t i = 0;
 		pos += 2;
-		while (*idp) {
-			buf[pos++] = *idp++;
+		for (int b = 0; b < strlen(string); b++) {
+			buf[pos++] = string[b];
 			i++;
 		}
+		/*while (*idp) {
+			buf[pos++] = *idp++;
+			i++;
+		}*/
 		buf[pos - i - 2] = (i >> 8);
 		buf[pos - i - 1] = (i & 0xFF);
 		return pos;
