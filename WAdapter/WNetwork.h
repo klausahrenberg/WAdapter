@@ -1,8 +1,6 @@
 #ifndef W_NETWORK_H
 #define W_NETWORK_H
 
-//#if defined(ESP32) || defined(ESP8266)
-
 #include <Arduino.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
@@ -11,7 +9,6 @@
 #else
 #include <ESPmDNS.h>
 #endif
-//#include <WebSocketsClient.h>
 #include <WiFiUdp.h>
 #include <DNSServer.h>
 #include <StreamString.h>
@@ -80,10 +77,6 @@ public:
 			mqttClient->setCallback(std::bind(&WNetwork::mqttCallback, this,
 										std::placeholders::_1, std::placeholders::_2,
 										std::placeholders::_3));
-			/*mqttClient->setCallback(
-					[this](char *topic, char *payload, unsigned int length) {
-						this->mqttCallback(topic, payload, length);
-					});*/
 		}
 		if (statusLedPin != NO_LED) {
 			statusLed = new WLed(statusLedPin);
@@ -455,7 +448,6 @@ private:
 	THandlerFunction onNotify;
 	THandlerFunction onConfigurationFinished;
 	bool debug, updateRunning, startWebServerAutomaticly;
-	//int jsonBufferSize;
 	String restartFlag;
 	DNSServer *dnsApServer;
 	ESP8266WebServer *webServer;
@@ -476,7 +468,6 @@ private:
 	bool settingsFound;
 	WDevice *deepSleepFlag;
 	int deepSleepSeconds;
-	//WebSocketsClient* webSocket;
 
 	void handleDeviceStateChange(WDevice *device) {
 		wlog->notice(F("Device state changed -> send device state..."));
@@ -503,13 +494,6 @@ private:
 	}
 
 	void mqttCallback(char *ptopic, char *payload, unsigned int length) {
-		//create character buffer with ending null terminator (string)
-		/*char message_buff[this->mqttClient->getMaxPacketSize()];
-		for (unsigned int i = 0; i < length; i++) {
-			message_buff[i] = payload[i];
-		}
-		message_buff[length] = '\0';*/
-		//forward to serial port
 		wlog->notice(F("Received MQTT callback: %s/{%s}"), ptopic, payload);
 		String topic = String(ptopic).substring(strlen(getMqttTopic()) + 1);
 		wlog->notice(F("Topic short '%s'"), topic.c_str());
@@ -558,11 +542,6 @@ private:
 								} else {
 									wlog->notice(F("Property updated."));
 								}
-								//DynamicJsonDocument* getJson(32);
-								//JsonVariant value = doc.to<JsonVariant>();
-								//value.set(message_buff);
-								//JsonVariant value = message_buff;
-								//property->setFromJson(value);
 							}
 						}
 					} else {
@@ -594,7 +573,6 @@ private:
 					while (device != nullptr) {
 						String topic("devices/");
 						topic.concat(device->getId());
-
 						WStringStream* response = getResponseStream();
 						WJson json(response);
 						json.beginObject();
@@ -605,26 +583,6 @@ private:
 						mqttClient->publish(topic.c_str(), response->c_str());
 						device = device->next;
 					}
-
-					/*WDevice *device = this->firstDevice;
-					while (device != nullptr) {
-						//Send device structure
-						//To minimize message size, every property as single message
-						String deviceHRef = getMqttTopic() + "/things/"
-								+ device->getId();
-						WProperty *property = device->firstProperty;
-						while (property != nullptr) {
-							if (property->isVisible(MQTT)) {
-								String topic = deviceHRef + "/properties/" + property->getId();
-								WStringStream* response = getResponseStream();
-								WJson* json = new WJson(response);
-								property->toJsonStructure(json, "", deviceHRef);
-								mqttClient->publish(topic.c_str(), response->c_str());
-							}
-							property = property->next;
-						}
-						device = device->next;
-					}*/
 					mqttClient->unsubscribe("devices/#");
 				}
 				//Subscribe to device specific topic
@@ -962,12 +920,10 @@ private:
 	}
 
 	void restart(String reasonMessage) {
-		//webServer->send(302, TEXT_HTML, reasonMessage);
 		this->restartFlag = reasonMessage;
 		//Redirect
 		webServer->sendHeader("Location", "/config", true);
 		webServer->send(302, TEXT_PLAIN, "");
-		//webServer->redirect("/config");
 	}
 
 	bool loadSettings() {
@@ -1021,57 +977,7 @@ private:
 		}
 		json.endArray();
 		webServer->send(200, APPLICATION_JSON, response->c_str());
-
-		/*log("x >>>>");
-		log("client: " + webServer->client().remoteIP().toString());
-		log("x <<<<");*/
-		/*if (webSocket = nullptr) {
-			webSocket = new WebSocketsClient();
-			webSocket->onEvent(std::bind(&WNetwork::webSocketEvent, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-			String url = "ws://" + webServer->client().remoteIP().toString() + "/things/" + device->getId();
-			webSocket->begin(url, 80, "/things/thermostat");
-		}*/
 	}
-
-
-
-	/*void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
-
-		switch(type) {
-			case WStype_DISCONNECTED:
-				log("[WSc] Disconnected!\n");
-				break;
-			case WStype_CONNECTED: {
-				log("[WSc] Connected to url: " + String((char*) payload));
-
-				// send message to server when Connected
-				webSocket->sendTXT("Connected");
-			}
-				break;
-			case WStype_TEXT:
-				log("[WSc] get text: " + String((char*) payload));
-
-				// send message to server
-				// webSocket.sendTXT("message here");
-				break;
-			case WStype_BIN:
-				log("[WSc] get binary length: " + String(length));
-				hexdump(payload, length);
-
-				// send data to server
-				// webSocket.sendBIN(payload, length);
-				break;
-	        case WStype_PING:
-	            // pong will be send automatically
-	            log("[WSc] get ping\n");
-	            break;
-	        case WStype_PONG:
-	            // answer to a ping we send
-	            log("[WSc] get pong\n");
-	            break;
-	    }
-
-	}*/
 
 	void sendDeviceStructure(WDevice *&device) {
 		wlog->notice(F("Send description for device: %s"), device->getId());
@@ -1079,19 +985,20 @@ private:
 		WJson json(response);
 		device->toJsonStructure(&json, "", WEBTHING);
 		webServer->send(200, APPLICATION_JSON, response->c_str());
-
-		/*log(">>>>");
-		log("client " + webServer->client().remoteIP().toString());
-		log("<<<<");*/
-		//WebSocketsClient* webSocket = new WebSocketsClient();
-
 	}
 
 	void sendDeviceValues(WDevice *&device) {
 		wlog->notice(F("Send all properties for device: "), device->getId());
 		WStringStream* response = getResponseStream();//request->beginResponseStream("application/json");
 		WJson json(response);
+		json.beginObject();
+		if (device->isMainDevice()) {
+			json.propertyString("idx", getIdx());
+			json.propertyString("ip", getDeviceIpAsString().c_str());
+			json.propertyString("firmware", firmwareVersion.c_str());
+		}
 		device->toJsonValues(&json, WEBTHING);
+		json.endObject();
 		webServer->send(200, APPLICATION_JSON, response->c_str());
 	}
 
@@ -1149,94 +1056,6 @@ private:
 		webServer->send(200, APPLICATION_JSON, response->c_str());
 	}
 
-	/*void handleThingWebSocket(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght, WDevice* device) {
-		log(">      +++++       WebSocket message is received");
-		switch (type) {
-	    case WStype_DISCONNECTED:             // if the websocket is disconnected
-	    	Serial.printf("[%u] Disconnected!\n", num);
-	    	break;
-	    case WStype_CONNECTED: {              // if a new websocket connection is established
-	        IPAddress ip = device->webSocket->remoteIP(num);
-	        Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
-	        //rainbow = false;                  // Turn rainbow off when a new connection is established
-	    }
-	        break;
-	    case WStype_TEXT:                     // if new text data is received
-	    	Serial.printf("[%u] get Text: %s\n", num, payload);
-	    	if (payload[0] == '#') {            // we get RGB data
-	    		uint32_t rgb = (uint32_t) strtol((const char *) &payload[1], NULL, 16);   // decode rgb data
-	    		int r = ((rgb >> 20) & 0x3FF);                     // 10 bits per color, so R: bits 20-29
-	    		int g = ((rgb >> 10) & 0x3FF);                     // G: bits 10-19
-	    		int b =          rgb & 0x3FF;                      // B: bits  0-9
-
-	    		//analogWrite(LED_RED,   r);                         // write it to the LED output pins
-	    		//analogWrite(LED_GREEN, g);
-	    		//analogWrite(LED_BLUE,  b);
-	    	} else if (payload[0] == 'R') {                      // the browser sends an R when the rainbow effect is enabled
-	    		//rainbow = true;
-	    	} else if (payload[0] == 'N') {                      // the browser sends an N when the rainbow effect is disabled
-	    		//rainbow = false;
-	    	}
-	    	break;
-		}
-	}*/
-
-	//ToDo
-	/*
-	void handleThingWebSocket(AwsEventType type, void *arg, uint8_t *rawData, size_t len, WDevice *device) {
-		// Ignore all except data packets
-		if (type != WS_EVT_DATA)
-			return;
-		// Only consider non fragmented data
-		AwsFrameInfo *info = (AwsFrameInfo*) arg;
-		if (!info->final || info->index != 0 || info->len != len)
-			return;
-		// Web Thing only specifies text, not binary websocket transfers
-		if (info->opcode != WS_TEXT)
-			return;
-		// In theory we could just have one websocket for all Things and react on the server->url() to route data.
-		// Controllers will however establish a separate websocket connection for each Thing anyway as of in the
-		// spec. For now each Thing stores its own Websocket connection object therefore.
-		// Parse request
-		StaticJsonDocument<SIZE_MQTT_PACKET>* jsonDoc = getDynamicJsonDocument((char *) rawData);
-		if (jsonDoc == nullptr) {
-			sendErrorMsg(*jsonDoc, *client, 400, "Invalid json");
-			return;
-		}
-		JsonObject json = jsonDoc->as<JsonObject>();
-		String messageType = json["messageType"].as<String>();
-		const JsonVariant &dataVariant = json["data"];
-		if (!dataVariant.is<JsonObject>()) {
-			sendErrorMsg(*jsonDoc, *client, 400, "data must be an object");
-			return;
-		}
-		const JsonObject data = dataVariant.as<JsonObject>();
-		if (messageType == "setProperty") {
-			for (auto kv : data) {
-				WProperty *property = device->getPropertyById(kv.key().c_str());
-				if ((property != nullptr) && (property->isVisible(WEBTHING))) {
-					JsonVariant newValue = json[property->getId()];
-					property->setFromJson(newValue);
-				}
-			}
-			jsonDoc->clear();
-			//ToDo
-			// Send confirmation by sending back the received property object
-			String jsonStr;
-			serializeJson(data, jsonStr);
-			//data.printTo(jsonStr);
-			client->text(jsonStr.c_str(), jsonStr.length());
-		} else if (messageType == "requestAction") {
-			jsonDoc->clear();
-			sendErrorMsg(*jsonDoc, *client, 400, "Not supported yet");
-		} else if (messageType == "addEventSubscription") {
-			// We report back all property state changes. We'd require a map
-			// of subscribed properties per websocket connection otherwise
-			jsonDoc->clear();
-		}
-	}
-	*/
-
 	void bindWebServerCalls(WDevice *device) {
 		if (this->isWebServerRunning()) {
 			wlog->notice(F("Bind webServer calls for device %s"), device->getId());
@@ -1255,27 +1074,6 @@ private:
 			webServer->on(propertiesBase.c_str(), HTTP_GET,	std::bind(&WNetwork::sendDeviceValues, this, device));
 			webServer->on(deviceBase.c_str(), HTTP_GET,	std::bind(&WNetwork::sendDeviceStructure, this, device));
 			device->bindWebServerCalls(webServer);
-
-
-			//Websocket
-			/*String url = "wss://" + getHostName() + ".local/things/" + device->getId();
-			device->webSocket = new WebSocketsServer(81, url, "webthing");
-			device->webSocket->onEvent(std::bind(&WNetwork::handleThingWebSocket, this,
-										std::placeholders::_1, std::placeholders::_2,
-										std::placeholders::_3, std::placeholders::_4,
-										device));
-
-			device->webSocket->begin();*/
-			//ToDo
-			/*
-			device->getWebSocket()->onEvent(
-					std::bind(&WNetwork::handleThingWebSocket, this,
-							std::placeholders::_1, std::placeholders::_2,
-							std::placeholders::_3, std::placeholders::_4,
-							std::placeholders::_5, std::placeholders::_6,
-							device));
-			webServer->addHandler(device->getWebSocket());
-			*/
 		}
 	}
 
@@ -1291,7 +1089,5 @@ private:
 	}
 
 };
-
-//#endif    // ESP
 
 #endif

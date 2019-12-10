@@ -32,6 +32,7 @@ public:
 		this->visibility = ALL;
 		//this->webSocket = nullptr;
 		this->providingConfigPage = true;
+		this->mainDevice = true;
 		this->lastStateNotify = 0;
 		this->stateNotifyInterval = 300000;
 		this->lastStateWaitForResponse = false;
@@ -86,7 +87,6 @@ public:
 	}
 
 	virtual void toJsonValues(WJson* response, WPropertyVisibility visibility) {
-		response->beginObject();
 		WProperty* property = this->firstProperty;
 		while (property != nullptr) {
 			if (property->isVisible(visibility)) {
@@ -96,7 +96,6 @@ public:
 				property = property->next;
 			}
 		}
-		response->endObject();
 	}
 
 	virtual void toJsonStructure(WJson* json, const char* deviceHRef, WPropertyVisibility visibility) {
@@ -203,6 +202,10 @@ public:
 		return ((this->visibility == ALL) || (this->visibility == visibility));
 	}
 
+	bool isMainDevice() {
+		return mainDevice;
+	}
+
     WDevice* next = nullptr;
     //WebSocketsServer* webSocket;
     WProperty* firstProperty = nullptr;
@@ -216,6 +219,7 @@ protected:
     WNetwork* network;
     WLed* statusLed = nullptr;
     bool providingConfigPage;
+    bool mainDevice;
     WPropertyVisibility visibility;
 
 private:
