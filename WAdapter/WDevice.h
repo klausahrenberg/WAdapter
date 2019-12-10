@@ -86,15 +86,13 @@ public:
 		return nullptr;
 	}
 
-	virtual void toJsonValues(WJson* response, WPropertyVisibility visibility) {
+	virtual void toJsonValues(WJson* json, WPropertyVisibility visibility) {
 		WProperty* property = this->firstProperty;
 		while (property != nullptr) {
 			if (property->isVisible(visibility)) {
-				property->toJsonValue(response);
-				property = property->next;
-			} else {
-				property = property->next;
+				property->toJsonValue(json);
 			}
+			property = property->next;
 		}
 	}
 

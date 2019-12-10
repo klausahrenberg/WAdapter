@@ -481,7 +481,15 @@ private:
 
 			WStringStream* response = getResponseStream();
 			WJson json(response);
+			json.beginObject();
+			if (device->isMainDevice()) {
+				json.propertyString("idx", getIdx());
+				json.propertyString("ip", getDeviceIpAsString().c_str());
+				json.propertyString("firmware", firmwareVersion.c_str());
+			}
 			device->toJsonValues(&json, MQTT);
+			json.endObject();
+
 			if (mqttClient->publish(topic.c_str(), response->c_str())) {
 				device->lastStateWaitForResponse = true;
 				wlog->notice(F("MQTT sent -wait for response"));
@@ -989,7 +997,7 @@ private:
 
 	void sendDeviceValues(WDevice *&device) {
 		wlog->notice(F("Send all properties for device: "), device->getId());
-		WStringStream* response = getResponseStream();//request->beginResponseStream("application/json");
+		WStringStream* response = getResponseStream();
 		WJson json(response);
 		json.beginObject();
 		if (device->isMainDevice()) {
