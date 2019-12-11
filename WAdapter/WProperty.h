@@ -171,7 +171,7 @@ public:
 		return (!this->valueNull ? this->value.asDouble : 0.0);
 	}
 
-	bool isEqual(double a, double b, double precision) {
+	static bool isEqual(double a, double b, double precision) {
         double diff = a - b;
         return ((diff < precision) && (-diff < precision));
     }
@@ -189,7 +189,7 @@ public:
 	}
 
 	bool equalsDouble(double number) {
-		return ((!this->valueNull) && (this->value.asDouble == number));
+		return ((!this->valueNull) && (isEqual(this->value.asDouble, number, 0.01)));
 	}
 
 	int getInteger() {
@@ -334,6 +334,7 @@ public:
 	}
 
 	virtual void toJsonValue(WJson* json) {
+		requestValue();
 		switch (getType()) {
 		case BOOLEAN:
 			json->propertyBoolean(getId(), getBoolean());
@@ -527,6 +528,7 @@ protected:
 		this->valueNull = true;
 		this->requested = false;
 		this->valueRequesting = false;
+		this->notifying = false;
 		this->readOnly = false;
 		this->atType = "";
 		this->unit = "";
@@ -590,11 +592,13 @@ private:
 	bool valueNull;
 	bool requested;
 	bool valueRequesting;
+	bool notifying;
 
 	WProperty* firstEnum = nullptr;
 
 	void notify() {
 		if (!valueRequesting) {
+			notifying = true;
 			if (onChange) {
 				onChange(this);
 			}
@@ -604,11 +608,12 @@ private:
 			if (settingsNotification) {
 				settingsNotification(this);
 			}
+			notifying = false;
 		}
 	}
 
 	void requestValue() {
-		if (onValueRequest) {
+		if ((!notifying) && (onValueRequest)) {
 			valueRequesting = true;
 			onValueRequest(this);
 			valueRequesting = false;
