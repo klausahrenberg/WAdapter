@@ -39,6 +39,7 @@ public:
 	WNetwork(bool debug, String applicationName, String firmwareVersion,
 			bool startWebServerAutomaticly, int statusLedPin) {
 		WiFi.setAutoConnect(false);
+		WiFi.setAutoReconnect(false);
 		WiFi.mode(WIFI_STA);
 		this->applicationName = applicationName;
 		this->firmwareVersion = firmwareVersion;
@@ -128,7 +129,8 @@ public:
 		if ((isWifiConnected()) && (isSupportingMqtt())
 				&& (!mqttClient->connected())
 				&& ((lastMqttConnect == 0) || (now - lastMqttConnect > 300000))
-				&& (strcmp(getMqttServer(), "") != 0)) {
+				&& (strcmp(getMqttServer(), "") != 0)
+				&& (strcmp(getMqttPort(), "") != 0)) {
 			mqttReconnect();
 			lastMqttConnect = now;
 		}
@@ -154,8 +156,7 @@ public:
 			device = device->next;
 		}
 		//WebThingAdapter
-		if ((!isUpdateRunning()) && (this->isSupportingWebThing())
-				&& (isWifiConnected())) {
+		if ((!isUpdateRunning()) && (this->isSupportingWebThing()) && (isWifiConnected())) {
 			MDNS.update();
 		}
 		//Restart required?
@@ -248,8 +249,7 @@ public:
 				wlog->notice(F("Start web server for configuration. IP %s"), this->getDeviceIpAsString().c_str());
 			}
 			webServer->onNotFound(std::bind(&WNetwork::handleUnknown, this));
-			if ((WiFi.status() != WL_CONNECTED)
-					|| (!this->isSupportingWebThing())) {
+			if ((WiFi.status() != WL_CONNECTED) || (!this->isSupportingWebThing())) {
 				webServer->on("/", HTTP_GET, std::bind(&WNetwork::handleHttpRootRequest, this));
 			}
 			webServer->on("/config", HTTP_GET, std::bind(&WNetwork::handleHttpRootRequest, this));
@@ -259,7 +259,7 @@ public:
 					String did("/");
 					did.concat(device->getId());
 					webServer->on(did, HTTP_GET, std::bind(&WNetwork::handleHttpDeviceConfiguration, this, device));
-					String deviceConfiguration("/saveDeviceConfiguration_");
+					String deviceConfiguration("/saveConfiguration");
 					deviceConfiguration.concat(device->getId());
 					webServer->on(deviceConfiguration.c_str(), HTTP_GET, std::bind(&WNetwork::handleHttpSaveDeviceConfiguration, this, device));
 				}
@@ -368,7 +368,7 @@ public:
 	}
 
 	bool isSupportingWebThing() {
-		return this->supportingWebThing->getBoolean();
+		return true;
 	}
 
 	bool isSupportingMqtt() {
@@ -389,6 +389,10 @@ public:
 
 	const char* getMqttServer() {
 		return settings->getString("mqttServer");
+	}
+
+	const char* getMqttPort() {
+		return settings->getString("mqttPort");
 	}
 
 	const char* getMqttTopic() {
@@ -455,7 +459,6 @@ private:
 	String applicationName;
 	String firmwareVersion;
 	String firmwareUpdateError;
-	WProperty *supportingWebThing;
 	WProperty *supportingMqtt;
 	WProperty *ssid;
 	WProperty *idx;
@@ -568,7 +571,7 @@ private:
 			wlog->notice(F("Connect to MQTT server: %s; user: '%s'; password: '%s'; clientName: '%s'"),
 					   getMqttServer(), getMqttUser(), getMqttPassword(), getClientName(true).c_str());
 			// Attempt to connect
-			this->mqttClient->setServer(getMqttServer(), 1883);
+			this->mqttClient->setServer(getMqttServer(), String(getMqttPort()).toInt());
 			if (mqttClient->connect(getClientName(true).c_str(),
 					getMqttUser(), //(mqttUser != "" ? mqttUser.c_str() : NULL),
 					getMqttPassword())) { //(mqttPassword != "" ? mqttPassword.c_str() : NULL))) {
@@ -699,10 +702,22 @@ private:
 			page->print(FPSTR(HTTP_STYLE));
 			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
+			page->printAndReplace(FPSTR(HTTP_CONFIG_PAGE_BEGIN), "");
 			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_STYLE), (this->isSupportingMqtt() ? "block" : "none"));
-			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_GENERAL), getIdx(), getSsid(), getPassword());
-			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_SERVICE), (this->isSupportingWebThing() ? "checked" : ""), (this->isSupportingMqtt() ? "checked" : ""));
-			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_MQTT), getMqttServer(), getMqttUser(), getMqttPassword(), getMqttTopic());
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Idx:", "i", "32", getIdx());
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Wifi ssid (only 2.4G):", "s", "32", getSsid());
+			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "Wifi password:", "p", "64", getPassword());
+			//mqtt
+			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_MQTT_OPTION), (this->isSupportingMqtt() ? "checked" : ""));
+			page->print(FPSTR(HTTP_PAGE_CONFIGURATION_MQTT_BEGIN));
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Server:", "ms", "32", getMqttServer());
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Port:", "mo", "4", getMqttPort());
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT User:", "mu", "32", getMqttUser());
+			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "MQTT Password:", "mp", "64", getMqttPassword());
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic, e.g.'home/room':", "mt", "64", getMqttTopic());
+
+			page->print(FPSTR(HTTP_PAGE_CONFIGURATION_MQTT_END));
+			page->print(FPSTR(HTTP_CONFIG_SAVE_BUTTON));
 			page->print(FPSTR(HTTP_BODY_END));
 			webServer->send(200, TEXT_HTML, page->c_str());
 			delete page;
@@ -714,18 +729,13 @@ private:
 			this->idx->setString(webServer->arg("i").c_str());
 			this->ssid->setString(webServer->arg("s").c_str());
 			settings->setString("password", webServer->arg("p").c_str());
-			this->supportingWebThing->setBoolean(webServer->arg("wt") == "true");
 			this->supportingMqtt->setBoolean(webServer->arg("mq") == "true");
 			settings->setString("mqttServer", webServer->arg("ms").c_str());
+			String mqtt_port = webServer->arg("mo");
+			settings->setString("mqttPort", (mqtt_port != "" ? mqtt_port.c_str() : "1883"));
 			settings->setString("mqttUser", webServer->arg("mu").c_str());
 			settings->setString("mqttPassword", webServer->arg("mp").c_str());
 			this->mqttTopic->setString(webServer->arg("mt").c_str());
-			if ((startWebServerAutomaticly) && (!isSupportingWebThing())
-					&& ((!isSupportingMqtt()) || (strcmp(getMqttServer(), "") == 0)
-							|| (strcmp(getMqttTopic(), "") == 0))) {
-				//if mqqt is completely unspecified, activate webthings
-				this->supportingWebThing->setBoolean(true);
-			}
 			settings->save();
 			this->restart(F("Settings saved."));
 		}
@@ -929,18 +939,19 @@ private:
 
 	void restart(String reasonMessage) {
 		this->restartFlag = reasonMessage;
+		webServer->send(302, "text/html", reasonMessage);
 		//Redirect
-		webServer->sendHeader("Location", "/config", true);
-		webServer->send(302, TEXT_PLAIN, "");
+		//webServer->sendHeader("Location", "/config", true);
+		//webServer->send(302, TEXT_PLAIN, "");
 	}
 
 	bool loadSettings() {
 		this->idx = settings->setString("idx", 32, this->getClientName(true).c_str());
 		this->ssid = settings->setString("ssid", 32, "");
 		settings->setString("password", 64, "");
-		this->supportingWebThing = settings->setBoolean("supportingWebThing", true);
 		this->supportingMqtt = settings->setBoolean("supportingMqtt", false);
 		settings->setString("mqttServer", 32, "");
+		settings->setString("mqttPort", 4, "1883");
 		settings->setString("mqttUser", 32, "");
 		settings->setString("mqttPassword", 64, "");
 		this->mqttTopic = settings->setString("mqttTopic", 64, getIdx());
@@ -953,15 +964,14 @@ private:
 				this->disconnectMqtt();
 			}
 			settingsStored = ((strcmp(getSsid(), "") != 0)
-					&& (((isSupportingMqtt()) && (strcmp(getMqttServer(), "") != 0))
-							|| (isSupportingWebThing())));
+					&& (((isSupportingMqtt()) && (strcmp(getMqttServer(), "") != 0) && (strcmp(getMqttPort(), "") != 0)) || (isSupportingWebThing())));
 			if (settingsStored) {
 				wlog->notice(F("Settings loaded successfully:"));
 			} else {
 				wlog->notice(F("Settings are not complete:"));
 			}
-			wlog->notice(F("SSID '%s'; MQTT enabled: %T; MQTT server '%s'; WebThings enabled: %T"),
-								  getSsid(), isSupportingMqtt(), getMqttServer(), isSupportingWebThing());
+			wlog->notice(F("SSID: '%s'; MQTT enabled: %T; MQTT server: '%s'; MQTT port: %s; WebThings enabled: %T"),
+								  getSsid(), isSupportingMqtt(), getMqttServer(), getMqttPort(), isSupportingWebThing());
 		}
 		EEPROM.end();
 		return settingsStored;

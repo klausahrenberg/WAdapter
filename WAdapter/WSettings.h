@@ -5,7 +5,7 @@
 #include "WLog.h"
 #include "WProperty.h"
 
-const byte STORED_FLAG = 0x17;
+const byte STORED_FLAG = 0x59;
 const int EEPROM_SIZE = 512;
 
 class WSettingItem {
