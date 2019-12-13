@@ -458,7 +458,7 @@ private:
 	int networkState;
 	String applicationName;
 	String firmwareVersion;
-	String firmwareUpdateError;
+	const char* firmwareUpdateError;
 	WProperty *supportingMqtt;
 	WProperty *ssid;
 	WProperty *idx;
@@ -737,7 +737,7 @@ private:
 			settings->setString("mqttPassword", webServer->arg("mp").c_str());
 			this->mqttTopic->setString(webServer->arg("mt").c_str());
 			settings->save();
-			this->restart(F("Settings saved."));
+			this->restart("Settings saved.");
 		}
 	}
 
@@ -747,7 +747,7 @@ private:
 			device->saveConfigPage(webServer);
 			settings->save();
 			delay(300);
-			this->restart(F("Device settings saved."));
+			this->restart("Device settings saved.");
 		}
 	}
 
@@ -803,7 +803,7 @@ private:
 	/** Handle the reset page */
 	void handleHttpReset() {
 		if (isWebServerRunning()) {
-			this->restart(F("Resetting was caused manually by web interface. "));
+			this->restart("Resetting was caused manually by web interface. ");
 		}
 	}
 
@@ -860,9 +860,9 @@ private:
 	void handleHttpFirmwareUpdateFinished() {
 		if (isWebServerRunning()) {
 			if (Update.hasError()) {
-				this->restart(String(F("Update error: ")) + firmwareUpdateError);
+				this->restart(firmwareUpdateError);
 			} else {
-				this->restart(F("Update successful."));
+				this->restart("Update successful.");
 			}
 		}
 	}
@@ -898,7 +898,7 @@ private:
 		}
 	}
 
-	String getFirmwareUpdateErrorMessage() {
+	const char* getFirmwareUpdateErrorMessage() {
 		switch (Update.getError()) {
 		case UPDATE_ERROR_OK:
 			return "No Error";
@@ -937,12 +937,18 @@ private:
 		wlog->notice(s.c_str());
 	}
 
-	void restart(String reasonMessage) {
+	void restart(const char* reasonMessage) {
 		this->restartFlag = reasonMessage;
-		webServer->send(302, "text/html", reasonMessage);
-		//Redirect
-		//webServer->sendHeader("Location", "/config", true);
-		//webServer->send(302, TEXT_PLAIN, "");
+		webServer->client().setNoDelay(true);
+		WStringStream* page = new WStringStream(2048);
+		page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), reasonMessage);
+		page->print(FPSTR(HTTP_SCRIPT));
+		page->print(FPSTR(HTTP_STYLE));
+		page->print(FPSTR(HTTP_HEAD_END));
+		printHttpCaption(page);
+		page->printAndReplace(FPSTR(HTTP_SAVED), reasonMessage);
+		page->print(FPSTR(HTTP_BODY_END));
+		webServer->send(200, TEXT_HTML, page->c_str());
 	}
 
 	bool loadSettings() {
