@@ -118,7 +118,6 @@ public:
 			if (isSoftAP()) {
 				dnsApServer->processNextRequest();
 			}
-			webServer->begin();
 			webServer->handleClient();
 			/*if (webSocket != nullptr) {
 				webSocket->loop();
