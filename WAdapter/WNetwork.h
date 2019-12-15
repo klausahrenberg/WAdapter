@@ -39,7 +39,7 @@ public:
 	WNetwork(bool debug, String applicationName, String firmwareVersion,
 			bool startWebServerAutomaticly, int statusLedPin) {
 		WiFi.setAutoConnect(false);
-		WiFi.setAutoReconnect(false);
+		//WiFi.setAutoReconnect(false);
 		WiFi.mode(WIFI_STA);
 		this->applicationName = applicationName;
 		this->firmwareVersion = firmwareVersion;
