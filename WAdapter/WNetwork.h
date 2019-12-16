@@ -59,7 +59,7 @@ public:
 		lastMqttConnect = lastWifiConnect = 0;
 		gotIpEventHandler = WiFi.onStationModeGotIP(
 				[this](const WiFiEventStationModeGotIP &event) {
-					wlog->notice(F("Station connected, IP: %s"), this->getDeviceIpAsString().c_str());
+					wlog->notice(F("Station connected, IP: %s"), this->getDeviceIp().toString().c_str());
 					//Connect, if webThing supported and Wifi is connected as client
 					if ((this->isSupportingWebThing()) && (isWifiConnected())) {
 						this->startWebServer();
@@ -245,7 +245,7 @@ public:
 				dnsApServer->setErrorReplyCode(DNSReplyCode::NoError);
 				dnsApServer->start(53, "*", WiFi.softAPIP());
 			} else {
-				wlog->notice(F("Start web server for configuration. IP %s"), this->getDeviceIpAsString().c_str());
+				wlog->notice(F("Start web server for configuration. IP %s"), this->getDeviceIp().toString().c_str());
 			}
 			webServer->onNotFound(std::bind(&WNetwork::handleUnknown, this));
 			if ((WiFi.status() != WL_CONNECTED) || (!this->isSupportingWebThing())) {
@@ -284,7 +284,7 @@ public:
 			if ((this->isSupportingWebThing()) && (this->isWifiConnected())) {
 				//Make the thing discoverable
 				//String mdnsName = getHostName() + ".local";
-				String mdnsName = this->getDeviceIpAsString();
+				String mdnsName = this->getDeviceIp().toString();
 				if (MDNS.begin(mdnsName)) {
 					MDNS.addService("http", "tcp", 80);
 					MDNS.addServiceTxt("http", "tcp", "url", "http://" + mdnsName + "/");
@@ -360,10 +360,6 @@ public:
 
 	IPAddress getDeviceIp() {
 		return (isSoftAP() ? WiFi.softAPIP() : WiFi.localIP());
-	}
-
-	String getDeviceIpAsString() {
-		return getDeviceIp().toString();
 	}
 
 	bool isSupportingWebThing() {
@@ -486,7 +482,7 @@ private:
 			json.beginObject();
 			if (device->isMainDevice()) {
 				json.propertyString("idx", getIdx());
-				json.propertyString("ip", getDeviceIpAsString().c_str());
+				json.propertyString("ip", getDeviceIp().toString().c_str());
 				json.propertyString("firmware", firmwareVersion.c_str());
 			}
 			device->toJsonValues(&json, MQTT);
@@ -586,8 +582,8 @@ private:
 						WStringStream* response = getResponseStream();
 						WJson json(response);
 						json.beginObject();
-						json.propertyString("url", "http://", getDeviceIpAsString().c_str(), "/things/", device->getId());
-						json.propertyString("ip", getDeviceIpAsString().c_str());
+						json.propertyString("url", "http://", getDeviceIp().toString().c_str(), "/things/", device->getId());
+						json.propertyString("ip", getDeviceIp().toString().c_str());
 						json.propertyString("topic", getMqttTopic(), "/things/", device->getId());
 						json.endObject();
 						mqttClient->publish(topic.c_str(), response->c_str());
@@ -654,7 +650,7 @@ private:
 				}
 				page->printAndReplace(FPSTR(HTTP_BUTTON), "firmware", "get", "Update firmware");
 				page->printAndReplace(FPSTR(HTTP_BUTTON), "info", "get", "Info");
-				page->printAndReplace(FPSTR(HTTP_BUTTON), "reset", "post", "Reset");
+				page->printAndReplace(FPSTR(HTTP_BUTTON), "reset", "post", "Reboot");
 				page->print(FPSTR(HTTP_BODY_END));
 				webServer->send(200, TEXT_HTML, page->c_str());
 				delete page;
@@ -772,7 +768,7 @@ private:
 			page->print(ESP.getFlashChipRealSize());
 			page->print("</td></tr>");
 			page->print("<tr><th>IP address:</th><td>");
-			page->print(this->getDeviceIpAsString());
+			page->print(this->getDeviceIp().toString());
 			page->print("</td></tr>");
 			page->print("<tr><th>MAC address:</th><td>");
 			page->print(WiFi.macAddress());
@@ -1017,7 +1013,7 @@ private:
 		json.beginObject();
 		if (device->isMainDevice()) {
 			json.propertyString("idx", getIdx());
-			json.propertyString("ip", getDeviceIpAsString().c_str());
+			json.propertyString("ip", getDeviceIp().toString().c_str());
 			json.propertyString("firmware", firmwareVersion.c_str());
 		}
 		device->toJsonValues(&json, WEBTHING);
