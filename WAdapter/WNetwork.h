@@ -29,6 +29,11 @@ const char* APPLICATION_JSON = "application/json";
 const char* TEXT_HTML = "text/html";
 const char* TEXT_PLAIN = "text/plain";
 
+const char* MQTT_CMND = "cmnd";
+const char* MQTT_STAT = "stat";
+const char* MQTT_TELE = "tele";
+
+
 WiFiEventHandler gotIpEventHandler, disconnectedEventHandler;
 WiFiClient wifiClient;
 WAdapterMqtt *mqttClient;
@@ -468,14 +473,14 @@ private:
 	int deepSleepSeconds;
 
 	void handleDeviceStateChange(WDevice *device) {
-		wlog->notice(F("Device state changed -> send device state..."));
-		String topic = String(getMqttTopic()) + "/things/" + String(device->getId()) + "/properties";
+		String topic = String(getMqttTopic()) + "/" + MQTT_STAT + "/things/" + String(device->getId()) + "/properties";
+		wlog->notice(F("Device state changed -> send device state... %s"), topic.c_str());
 		mqttSendDeviceState(topic, device);
 	}
 
 	void mqttSendDeviceState(String topic, WDevice *device) {
 		if ((this->isMqttConnected()) && (isSupportingMqtt()) && (device->isDeviceStateComplete())) {
-			wlog->notice(F("Send actual device state via MQTT"));
+			wlog->notice(F("Send actual device state via MQTT %s"), topic.c_str());
 
 			WStringStream* response = getResponseStream();
 			WJson json(response);
@@ -487,10 +492,9 @@ private:
 			}
 			device->toJsonValues(&json, MQTT);
 			json.endObject();
-
+			
 			if (mqttClient->publish(topic.c_str(), response->c_str())) {
-				device->lastStateWaitForResponse = true;
-				wlog->notice(F("MQTT sent -wait for response"));
+				wlog->notice(F("MQTT sent"));
 			}
 			device->lastStateNotify = millis();
 			if ((deepSleepSeconds > 0)	&& ((!this->isSupportingWebThing())	|| (device->areAllPropertiesRequested()))) {
@@ -501,24 +505,30 @@ private:
 
 	void mqttCallback(char *ptopic, char *payload, unsigned int length) {
 		wlog->notice(F("Received MQTT callback: %s/{%s}"), ptopic, payload);
-		String topic = String(ptopic).substring(strlen(getMqttTopic()) + 1);
-		wlog->notice(F("Topic short '%s'"), topic.c_str());
-		if (topic.startsWith("things/")) {
-			topic = topic.substring(String("things/").length());
-			int i = topic.indexOf("/");
-			if (i > -1) {
-				String deviceId = topic.substring(0, i);
-				wlog->notice(F("look for device id '%s'"), deviceId.c_str());
-				WDevice *device = this->getDeviceById(deviceId.c_str());
-				if (device != nullptr) {
-					topic = topic.substring(i + 1);
-					if (topic.startsWith("properties")) {
-						topic = topic.substring(String("properties").length() + 1);
-						if (topic.equals("")) {
-							if (!device->lastStateWaitForResponse) {
+		if (!String(ptopic).startsWith(getMqttTopic())){
+			wlog->notice("Ignoring");
+			return;
+		}
+		String fulltopic = String(ptopic).substring(strlen(getMqttTopic()) + 1);
+		String cmd = String(MQTT_CMND);
+		if (fulltopic.startsWith(cmd)) {			
+			String topic = String(fulltopic).substring(strlen(cmd.c_str()) + 1);
+			if (topic.startsWith("things/")) {
+				topic = topic.substring(String("things/").length());
+				int i = topic.indexOf("/");
+				if (i > -1) {
+					String deviceId = topic.substring(0, i);					
+					wlog->trace(F("look for device id '%s'"), deviceId.c_str());
+					WDevice *device = this->getDeviceById(deviceId.c_str());
+					if (device != nullptr) {
+						String stat_topic = getMqttTopic() + (String)"/" + String(MQTT_STAT) + (String)"/things/" + String(deviceId) + (String)"/properties";
+						topic = topic.substring(i + 1);	
+						if (topic.startsWith("properties")) {							
+							topic = topic.substring(String("properties").length() + 1);
+							if (topic.equals("")) {
 								if (length > 0) {
 									//Check, if it's only response to a state before
-									wlog->notice(F("Try to set several properties for device %s"), device->getId());
+									wlog->trace(F("Try to set several properties for device %s"), device->getId());
 									WJsonParser* parser = new WJsonParser();
 									if (parser->parse(payload, device) == nullptr) {
 										wlog->notice(F("No properties updated for device %s"), device->getId());
@@ -529,35 +539,34 @@ private:
 								} else {
 									wlog->notice(F("Empty payload for topic 'properties' -> send device state..."));
 									//Empty payload for topic 'properties' -> send device state
-									mqttSendDeviceState(String(ptopic), device);
+									mqttSendDeviceState(String(stat_topic), device);
 								}
-							} else {
-								device->lastStateWaitForResponse = false;
-								wlog->notice(F("No processing of mqtt message - just received response of last message..."));
-							}
 
-						} else {
-							//There are still some more topics after properties
-							//Try to find property with that topic and set single value
-							WProperty* property = device->getPropertyById(topic.c_str());
-							if ((property != nullptr) && (property->isVisible(MQTT))) {
-								//Set Property
-								wlog->notice(F("Try to set property %s for device %s"), property->getId(), device->getId());
-								if (!property->parse((char *) payload)) {
-									wlog->notice(F("Property not updated."));
-								} else {
-									wlog->notice(F("Property updated."));
+
+							} else {
+								//There are still some more topics after properties
+								//Try to find property with that topic and set single value
+								WProperty* property = device->getPropertyById(topic.c_str());
+								if ((property != nullptr) && (property->isVisible(MQTT))) {
+									//Set Property
+									wlog->notice(F("Try to set property %s for device %s"), property->getId(), device->getId());
+									if (!property->parse((char *) payload)) {
+										wlog->notice(F("Property not updated."));
+									} else {
+										wlog->notice(F("Property updated."));
+									}
 								}
-							}
+							}							
+							mqttSendDeviceState(String(stat_topic), device);
+						} else {
+							//unknown, ask the device
+							device->handleUnknownMqttCallback(stat_topic, topic, payload, length);
 						}
-					} else {
-						//unknown, ask the device
-						device->handleUnknownMqttCallback(ptopic, topic, payload, length);
 					}
 				}
+			} else if (topic.equals("webServer")) {
+				enableWebServer(String((char *) payload).equals("true"));
 			}
-		} else if (topic.equals("webServer")) {
-			enableWebServer(String((char *) payload).equals("true"));
 		}
 	}
 
@@ -805,7 +814,13 @@ private:
 	void printHttpCaption(WStringStream* page) {
 		page->print("<h2>");
 		page->print(applicationName);
-		page->print("</h2><h3>Revision ");
+		page->print("</h2>");
+		if (getIdx()){
+			page->print("<h3>");
+			page->print(getIdx());
+			page->print("</h3>");
+		}
+		page->print("<h3>Revision ");
 		page->print(firmwareVersion);
 		page->print(debug ? " (debug)" : "");
 		page->print("</h3>");

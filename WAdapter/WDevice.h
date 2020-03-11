@@ -35,7 +35,6 @@ public:
 		this->mainDevice = true;
 		this->lastStateNotify = 0;
 		this->stateNotifyInterval = 300000;
-		this->lastStateWaitForResponse = false;
 	}
 
 	~WDevice() {
@@ -211,7 +210,6 @@ public:
     WPin* firstPin = nullptr;
     WPin* lastPin = nullptr;
     unsigned long lastStateNotify;
-    bool lastStateWaitForResponse;
     int stateNotifyInterval;
 protected:
     WNetwork* network;
