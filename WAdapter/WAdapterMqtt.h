@@ -254,6 +254,10 @@ public:
 		return publish(topic, payload, strlen(payload), false);
 	}
 
+	bool publish(const char* topic, const char* payload, bool retained) {
+		return publish(topic, payload, strlen(payload), retained);
+	}
+
 	bool publish(const char* topic, const char* payload, unsigned int plength, bool retained) {
 		if (connected()) {
 			if (this->getMaxPacketSize() < MQTT_MAX_HEADER_SIZE + 2 + strlen(topic) + plength) {

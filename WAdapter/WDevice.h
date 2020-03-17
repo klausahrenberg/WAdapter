@@ -35,6 +35,7 @@ public:
 		this->mainDevice = true;
 		this->lastStateNotify = 0;
 		this->stateNotifyInterval = 300000;
+		this->mqttRetain = false;
 	}
 
 	~WDevice() {
@@ -211,6 +212,7 @@ public:
     WPin* lastPin = nullptr;
     unsigned long lastStateNotify;
     int stateNotifyInterval;
+    bool mqttRetain;
 protected:
     WNetwork* network;
     WLed* statusLed = nullptr;

@@ -493,7 +493,7 @@ private:
 			device->toJsonValues(&json, MQTT);
 			json.endObject();
 			
-			if (mqttClient->publish(topic.c_str(), response->c_str())) {
+			if (mqttClient->publish(topic.c_str(), response->c_str(), device->mqttRetain)) {
 				wlog->notice(F("MQTT sent"));
 			}
 			device->lastStateNotify = millis();
