@@ -521,7 +521,7 @@ private:
 					wlog->trace(F("look for device id '%s'"), deviceId.c_str());
 					WDevice *device = this->getDeviceById(deviceId.c_str());
 					if (device != nullptr) {
-						String stat_topic = getMqttTopic() + (String)"/" + String(MQTT_STAT) + (String)"/things/" + String(deviceId) + (String)"/properties";
+						String stat_topic = getMqttTopic() + (String)"/" + String(MQTT_STAT) + (String)"/things/" + String(deviceId) + (String)"/";
 						topic = topic.substring(i + 1);	
 						if (topic.startsWith("properties")) {							
 							topic = topic.substring(String("properties").length() + 1);
@@ -538,8 +538,7 @@ private:
 
 								} else {
 									wlog->notice(F("Empty payload for topic 'properties' -> send device state..."));
-									//Empty payload for topic 'properties' -> send device state
-									mqttSendDeviceState(String(stat_topic), device);
+									//Empty payload for topic 'properties' ->  just send state (below)
 								}
 
 
@@ -557,7 +556,7 @@ private:
 									}
 								}
 							}							
-							mqttSendDeviceState(String(stat_topic), device);
+							mqttSendDeviceState(String(stat_topic)+"properties", device);
 						} else {
 							//unknown, ask the device
 							device->handleUnknownMqttCallback(stat_topic, topic, payload, length);
