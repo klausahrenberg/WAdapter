@@ -33,7 +33,6 @@ const char* MQTT_CMND = "cmnd";
 const char* MQTT_STAT = "stat";
 const char* MQTT_TELE = "tele";
 
-
 WiFiEventHandler gotIpEventHandler, disconnectedEventHandler;
 WiFiClient wifiClient;
 WAdapterMqtt *mqttClient;
@@ -52,11 +51,13 @@ public:
 		this->webServer = nullptr;
 		this->dnsApServer = nullptr;
 		this->debug = debug;
-		wlog = new WLog((this->debug ? LOG_LEVEL_VERBOSE : LOG_LEVEL_SILENT), &Serial);
+		wlog = new WLog((this->debug ? LOG_LEVEL_TRACE : LOG_LEVEL_SILENT), LOG_LEVEL_SILENT, &Serial);
+		
 		this->updateRunning = false;
 		this->restartFlag = "";
 		this->deepSleepFlag = nullptr;
 		this->deepSleepSeconds = 0;
+		this->networkLogActive = false;
 		//this->webSocket = nullptr;
 		settings = new WSettings(wlog);
 		settingsFound = loadSettings();
@@ -91,6 +92,7 @@ public:
 			statusLed = nullptr;
 		}
 		wlog->notice(F("firmware: %s"), firmwareVersion.c_str());
+
 	}
 
 	//returns true, if no configuration mode and no own ap is opened
@@ -165,6 +167,7 @@ public:
 		}
 		//Restart required?
 		if (!restartFlag.equals("")) {
+			wlog->notice(F("Restart flag: '%s'"), restartFlag.c_str());
 			this->updateRunning = false;
 			stopWebServer();
 			delay(1000);
@@ -201,37 +204,44 @@ public:
 		this->onConfigurationFinished = onConfigurationFinished;
 	}
 
-	bool publishMqtt(const char* topic, WStringStream* response) {
-		wlog->notice(F("MQTT... '%s'"), topic);
-		wlog->notice(F("MQTT  .. '%s'"), response->c_str());
+	bool publishMqtt(const char* topic, const char * message, bool retained=false) {
+		wlog->verbose(F("MQTT... '%s'"), topic);
+		wlog->verbose(F("MQTT  .. '%s'"), message);
 		if (isMqttConnected()) {
-			wlog->notice(F("MQTT connected... "));
-			if (mqttClient->publish(topic, response->c_str())) {
-				wlog->notice(F("MQTT sent. Topic: '%s'"), topic);
+			wlog->verbose(F("MQTT connected... "));
+			if (mqttClient->publish(topic, message, retained)) {
+				wlog->verbose(F("MQTT sent. Topic: '%s'"), topic);
 				return true;
 			} else {
-				wlog->notice(F("Sending MQTT message failed, rc=%d"), mqttClient->state());
+				wlog->verbose(F("Sending MQTT message failed, rc=%d"), mqttClient->state());
 				this->disconnectMqtt();
 				return false;
 			}
 		} else {
 			wlog->notice(F("MQTT not connected... "));
 			if (strcmp(getMqttServer(), "") != 0) {
-				wlog->notice(F("Can't send MQTT. Not connected to server: %s"), getMqttServer());
+				wlog->verbose(F("Can't send MQTT. Not connected to server: %s"), getMqttServer());
 			}
 			return false;
 		}
-		wlog->notice(F("publish MQTT mystery... "));
+		wlog->warning(F("publish MQTT mystery... "));
 	}
 
-	bool publishMqtt(const char* topic, const char* key, const char* value) {
+	bool publishMqtt(const char* topic, WStringStream* response, bool retained=false) {
+		return publishMqtt(topic, response->c_str(), retained);
+	}
+
+	bool publishMqtt(const char* topic, const char* key, const char* value, const char* key2=nullptr, const char* value2=nullptr, bool retained=false) {
 		if (this->isSupportingMqtt()) {
 			WStringStream* response = getResponseStream();
 			WJson json(response);
 			json.beginObject();
 			json.propertyString(key, value);
+			if (key2!=nullptr && value2!=nullptr){
+				json.propertyString(key2, value2);
+			}
 			json.endObject();
-			return publishMqtt(topic, response);
+			return publishMqtt(topic, response, retained);
 		} else {
 			return false;
 		}
@@ -240,6 +250,16 @@ public:
 	// Creates a web server. If Wifi is not connected, then an own AP will be created
 	void startWebServer() {
 		if (!isWebServerRunning()) {
+			wlog->setOnLogCommand([this](int level, const char * message) {
+				if (this->networkLogActive) return;
+				this->networkLogActive=true; /* avoid endless loop */
+				WDevice *device = this->firstDevice;
+				while (device != nullptr) {
+					device->sendLog(level, message);
+					device = device->next;
+				}
+				this->networkLogActive=false;
+			});
 			String apSsid = getClientName(false);
 			webServer = new ESP8266WebServer(80);
 			if (WiFi.status() != WL_CONNECTED) {
@@ -253,19 +273,28 @@ public:
 				wlog->notice(F("Start web server for configuration. IP %s"), this->getDeviceIp().toString().c_str());
 			}
 			webServer->onNotFound(std::bind(&WNetwork::handleUnknown, this));
-			if ((WiFi.status() != WL_CONNECTED) || (!this->isSupportingWebThing())) {
-				webServer->on("/", HTTP_GET, std::bind(&WNetwork::handleHttpRootRequest, this));
-			}
+			//if ((WiFi.status() != WL_CONNECTED) || (!this->isSupportingWebThing())) {
+			webServer->on("/", HTTP_GET, std::bind(&WNetwork::handleHttpRootRequest, this));
 			webServer->on("/config", HTTP_GET, std::bind(&WNetwork::handleHttpRootRequest, this));
 			WDevice *device = this->firstDevice;
 			while (device != nullptr) {
+				String did("/");
+				did.concat(device->getId());
+				String deviceConfiguration("/saveConfiguration");
+				deviceConfiguration.concat(device->getId());
 				if (device->isProvidingConfigPage()) {
-					String did("/");
-					did.concat(device->getId());
 					webServer->on(did, HTTP_GET, std::bind(&WNetwork::handleHttpDeviceConfiguration, this, device));
-					String deviceConfiguration("/saveConfiguration");
-					deviceConfiguration.concat(device->getId());
 					webServer->on(deviceConfiguration.c_str(), HTTP_GET, std::bind(&WNetwork::handleHttpSaveDeviceConfiguration, this, device));
+				}
+				WPage *subpage = device->firstPage;
+				while (subpage != nullptr) {
+					did.concat("_");
+					did.concat(subpage->getId());
+					deviceConfiguration.concat("_");
+					deviceConfiguration.concat(subpage->getId());
+					webServer->on(did, HTTP_GET, std::bind(&WNetwork::handleHttpDevicePage, this, device, subpage));
+					webServer->on(deviceConfiguration.c_str(), HTTP_GET, std::bind(&WNetwork::handleHttpDevicePageSubmitted, this, device, subpage));
+					subpage = subpage->next;
 				}
 				device = device->next;
 			}
@@ -292,11 +321,12 @@ public:
 				String mdnsName = this->getDeviceIp().toString();
 				if (MDNS.begin(mdnsName)) {
 					MDNS.addService("http", "tcp", 80);
-					MDNS.addServiceTxt("http", "tcp", "url", "http://" + mdnsName + "/");
+					MDNS.addServiceTxt("http", "tcp", "url", "http://" + mdnsName + "/things");
 					MDNS.addServiceTxt("http", "tcp", "webthing", "true");
 					wlog->notice(F("MDNS responder started at %s"), mdnsName.c_str());
 				}
-				webServer->on("/", HTTP_GET, std::bind(&WNetwork::sendDevicesStructure, this));
+				webServer->on("/things", HTTP_GET, std::bind(&WNetwork::sendDevicesStructure, this));
+				webServer->on("/things/", HTTP_GET, std::bind(&WNetwork::sendDevicesStructure, this));
 				WDevice *device = this->firstDevice;
 				while (device != nullptr) {
 					bindWebServerCalls(device);
@@ -446,9 +476,9 @@ public:
 	}
 
 private:
-	WLog* wlog;
 	WDevice *firstDevice = nullptr;
 	WDevice *lastDevice = nullptr;
+	WLog* wlog;
 	THandlerFunction onNotify;
 	THandlerFunction onConfigurationFinished;
 	bool debug, updateRunning, startWebServerAutomaticly;
@@ -471,6 +501,7 @@ private:
 	bool settingsFound;
 	WDevice *deepSleepFlag;
 	int deepSleepSeconds;
+	bool networkLogActive;
 
 	void handleDeviceStateChange(WDevice *device) {
 		String topic = String(getMqttTopic()) + "/" + MQTT_STAT + "/things/" + String(device->getId()) + "/properties";
@@ -478,38 +509,43 @@ private:
 		mqttSendDeviceState(topic, device);
 	}
 
-	void mqttSendDeviceState(String topic, WDevice *device) {
-		if ((this->isMqttConnected()) && (isSupportingMqtt()) && (device->isDeviceStateComplete())) {
-			wlog->notice(F("Send actual device state via MQTT %s"), topic.c_str());
-
-			WStringStream* response = getResponseStream();
-			WJson json(response);
-			json.beginObject();
-			if (device->isMainDevice()) {
-				json.propertyString("idx", getIdx());
-				json.propertyString("ip", getDeviceIp().toString().c_str());
-				json.propertyString("firmware", firmwareVersion.c_str());
-			}
-			device->toJsonValues(&json, MQTT);
-			json.endObject();
-			
-			if (mqttClient->publish(topic.c_str(), response->c_str(), device->mqttRetain)) {
-				wlog->notice(F("MQTT sent"));
-			}
-			device->lastStateNotify = millis();
-			if ((deepSleepSeconds > 0)	&& ((!this->isSupportingWebThing())	|| (device->areAllPropertiesRequested()))) {
-				deepSleepFlag = device;
+	void mqttSendDeviceState(String topic, WDevice *device) {		
+		if ((this->isMqttConnected()) && (isSupportingMqtt())){
+			if (device->isDeviceStateComplete()) {
+				wlog->notice(F("Send actual device state via MQTT %s"), topic.c_str());
+				WStringStream* response = getResponseStream();
+				WJson json(response);
+				json.beginObject();
+				if (device->isMainDevice()) {
+					json.propertyString("idx", getIdx());
+					json.propertyString("ip", getDeviceIp().toString().c_str());
+					json.propertyString("firmware", firmwareVersion.c_str());
+				}
+				device->toJsonValues(&json, MQTT);
+				json.endObject();
+								
+				if (mqttClient->publish(topic.c_str(), response->c_str(), device->mqttRetain)) {
+					wlog->verbose(F("MQTT sent"));
+				}
+				device->lastStateNotify = millis();
+				if ((deepSleepSeconds > 0)	&& ((!this->isSupportingWebThing())	|| (device->areAllPropertiesRequested()))) {
+					deepSleepFlag = device;
+				}
+			} else {
+				wlog->warning(F("Not sending state via MQTT %s, deviceStateComplete=false"), topic.c_str());
 			}
 		}
 	}
 
 	void mqttCallback(char *ptopic, char *payload, unsigned int length) {
-		wlog->notice(F("Received MQTT callback: %s/{%s}"), ptopic, payload);
-		if (!String(ptopic).startsWith(getMqttTopic())){
-			wlog->notice("Ignoring");
+		String ptopicS=String(ptopic);
+		String payloadS=String(payload);
+		wlog->trace(F("Received MQTT callback: '%s'->'%s'"), ptopic, payload, strlen(ptopic), ptopicS.length());
+		if (!ptopicS.startsWith(getMqttTopic())){
+			wlog->notice(F("Ignoring, starts not with our topic '%s'"), getMqttTopic());
 			return;
 		}
-		String fulltopic = String(ptopic).substring(strlen(getMqttTopic()) + 1);
+		String fulltopic = ptopicS.substring(strlen(getMqttTopic()) + 1);
 		String cmd = String(MQTT_CMND);
 		if (fulltopic.startsWith(cmd)) {			
 			String topic = String(fulltopic).substring(strlen(cmd.c_str()) + 1);
@@ -528,12 +564,12 @@ private:
 							if (topic.equals("")) {
 								if (length > 0) {
 									//Check, if it's only response to a state before
-									wlog->trace(F("Try to set several properties for device %s"), device->getId());
+									wlog->notice(F("Set several properties for device %s"), device->getId());
 									WJsonParser* parser = new WJsonParser();
 									if (parser->parse(payload, device) == nullptr) {
-										wlog->notice(F("No properties updated for device %s"), device->getId());
+										wlog->warning(F("No properties updated for device %s"), device->getId());
 									} else {
-										wlog->notice(F("One or more properties updated for device %s"), device->getId());
+										wlog->trace(F("One or more properties updated for device %s"), device->getId());
 									}
 
 								} else {
@@ -548,18 +584,21 @@ private:
 								WProperty* property = device->getPropertyById(topic.c_str());
 								if ((property != nullptr) && (property->isVisible(MQTT))) {
 									//Set Property
-									wlog->notice(F("Try to set property %s for device %s"), property->getId(), device->getId());
-									if (!property->parse((char *) payload)) {
-										wlog->notice(F("Property not updated."));
+									wlog->notice(F("Set property '%s' for device %s"), property->getId(), device->getId(), payloadS.c_str());
+									if (!property->parse(payloadS)) {
+										wlog->warning(F("Property not updated."));
 									} else {
-										wlog->notice(F("Property updated."));
+										wlog->trace(F("Property updated."));
 									}
 								}
-							}							
-							mqttSendDeviceState(String(stat_topic)+"properties", device);
+								// answer just with changed value
+								//publishMqtt((stat_topic+topic).c_str(), property->c_str(), false);
+							}			
+							wlog->notice(F("Sending device State to %sproperties for device %s"), stat_topic.c_str(), device->getName());				
+							mqttSendDeviceState(stat_topic+"properties", device);
 						} else {
 							//unknown, ask the device
-							device->handleUnknownMqttCallback(stat_topic, topic, payload, length);
+							device->handleUnknownMqttCallback(stat_topic, topic, payloadS, length);
 						}
 					}
 				}
@@ -592,7 +631,7 @@ private:
 						json.beginObject();
 						json.propertyString("url", "http://", getDeviceIp().toString().c_str(), "/things/", device->getId());
 						json.propertyString("ip", getDeviceIp().toString().c_str());
-						json.propertyString("topic", getMqttTopic(), "/things/", device->getId());
+						json.propertyString("topic", ((String)getMqttTopic()+"/"+MQTT_STAT+"/things/"+device->getId()).c_str());
 						json.endObject();
 						mqttClient->publish(topic.c_str(), response->c_str());
 						device = device->next;
@@ -600,7 +639,9 @@ private:
 					mqttClient->unsubscribe("devices/#");
 				}
 				//Subscribe to device specific topic
-				mqttClient->subscribe(String(String(getMqttTopic()) + "/#").c_str());
+				String subscribeTopic=String(String(getMqttTopic()) + "/" + String(MQTT_CMND) + "/#");
+				wlog->notice(F("Subscribing to Topic %s"),subscribeTopic.c_str());
+				mqttClient->subscribe(subscribeTopic.c_str());
 				notify(false);
 				return true;
 			} else {
@@ -654,6 +695,12 @@ private:
 						page->printAndReplace(FPSTR(HTTP_BUTTON), device->getId(), "get", s.c_str());
 						//page->printAndReplace(FPSTR(HTTP_BUTTON_DEVICE), device->getId(), device->getName());
 					}
+					WPage *subpage = device->firstPage;
+					while (subpage != nullptr) {
+						String url =(String)device->getId()+"_"+(String)subpage->getId();
+						page->printAndReplace(FPSTR(HTTP_BUTTON), url.c_str() , "get", subpage->getTitle());
+						subpage = subpage->next;
+					}
 					device = device->next;
 				}
 				page->printAndReplace(FPSTR(HTTP_BUTTON), "firmware", "get", "Update firmware");
@@ -682,7 +729,7 @@ private:
 	void handleHttpDeviceConfiguration(WDevice *&device) {
 		if (isWebServerRunning()) {
 			wlog->notice(F("Device config page"));
-			WStringStream* page = new WStringStream(3072);
+			WStringStream* page = new WStringStream(8*1024);
 			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Device Configuration");
 			page->print(FPSTR(HTTP_SCRIPT));
 			page->print(FPSTR(HTTP_STYLE));
@@ -694,6 +741,42 @@ private:
 			delete page;
 		}
 
+	}
+	void handleHttpDevicePage(WDevice *&device, WPage *&subpage) {
+		if (isWebServerRunning()) {
+			wlog->notice(F("Device subpage"));
+			WStringStream* page = new WStringStream(8*1024);
+			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), subpage->getTitle());
+			page->print(FPSTR(HTTP_SCRIPT));
+			page->print(FPSTR(HTTP_STYLE));
+			page->print(FPSTR(HTTP_HEAD_END));
+			printHttpCaption(page);
+			subpage->printPage(webServer, page);
+			page->print(FPSTR(HTTP_BODY_END));
+			webServer->send(200, TEXT_HTML, page->c_str());
+			delete page;
+		}
+	}
+
+	void handleHttpDevicePageSubmitted(WDevice *&device, WPage *&subpage) {
+		if (isWebServerRunning()) {
+			wlog->notice(F("handleHttpDevicePageSubmitted "), device->getId());
+			webServer->client().setNoDelay(true);
+			WStringStream* page = new WStringStream(2048);
+			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), subpage->getTitle());
+			page->print(FPSTR(HTTP_SCRIPT));
+			page->print(FPSTR(HTTP_STYLE));
+			page->print(FPSTR(HTTP_HEAD_END));
+			printHttpCaption(page);
+			subpage->submittedPage(webServer, page);
+
+			page->print(FPSTR(HTTP_HOME_BUTTON));
+			page->print(FPSTR(HTTP_BODY_END));
+			webServer->send(200, TEXT_HTML, page->c_str());
+			settings->save();
+			delete page;
+			wlog->notice(F("handleHttpDevicePageSubmitted Done"));
+		}
 	}
 
 	void handleHttpNetworkConfiguration() {
@@ -707,7 +790,7 @@ private:
 			printHttpCaption(page);
 			page->printAndReplace(FPSTR(HTTP_CONFIG_PAGE_BEGIN), "");
 			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_STYLE), (this->isSupportingMqtt() ? "block" : "none"));
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Idx:", "i", "32", getIdx());
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Hostname/Idx:", "i", "32", getIdx());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Wifi ssid (only 2.4G):", "s", "32", getSsid());
 			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "Wifi password:", "p", "64", getPassword());
 			//mqtt
@@ -749,8 +832,14 @@ private:
 			wlog->notice(F("handleHttpSaveDeviceConfiguration "), device->getId());
 			device->saveConfigPage(webServer);
 			settings->save();
-			delay(300);
-			this->restart("Device settings saved.");
+			if (device->isConfigNeedsReboot()){
+				wlog->notice(F("Reboot "));
+				delay(300);
+				this->restart("Device settings saved.");
+			} else {
+				this->webReturnStatusPage("Device settings saved.", "");
+			}
+			wlog->notice(F("handleHttpSaveDeviceConfiguration Done"));
 		}
 	}
 
@@ -813,16 +902,16 @@ private:
 	void printHttpCaption(WStringStream* page) {
 		page->print("<h2>");
 		page->print(applicationName);
+		page->print(" ");
+		page->print(firmwareVersion);
+		page->print(debug ? " (debug)" : "");
 		page->print("</h2>");
 		if (getIdx()){
 			page->print("<h3>");
 			page->print(getIdx());
 			page->print("</h3>");
 		}
-		page->print("<h3>Revision ");
-		page->print(firmwareVersion);
-		page->print(debug ? " (debug)" : "");
-		page->print("</h3>");
+
 	}
 
 	String getClientName(bool lowerCase) {
@@ -887,7 +976,7 @@ private:
 
 			if (upload.status == UPLOAD_FILE_START){
 				firmwareUpdateError = "";
-				uint32_t free_space = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+				unsigned long free_space = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
 				wlog->notice(F("Update starting: %s"), upload.filename.c_str());
 				//Update.runAsync(true);
 				if (!Update.begin(free_space)) {
@@ -946,18 +1035,24 @@ private:
 		wlog->notice(s.c_str());
 	}
 
-	void restart(const char* reasonMessage) {
-		this->restartFlag = reasonMessage;
+	void webReturnStatusPage(const char* reasonMessage1, const char* reasonMessage2) {
 		webServer->client().setNoDelay(true);
 		WStringStream* page = new WStringStream(2048);
-		page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), reasonMessage);
+		page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), reasonMessage1);
 		page->print(FPSTR(HTTP_SCRIPT));
 		page->print(FPSTR(HTTP_STYLE));
 		page->print(FPSTR(HTTP_HEAD_END));
 		printHttpCaption(page);
-		page->printAndReplace(FPSTR(HTTP_SAVED), reasonMessage);
+		page->printAndReplace(FPSTR(HTTP_SAVED), reasonMessage1, reasonMessage2);
+		page->print(FPSTR(HTTP_HOME_BUTTON));
 		page->print(FPSTR(HTTP_BODY_END));
 		webServer->send(200, TEXT_HTML, page->c_str());
+		delete page;
+	}
+	
+	void restart(const char* reasonMessage) {
+		this->restartFlag = reasonMessage;
+		webReturnStatusPage(reasonMessage, "ESP reboots now...");
 	}
 
 	bool loadSettings() {
@@ -985,8 +1080,11 @@ private:
 			} else {
 				wlog->notice(F("Settings are not complete:"));
 			}
-			wlog->notice(F("SSID: '%s'; MQTT enabled: %T; MQTT server: '%s'; MQTT port: %s; WebThings enabled: %T"),
+			wlog->notice(F("SSID: '%s'; MQTT enabled: %d; MQTT server: '%s'; MQTT port: %s; WebThings enabled: %d"),
 								  getSsid(), isSupportingMqtt(), getMqttServer(), getMqttPort(), isSupportingWebThing());
+
+			//wlog->notice(F("PSK: '%s'"), getPassword());
+
 		}
 		EEPROM.end();
 		return settingsStored;
@@ -1120,7 +1218,6 @@ private:
 		}
 		return nullptr;
 	}
-
 };
 
 #endif

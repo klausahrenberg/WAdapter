@@ -79,72 +79,34 @@ public:
     	return this->string[index];
     }
 
-    /*void printTest(const __FlashStringHelper *format, va_list args) {
-    	PGM_P p = reinterpret_cast<PGM_P>(format);
-    	char c = pgm_read_byte(p++);
-    	for(;c != 0; c = pgm_read_byte(p++)) {
-    		if (c == '%') {
-    			c = pgm_read_byte(p++);
-    			printFormat(c, &args);
-    		} else {
-    			print(c);
-    		}
-    	}
-    }
-
-    void printTest(const char *format, va_list args) {
-   		for (; *format != 0; ++format) {
-   			if (*format == '%') {
-   				++format;
-   				printFormat(*format, &args);
-   			} else {
-   				print(*format);
-   			}
-   		}
-   	}
-
-
-	void printFormat(const char format, va_list *args) {
-		if (format == '%') {
-			print(format);
-		} else if (format == 's') {
-			register char *s = (char *)va_arg(*args, int);
-			print(s);
-		} else if (format == 'S') {
-			register __FlashStringHelper *s = (__FlashStringHelper *)va_arg(*args, int);
-			print(s);
-		} else if (format == 'd' || format == 'i') {
-			print(va_arg(*args, int), DEC);
-		} else if (format == 'D' || format == 'F') {
-			print(va_arg(*args, double));
-		} else if (format == 'x') {
-			print(va_arg(*args, int), HEX);
-		} else if (format == 'X') {
-			print("0x");
-			print(va_arg(*args, int), HEX);
-		} else if (format == 'b') {
-			print(va_arg(*args, int), BIN);
-		} else if (format == 'B') {
-			print("0b");
-			print(va_arg(*args, int), BIN);
-		} else if (format == 'l') {
-			print(va_arg(*args, long), DEC);
-		} else if (format == 'c') {
-			print((char) va_arg(*args, int));
-		} else if (format == 't') {
-			if (va_arg(*args, int) == 1) {
-				print("T");
-			} else {
-				print("F");
-			}
-		} else if (format == 'T') {
-			if (va_arg(*args, int) == 1) {
-				print(F("true"));
-			} else {
-				print(F("false"));
-			}
+	void vsprintFormat(const char *format, va_list args) {
+		char logbuf[1024];
+		size_t size = sizeof logbuf;
+		vsnprintf_P(logbuf, size-1, format, args);
+		for (char *c=logbuf; *c; c++){
+			write(*c);
 		}
-	}*/
+		
+	}
+	void printFormat(const char *format, ...) {
+		va_list args;
+		va_start(args, format);
+		vsprintFormat(format, args);
+	}
+	void printFormat(const __FlashStringHelper *format, ...) {
+		char buf[1024];
+		size_t size = sizeof buf;
+		PGM_P p = reinterpret_cast<PGM_P>(format);
+		char c;
+		int pos=0;
+		for (; pos < size-1 && (c = pgm_read_byte(p++)) != 0; pos++) {
+				buf[pos]=c;	
+		}
+		buf[pos]=0;	
+		va_list args;
+		va_start(args, format);
+		vsprintFormat(buf, args);
+	}
 
     size_t printAndReplace(const __FlashStringHelper *toPrint, const char* wc1) {
     	return printAndReplace(toPrint, wc1, nullptr, nullptr, nullptr);

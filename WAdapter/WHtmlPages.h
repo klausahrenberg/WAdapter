@@ -56,6 +56,15 @@ button{
 	font-size:1.2rem;
 	width:100%;
 }
+.settingstable th {
+	font-weight: bold;
+}
+.settingstable th, .settingstable td {
+	border: 1px solid black;
+}
+.settingstable input[type='text']{
+	width: 40px;
+}
 </style>
 )=====";
 
@@ -134,8 +143,11 @@ const static char HTTP_SAVED[]              PROGMEM = R"=====(
 	%s
 </div>
 <div>
-	ESP reboots now...
+	%s
 </div>
+)=====";
+
+const static char HTTP_HOME_BUTTON[]              PROGMEM = R"=====(
 <div>
 	<form action='/config' method='get'>
 		<button>Back to configuration</button>
@@ -161,14 +173,14 @@ const static char HTTP_CONFIG_PAGE_BEGIN[]         PROGMEM = R"=====(
 const static char HTTP_TEXT_FIELD[]    PROGMEM = R"=====(
 	<div>
 		%s<br>
-		<input type='text' name='%s' length=%s value='%s'>
+		<input type='text' name='%s' maxlength=%s value='%s'>
 	</div>
 )=====";
 
 const static char HTTP_PASSWORD_FIELD[]    PROGMEM = R"=====(
 	<div>
 		%s<br>
-		<input type='password' name='%s' length=%s value='%s'>
+		<input type='password' name='%s' maxlength=%s value='%s'>
 	</div>
 )=====";
 

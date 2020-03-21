@@ -87,6 +87,11 @@ public:
 		if (!exists(property)) {
 			WSettingItem* settingItem = addSetting(property);
 			if (existsSettings()) {
+				if (settingItem->address + property->getLength() > EEPROM_SIZE){
+					log->error(F("Cannot add EPROM property. Size too small, Adrress=%d, Id='%s', size=%d, MEM: %d"),
+					settingItem->address, property->getId(), property->getLength(), EEPROM_SIZE);
+					return;
+				}
 				EEPROM.begin(EEPROM_SIZE);
 				switch (property->getType()) {
 				case BOOLEAN:
@@ -228,9 +233,14 @@ protected:
 
 	void save(WSettingItem* settingItem) {
 		WProperty* setting = settingItem->value;
+		if (settingItem->address + setting->getLength() > EEPROM_SIZE){
+			log->error(F("Cannot save to EPROM. Size too small, Adrress=%d, Id='%s', size=%d, MEM: %d"),
+				settingItem->address, setting->getId(), setting->getLength(), EEPROM_SIZE);
+			return;
+		}
 		switch (setting->getType()){
 		case BOOLEAN:
-			//log->notice(F("Save boolean to EEPROM: id='%s'; value=%T"), setting->getId(), setting->getBoolean());
+			//log->notice(F("Save boolean to EEPROM: id='%s'; value=%d"), setting->getId(), setting->getBoolean());
 			EEPROM.write(settingItem->address, (setting->getBoolean() ? 0xFF : 0x00));
 			break;
 		case BYTE:

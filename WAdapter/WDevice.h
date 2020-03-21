@@ -13,25 +13,31 @@
 #include "WTargetTemperatureProperty.h"
 #include "WColorProperty.h"
 #include "WLed.h"
+#include "WPage.h"
 
 const char* DEVICE_TYPE_ON_OFF_SWITCH = "OnOffSwitch";
 const char* DEVICE_TYPE_LIGHT = "Light";
 const char* DEVICE_TYPE_TEMPERATURE_SENSOR = "TemperatureSensor";
 const char* DEVICE_TYPE_THERMOSTAT = "Thermostat";
+const char* DEVICE_TYPE_LOG = "Log";
 const char* DEVICE_TYPE_TEXT_DISPLAY = "TextDisplay";
 
 class WNetwork;
 
 class WDevice {
 public:
-	WDevice(WNetwork* network, const char* id, const char* name, const char* type) {
+	WDevice(WNetwork* network, const char* id, const char* name, const char* rootname, const char* type) {
 		this->network = network;
 		this->id = id;
 		this->name = name;
+		size_t size=strlen(rootname)+strlen(name) +1+1;
+		this->fullname=(char*)malloc(size);
+		snprintf_P(this->fullname, size, "%s_%s", rootname, name);
 		this->type = type;
 		this->visibility = ALL;
 		//this->webSocket = nullptr;
 		this->providingConfigPage = true;
+		this->configNeedsReboot = true;
 		this->mainDevice = true;
 		this->lastStateNotify = 0;
 		this->stateNotifyInterval = 300000;
@@ -50,6 +56,11 @@ public:
 		return name;
 	}
 
+
+	const char* getFullName() {
+		return fullname;
+	}
+
 	const char* getType() {
 		return type;
 	}
@@ -62,6 +73,16 @@ public:
 		} else {
 			lastProperty->next = property;
 			lastProperty = property;
+		}
+	}
+
+	void addPage(WPage *Page) {
+		if (lastPage == nullptr) {
+			firstPage = Page;
+			lastPage = Page;
+		} else {
+			lastPage->next = Page;
+			lastPage = Page;
 		}
 	}
 
@@ -98,12 +119,13 @@ public:
 
 	virtual void toJsonStructure(WJson* json, const char* deviceHRef, WPropertyVisibility visibility) {
 		json->beginObject();
-		json->propertyString("name", this->getName());
+		json->propertyString("name", this->getFullName());
 		String result(deviceHRef);
 		result.concat("/things/");
 		result.concat(this->getId());
 		json->propertyString("href", result.c_str());
 		json->propertyString("@context", "https://iot.mozilla.org/schemas");
+		json->propertyString("title",  this->getFullName());
 		//type
 		json->beginArray("@type");
 		json->string(getType());
@@ -138,8 +160,12 @@ public:
     virtual bool isProvidingConfigPage() {
     	return providingConfigPage;
     }
+    virtual bool isConfigNeedsReboot() {
+    	return configNeedsReboot;
+    }
 
     virtual void printConfigPage(WStringStream* page) {
+
     }
 
     virtual void saveConfigPage(ESP8266WebServer* webServer) {
@@ -147,9 +173,10 @@ public:
     }
 
     virtual void bindWebServerCalls(ESP8266WebServer* webServer) {
+
     }
 
-    virtual void handleUnknownMqttCallback(String completeTopic, String partialTopic, char *payload, unsigned int length) {
+    virtual void handleUnknownMqttCallback(String completeTopic, String partialTopic, String payload, unsigned int length) {
 
     }
 
@@ -180,6 +207,10 @@ public:
     	return true;
     }
 
+	
+	virtual void sendLog(int level, const char * message) {
+	}
+
     /*WebSocketsServer* getWebSocket() {
     	return webSocket;
     }
@@ -206,8 +237,10 @@ public:
 
     WDevice* next = nullptr;
     //WebSocketsServer* webSocket;
-    WProperty* firstProperty = nullptr;
-    WProperty* lastProperty = nullptr;
+	WProperty* firstProperty = nullptr;
+	WProperty* lastProperty = nullptr;
+	WPage* firstPage= nullptr;
+	WPage* lastPage= nullptr;
     WPin* firstPin = nullptr;
     WPin* lastPin = nullptr;
     unsigned long lastStateNotify;
@@ -217,12 +250,14 @@ protected:
     WNetwork* network;
     WLed* statusLed = nullptr;
     bool providingConfigPage;
+	bool configNeedsReboot;
     bool mainDevice;
     WPropertyVisibility visibility;
 
 private:
 	const char* id;
 	const char* name;
+	char* fullname;
 	const char* type;
 
 	void onPropertyChange() {

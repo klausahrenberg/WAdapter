@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include <stdarg.h>
 #include "Arduino.h"
+#include <pgmspace.h>
 
 typedef void (*printfunction)(Print*);
 
@@ -56,18 +57,22 @@ typedef void (*printfunction)(Print*);
 
 class WLog {
 public:
-	WLog(int level, Print *output, bool showLevel = true) {
-		setLevel(level);
-		setShowLevel(showLevel);
+	WLog(int levelConsole, int levelNetwork, Print *output, bool showLevelConsole = true) {
+		setLevelConsole(levelConsole);
+		setShowLevelConsole(showLevelConsole);
+		setLevelNetwork(levelNetwork);
 		_logOutput = output;
 	}
 
-	void setLevel(int level) {
-		_level = constrain(level, LOG_LEVEL_SILENT, LOG_LEVEL_VERBOSE);
+	void setLevelConsole(int level) {
+		_levelConsole = constrain(level, LOG_LEVEL_SILENT, LOG_LEVEL_VERBOSE);
+	}
+	void setLevelNetwork(int level) {
+		_levelNetwork = constrain(level, LOG_LEVEL_SILENT, LOG_LEVEL_VERBOSE);
 	}
 
-	void setShowLevel(bool showLevel) {
-		_showLevel = showLevel;
+	void setShowLevelConsole(bool showLevelConsole) {
+		_showLevelConsole = showLevelConsole;
 	}
 
 	void setPrefix(printfunction f) {
@@ -102,77 +107,14 @@ public:
 		printLevel(LOG_LEVEL_VERBOSE, msg, args...);
 	}
 
-private:
-	void print(const char *format, va_list args) {
-		for (; *format != 0; ++format) {
-			if (*format == '%') {
-				++format;
-				printFormat(*format, &args);
-			} else {
-				_logOutput->print(*format);
-			}
-		}
-		_logOutput->println();
-	}
+    typedef std::function<void(int level, const char * message)> TCommandHandlerFunction;
 
-	void print(const __FlashStringHelper *format, va_list args) {
-		PGM_P p = reinterpret_cast<PGM_P>(format);
-		char c = pgm_read_byte(p++);
-		for(;c != 0; c = pgm_read_byte(p++)) {
-			if (c == '%') {
-				c = pgm_read_byte(p++);
-				printFormat(c, &args);
-			} else {
-				_logOutput->print(c);
-			}
-		}
-		_logOutput->println();
-	}
-
-	void printFormat(const char format, va_list *args) {
-		if (format == '%') {
-			_logOutput->print(format);
-		} else if (format == 's') {
-			register char *s = (char *)va_arg(*args, int);
-			_logOutput->print(s);
-		} else if (format == 'S') {
-			register __FlashStringHelper *s = (__FlashStringHelper *)va_arg(*args, int);
-			_logOutput->print(s);
-		} else if (format == 'd' || format == 'i') {
-			_logOutput->print(va_arg(*args, int), DEC);
-		} else if (format == 'D' || format == 'F') {
-			_logOutput->print(va_arg(*args, double));
-		} else if (format == 'x') {
-			_logOutput->print(va_arg(*args, int), HEX);
-		} else if (format == 'X') {
-			_logOutput->print("0x");
-			_logOutput->print(va_arg(*args, int), HEX);
-		} else if (format == 'b') {
-			_logOutput->print(va_arg(*args, int), BIN);
-		} else if (format == 'B') {
-			_logOutput->print("0b");
-			_logOutput->print(va_arg(*args, int), BIN);
-		} else if (format == 'l') {
-			_logOutput->print(va_arg(*args, long), DEC);
-		} else if (format == 'c') {
-			_logOutput->print((char) va_arg(*args, int));
-		} else if (format == 't') {
-			if (va_arg(*args, int) == 1) {
-				_logOutput->print("T");
-			} else {
-				_logOutput->print("F");
-			}
-		} else if (format == 'T') {
-			if (va_arg(*args, int) == 1) {
-				_logOutput->print(F("true"));
-			} else {
-				_logOutput->print(F("false"));
-			}
-		}
-	}
+	void setOnLogCommand(TCommandHandlerFunction LogCommand) {
+    	this->onLogCommand = LogCommand;
+    }
 
 	template<class T> void printLevel(int level, T msg, ...) {
-		if (level > _level) {
+		if (level > _levelConsole && level > _levelNetwork) {
 			return;
 		}
 
@@ -180,7 +122,7 @@ private:
 			_prefix(_logOutput);
 		}
 
-		if (_showLevel) {
+		if (_showLevelConsole && level <=_levelConsole) {
 			static const char levels[] = "FEWNTV";
 			_logOutput->print(levels[level - 1]);
 			_logOutput->print(": ");
@@ -188,15 +130,44 @@ private:
 
 		va_list args;
 		va_start(args, msg);
-		print(msg, args);
+		print(level, msg, args);
 
-		if (_suffix != NULL) {
+		if (_suffix != NULL && level <=_levelConsole) {
 			_suffix(_logOutput);
 		}
 	}
 
-	int _level;
-	bool _showLevel;
+private:
+    TCommandHandlerFunction onLogCommand;
+
+	void print(int level, const char *format, va_list args) {
+		char logbuf[256];
+		size_t size = sizeof logbuf;
+		vsnprintf_P(logbuf, size-1, format, args);
+		if (level <=_levelConsole) _logOutput->println(logbuf);
+   		if (onLogCommand && level <=_levelNetwork) {
+    		onLogCommand(level, logbuf );
+    	}
+    }
+
+	void print(int level, const __FlashStringHelper *format, va_list args) {
+		char logbuf[256];
+		size_t size = sizeof logbuf;
+		PGM_P p = reinterpret_cast<PGM_P>(format);
+		char c;
+		int pos=0;
+		for(; pos < size-1 && (c = pgm_read_byte(p++)) != 0; pos++) {
+				logbuf[pos]=c;	
+		}
+		logbuf[pos]=0;
+		print(level, logbuf, args);
+	}
+
+
+
+	int _levelConsole;
+	int _levelNetwork;
+	bool _showLevelConsole;
 	Print *_logOutput;
 
 	printfunction _prefix = NULL;
