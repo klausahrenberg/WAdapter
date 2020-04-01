@@ -5,7 +5,7 @@
 #include "WJson.h"
 
 enum WPropertyType {
-	BOOLEAN, DOUBLE, INTEGER, LONG, BYTE, STRING
+	BOOLEAN, DOUBLE, INTEGER, LONG, UNSIGNED_LONG, BYTE, STRING
 };
 
 enum WPropertyVisibility {
@@ -16,7 +16,8 @@ union WPropertyValue {
 	bool asBoolean;
 	double asDouble;
 	int asInteger;
-	unsigned long asLong;
+	long asLong;
+	unsigned long asUnsignedLong;
 	byte asByte;
 	char* string;
 };
@@ -125,9 +126,13 @@ public:
 			case INTEGER: {
 				setInteger(value.toInt());
 				return true;
-			}
+			}			
 			case LONG: {
 				setLong(value.toInt());
+				return true;
+			}
+			case UNSIGNED_LONG: {
+				setUnsignedLong(value.toInt());
 				return true;
 			}
 			case BYTE: {
@@ -208,13 +213,13 @@ public:
 			this->setValue(valueB);
 		}
 	}
-
-	unsigned long getLong() {
+	
+	long getLong() {
 		requestValue();
 		return (!this->valueNull ? this->value.asLong : 0);
 	}
 
-	void setLong(unsigned long newValue) {
+	void setLong(long newValue) {
 		if (type != LONG) {
 			return;
 		}
@@ -226,16 +231,37 @@ public:
 		}
 	}
 
+	unsigned long getUnsignedLong() {
+		requestValue();
+		return (!this->valueNull ? this->value.asUnsignedLong : 0);
+	}
+
+	void setUnsignedLong(unsigned long newValue) {
+		if (type != UNSIGNED_LONG) {
+			return;
+		}
+		bool changed = ((this->valueNull) || (this->value.asUnsignedLong != newValue));
+		if (changed) {
+			WPropertyValue valueB;
+			valueB.asUnsignedLong = newValue;
+			this->setValue(valueB);
+		}
+	}
+
 	bool equalsInteger(int number) {
 		return ((!this->valueNull) && (this->value.asInteger == number));
+	}
+	
+	bool equalsLong(long number) {
+		return ((!this->valueNull) && (this->value.asLong == number));
 	}
 
 	bool equalsString(const char* toCompare) {
 		return ((!this->valueNull) && (strcmp(this->value.string, toCompare) == 0));
 	}
 
-	bool equalsLong(unsigned long number) {
-		return ((!this->valueNull) && (this->value.asLong == number));
+	bool equalsUnsignedLong(unsigned long number) {
+		return ((!this->valueNull) && (this->value.asUnsignedLong == number));
 	}
 
 	byte getByte() {
@@ -347,6 +373,9 @@ public:
 			break;
 		case LONG:
 			json->propertyLong(getId(), getLong());
+			break;	
+		case UNSIGNED_LONG:
+			json->propertyUnsignedLong(getId(), getUnsignedLong());
 			break;
 		case BYTE:
 			json->propertyByte(getId(), getByte());
@@ -371,6 +400,7 @@ public:
 		case DOUBLE:
 		case INTEGER:
 		case LONG:
+		case UNSIGNED_LONG:
 		case BYTE:
 			json->propertyString("type", "number");
 			break;
@@ -407,6 +437,9 @@ public:
 					break;
 				case LONG:
 					json->numberLong(propE->getLong());
+					break;	
+				case UNSIGNED_LONG:
+					json->numberUnsignedLong(propE->getUnsignedLong());
 					break;
 				case BYTE:
 					json->numberByte(propE->getByte());
@@ -456,13 +489,22 @@ public:
 		valueE->setInteger(enumNumber);
 		this->addEnum(valueE);
 	}
-
-	void addEnumLong(unsigned long enumNumber) {
+	
+	void addEnumLong(long enumNumber) {
 		if (type != LONG) {
 			return;
 		}
 		WProperty* valueE = new WProperty("", "", this->type, 0);
 		valueE->setLong(enumNumber);
+		this->addEnum(valueE);
+	}
+
+	void addEnumUnsignedLong(unsigned long enumNumber) {
+		if (type != UNSIGNED_LONG) {
+			return;
+		}
+		WProperty* valueE = new WProperty("", "", this->type, 0);
+		valueE->setUnsignedLong(enumNumber);
 		this->addEnum(valueE);
 	}
 
@@ -549,7 +591,8 @@ protected:
 		case INTEGER:
 			this->length = 2;
 			break;
-		case LONG:
+		case LONG:	
+		case UNSIGNED_LONG:
 			this->length = 4;
 			break;
 		case BYTE:

@@ -16,9 +16,9 @@ const static char HTTP_STYLE[]              PROGMEM = R"=====(
 body{
 	text-align: center;
 	font-family: arial, sans-serif;
-} 
+}
 
-#bodyDiv{  
+#bodyDiv{
   display:inline-block;
   min-width:300px;
   text-align:left;
@@ -33,7 +33,7 @@ div{
 	background-size: 1em;
 	padding:5px;
 	text-align:left;
-} 
+}
 
 input[type='text'] {
   width: 100%;
@@ -100,26 +100,19 @@ const static char HTTP_PAGE_CONFIGURATION_STYLE[]    PROGMEM = R"=====(
 </style>
 )=====";
 
+const static char HTTP_DIV_ID_BEGIN[]    PROGMEM = R"=====(
+	<div id='%s'>
+)=====";
 
-const static char HTTP_PAGE_CONFIGURATION_MQTT_OPTION[]    PROGMEM = R"=====(
-	<div>
-		<label>
-			<input type='checkbox' id='mqttEnabled' name='mq' value='true' %s onclick='hideMqttGroup()'>
-			Support MQTT
-		</label>
+const static char HTTP_DIV_END[]    PROGMEM = R"=====(
 	</div>
 )=====";
 
-const static char HTTP_PAGE_CONFIGURATION_MQTT_BEGIN[]    PROGMEM = R"=====(
-	<div id='mqttGroup'>
-)=====";
-
-const static char HTTP_PAGE_CONFIGURATION_MQTT_END[]    PROGMEM = R"=====(
-	</div>
+const static char HTTP_SCRIPT_OPTION[]    PROGMEM = R"=====(
 	<script>
 		function hideMqttGroup() {
-			var cb = document.getElementById('mqttEnabled'); 
-  			var x = document.getElementById('mqttGroup');
+			var cb = document.getElementById('%s');
+  			var x = document.getElementById('%s');
   			if (cb.checked) {
 	    		x.style.display = 'block';
   			} else {
@@ -172,7 +165,7 @@ const static char HTTP_PASSWORD_FIELD[]    PROGMEM = R"=====(
 	</div>
 )=====";
 
-const static char HTTP_CHECKBOX[]         PROGMEM = R"=====(					
+const static char HTTP_CHECKBOX[]         PROGMEM = R"=====(
 		<div>
 			<label>
 				<input type='checkbox' name='%s' value='true' %s>%s
@@ -180,20 +173,28 @@ const static char HTTP_CHECKBOX[]         PROGMEM = R"=====(
 		</div>
 )=====";
 
+const static char HTTP_CHECKBOX_OPTION[]    PROGMEM = R"=====(
+	<div>
+		<label>
+			<input type='checkbox' id='%s' name='%s' value='true' %s onclick='%s'>%s
+		</label>
+	</div>
+)=====";
+
 const static char HTTP_COMBOBOX_BEGIN[]         PROGMEM = R"=====(
         <div>
 			%s<br>
         	<select name='%s'>
 )=====";
-const static char HTTP_COMBOBOX_ITEM[]         PROGMEM = R"=====(        		
-				<option value='%s' %s>%s</option>                  
+const static char HTTP_COMBOBOX_ITEM[]         PROGMEM = R"=====(
+				<option value='%s' %s>%s</option>
 )=====";
-const static char HTTP_COMBOBOX_END[]         PROGMEM = R"=====(					
+const static char HTTP_COMBOBOX_END[]         PROGMEM = R"=====(
 			</select>
         </div>
 )=====";
 
-const static char HTTP_CONFIG_SAVE_BUTTON[]         PROGMEM = R"=====(	
+const static char HTTP_CONFIG_SAVE_BUTTON[]         PROGMEM = R"=====(
 		<div>
 			<button type='submit'>Save configuration</button>
 		</div>

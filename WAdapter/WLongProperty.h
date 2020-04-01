@@ -5,8 +5,8 @@
 
 class WLongProperty: public WProperty {
 public:
-	WLongProperty(const char* id)
-	: WProperty(id, id, LONG) {
+	WLongProperty(const char* id, const char* title)
+	: WProperty(id, title, LONG) {
 		this->atType = "LongProperty";
 	}
 

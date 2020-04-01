@@ -9,6 +9,7 @@
 #include "WIntegerProperty.h"
 #include "WLevelIntProperty.h"
 #include "WLongProperty.h"
+#include "WUnsignedLongProperty.h"
 #include "WTemperatureProperty.h"
 #include "WTargetTemperatureProperty.h"
 #include "WColorProperty.h"

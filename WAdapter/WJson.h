@@ -122,12 +122,21 @@ public:
 		separatorAlreadyCalled = false;
 		return *this;
 	}
-
-	WJson& propertyLong(const char* name, unsigned long value) {
+	
+	WJson& propertyLong(const char* name, long value) {
 		ifSeparator();
 		separatorAlreadyCalled = true;
 		memberName(name);
 		numberLong(value);
+		separatorAlreadyCalled = false;
+		return *this;
+	}
+
+	WJson& propertyUnsignedLong(const char* name, unsigned long value) {
+		ifSeparator();
+		separatorAlreadyCalled = true;
+		memberName(name);
+		numberUnsignedLong(value);
 		separatorAlreadyCalled = false;
 		return *this;
 	}
@@ -207,8 +216,15 @@ public:
 		stream->print(number, DEC);
 		return *this;
 	}
+	
+	WJson& numberLong(long number) {
+		if (!separatorAlreadyCalled)
+			ifSeparator();
+		stream->print(number, DEC);
+		return *this;
+	}
 
-	WJson& numberLong(unsigned long number) {
+	WJson& numberUnsignedLong(unsigned long number) {
 		if (!separatorAlreadyCalled)
 			ifSeparator();
 		stream->print(number, DEC);

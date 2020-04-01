@@ -703,15 +703,15 @@ private:
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Wifi ssid (only 2.4G):", "s", "32", getSsid());
 			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "Wifi password:", "p", "64", getPassword());
 			//mqtt
-			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_MQTT_OPTION), (this->isSupportingMqtt() ? "checked" : ""));
-			page->print(FPSTR(HTTP_PAGE_CONFIGURATION_MQTT_BEGIN));
+			page->printAndReplace(FPSTR(HTTP_CHECKBOX_OPTION), "mqttEnabled", "mq", (this->isSupportingMqtt() ? "checked" : ""), "hideMqttGroup()", "Support MQTT");
+			page->printAndReplace(FPSTR(HTTP_DIV_ID_BEGIN), "mqttGroup");
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Server:", "ms", "32", getMqttServer());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Port:", "mo", "4", getMqttPort());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT User:", "mu", "32", getMqttUser());
 			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "MQTT Password:", "mp", "64", getMqttPassword());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic, e.g.'home/room':", "mt", "64", getMqttTopic());
-
-			page->print(FPSTR(HTTP_PAGE_CONFIGURATION_MQTT_END));
+			page->print(FPSTR(HTTP_DIV_END));
+			page->printAndReplace(FPSTR(HTTP_SCRIPT_OPTION), "mqttEnabled", "mqttGroup");
 			page->print(FPSTR(HTTP_CONFIG_SAVE_BUTTON));
 			page->print(FPSTR(HTTP_BODY_END));
 			webServer->send(200, TEXT_HTML, page->c_str());

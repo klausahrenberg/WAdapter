@@ -5,7 +5,7 @@
 #include "WLog.h"
 #include "WProperty.h"
 
-const byte STORED_FLAG = 0x59;
+const byte STORED_FLAG = 0x61;
 const int EEPROM_SIZE = 512;
 
 class WSettingItem {
@@ -81,8 +81,6 @@ public:
 		return false;
 	}
 
-
-
 	void add(WProperty* property) {
 		if (!exists(property)) {
 			WSettingItem* settingItem = addSetting(property);
@@ -105,6 +103,15 @@ public:
 					property->setInteger(value);
 					break;
 				}
+				case LONG: {
+					long four = EEPROM.read(settingItem->address);
+					long three = EEPROM.read(settingItem->address + 1);
+					long two = EEPROM.read(settingItem->address + 2);
+					long one = EEPROM.read(settingItem->address + 3);
+					long value = ((four << 0) & 0xFF) + ((three << 8) & 0xFFFF) + ((two << 16) & 0xFFFFFF) + ((one << 24) & 0xFFFFFFFF);
+					property->setLong(value);
+					break;
+				}
 				case BYTE:
 					property->setByte(EEPROM.read(settingItem->address));
 					break;
@@ -119,6 +126,7 @@ public:
 			property->setSettingsNotification([this](WProperty* property) {save(property);});
 		}
 	}
+	
 
 	bool getBoolean(const char* id) {
 		WProperty* setting = getSetting(id);
@@ -167,6 +175,23 @@ public:
 			add(setting);
 		} else {
 			setting->setInteger(value);
+		}
+		return setting;
+	}
+	
+	long getLong(const char* id) {
+		WProperty* setting = getSetting(id);
+		return (setting != nullptr ? setting->getLong() : 0);
+	}
+
+	WProperty* setLong(const char* id, long value) {
+		WProperty* setting = getSetting(id);
+		if (setting == nullptr) {
+			setting = new WProperty(id, id, LONG);
+			setting->setLong(value);
+			add(setting);
+		} else {
+			setting->setLong(value);
 		}
 		return setting;
 	}
@@ -242,6 +267,17 @@ protected:
 			high = ((setting->getInteger()>>8) & 0xFF);
 			EEPROM.write(settingItem->address, low);
 			EEPROM.write(settingItem->address + 1, high);
+			break;
+		case LONG:
+			byte l1, l2, l3, l4;
+			l4 = (setting->getLong() & 0xFF);
+			l3 = ((setting->getLong() >> 8) & 0xFF);
+			l2 = ((setting->getLong() >> 16) & 0xFF);
+			l1 = ((setting->getLong() >> 24) & 0xFF);
+			EEPROM.write(settingItem->address, l4);
+			EEPROM.write(settingItem->address + 1, l3);
+			EEPROM.write(settingItem->address + 2, l2);
+			EEPROM.write(settingItem->address + 3, l1);
 			break;
 		case DOUBLE:
 			EEPROM.put(settingItem->address, setting->getDouble());
