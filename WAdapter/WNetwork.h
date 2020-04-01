@@ -22,7 +22,7 @@
 #include "WLog.h"
 
 #define SIZE_MQTT_PACKET 1024
-#define SIZE_JSON_PACKET 1280
+#define SIZE_JSON_PACKET 2048
 #define NO_LED -1
 const char* CONFIG_PASSWORD = "12345678";
 const char* APPLICATION_JSON = "application/json";
