@@ -112,6 +112,14 @@ public:
 		this->valueNull = true;
 	}
 
+	bool isChanged() {
+		return (this->changed);
+	}
+
+	void setUnChanged() {
+		this->changed = false;
+	}
+
 	virtual bool parse(String value) {
 		if ((!isReadOnly()) && (value != nullptr)) {
 			switch (getType()) {
@@ -126,7 +134,7 @@ public:
 			case INTEGER: {
 				setInteger(value.toInt());
 				return true;
-			}			
+			}
 			case LONG: {
 				setLong(value.toInt());
 				return true;
@@ -213,7 +221,7 @@ public:
 			this->setValue(valueB);
 		}
 	}
-	
+
 	long getLong() {
 		requestValue();
 		return (!this->valueNull ? this->value.asLong : 0);
@@ -251,7 +259,7 @@ public:
 	bool equalsInteger(int number) {
 		return ((!this->valueNull) && (this->value.asInteger == number));
 	}
-	
+
 	bool equalsLong(long number) {
 		return ((!this->valueNull) && (this->value.asLong == number));
 	}
@@ -312,28 +320,11 @@ public:
 				value.string[0] = '\0';
 				this->valueNull = true;
 			}
+			this->changed = true;
 			valueChanged();
 			notify();
 		}
 	}
-
-	/*void setString(String newValue) {
-		if (type != STRING) {
-			return;
-		}
-		int l = newValue.length();
-		if (l > length) {
-			l = length;
-		}
-		bool changed = ((this->valueNull) || (strcmp(value.string, newValue.c_str()) != 0));
-		if (changed) {
-			strncpy(value.string, newValue.c_str(), l);
-			value.string[l] = '\0';
-			this->valueNull = false;
-			valueChanged();
-			notify();
-		}
-	}*/
 
 	bool isReadOnly() {
 		return readOnly;
@@ -359,29 +350,30 @@ public:
 		this->multipleOf = multipleOf;
 	}
 
-	virtual void toJsonValue(WJson* json) {
+	virtual void toJsonValue(WJson* json, bool onlyValue=false) {
 		requestValue();
+		const char* memberName = (onlyValue ? nullptr : getId());
 		switch (getType()) {
 		case BOOLEAN:
-			json->propertyBoolean(getId(), getBoolean());
+			json->propertyBoolean(memberName, getBoolean());
 			break;
 		case DOUBLE:
-			json->propertyDouble(getId(), getDouble());
+			json->propertyDouble(memberName, getDouble());
 			break;
 		case INTEGER:
-			json->propertyInteger(getId(), getInteger());
+			json->propertyInteger(memberName, getInteger());
 			break;
 		case LONG:
-			json->propertyLong(getId(), getLong());
-			break;	
+			json->propertyLong(memberName, getLong());
+			break;
 		case UNSIGNED_LONG:
-			json->propertyUnsignedLong(getId(), getUnsignedLong());
+			json->propertyUnsignedLong(memberName, getUnsignedLong());
 			break;
 		case BYTE:
-			json->propertyByte(getId(), getByte());
+			json->propertyByte(memberName, getByte());
 			break;
 		case STRING:
-			json->propertyString(getId(), c_str());
+			json->propertyString(memberName, c_str());
 			break;
 		}
 	}
@@ -437,7 +429,7 @@ public:
 					break;
 				case LONG:
 					json->numberLong(propE->getLong());
-					break;	
+					break;
 				case UNSIGNED_LONG:
 					json->numberUnsignedLong(propE->getUnsignedLong());
 					break;
@@ -489,7 +481,7 @@ public:
 		valueE->setInteger(enumNumber);
 		this->addEnum(valueE);
 	}
-	
+
 	void addEnumLong(long enumNumber) {
 		if (type != LONG) {
 			return;
@@ -568,6 +560,7 @@ protected:
 		this->visibility = ALL;
 		this->supportingWebthing = true;
 		this->valueNull = true;
+		this->changed = true;
 		this->requested = false;
 		this->valueRequesting = false;
 		this->notifying = false;
@@ -591,7 +584,7 @@ protected:
 		case INTEGER:
 			this->length = 2;
 			break;
-		case LONG:	
+		case LONG:
 		case UNSIGNED_LONG:
 			this->length = 4;
 			break;
@@ -605,6 +598,7 @@ protected:
 	void setValue(WPropertyValue newValue) {
 		this->value = newValue;
 		this->valueNull = false;
+		this->changed = true;
 		valueChanged();
 		notify();
 	}
@@ -633,6 +627,7 @@ private:
 	TOnPropertyChange settingsNotification;
 	WPropertyValue value = {false};
 	bool valueNull;
+	bool changed;
 	bool requested;
 	bool valueRequesting;
 	bool notifying;

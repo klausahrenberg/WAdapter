@@ -250,8 +250,8 @@ public:
 		lastInActivity = lastOutActivity = millis();
 	}
 
-	bool publish(const char* topic, const char* payload) {
-		return publish(topic, payload, strlen(payload), false);
+	bool publish(const char* topic, const char* payload, bool retained) {
+		return publish(topic, payload, strlen(payload), retained);
 	}
 
 	bool publish(const char* topic, const char* payload, unsigned int plength, bool retained) {

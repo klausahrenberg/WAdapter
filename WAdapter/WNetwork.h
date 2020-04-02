@@ -28,6 +28,9 @@ const char* CONFIG_PASSWORD = "12345678";
 const char* APPLICATION_JSON = "application/json";
 const char* TEXT_HTML = "text/html";
 const char* TEXT_PLAIN = "text/plain";
+const char* DEFAULT_TOPIC_STATE = "properties";
+const char* DEFAULT_TOPIC_SET = "set";
+const String SLASH = "/";
 
 WiFiEventHandler gotIpEventHandler, disconnectedEventHandler;
 WiFiClient wifiClient;
@@ -52,6 +55,7 @@ public:
 		this->restartFlag = "";
 		this->deepSleepFlag = nullptr;
 		this->deepSleepSeconds = 0;
+		this->startupTime = millis();
 		//this->webSocket = nullptr;
 		settings = new WSettings(wlog);
 		settingsFound = loadSettings();
@@ -140,6 +144,8 @@ public:
 		if (statusLed != nullptr) {
 			statusLed->loop(now);
 		}
+		bool allStatesComplete = true;
+		bool stateUpd = false;
 		//Loop Devices
 		WDevice *device = firstDevice;
 		while (device != nullptr) {
@@ -150,7 +156,7 @@ public:
 							    (now - device->lastStateNotify > device->stateNotifyInterval)))
 					&& (device->isDeviceStateComplete())) {
 				wlog->notice(F("Notify interval is up -> Device state changed..."));
-				handleDeviceStateChange(device);
+				handleDeviceStateChange(device, (device->lastStateNotify != 0));
 			}
 			device = device->next;
 		}
@@ -196,12 +202,12 @@ public:
 		this->onConfigurationFinished = onConfigurationFinished;
 	}
 
-	bool publishMqtt(const char* topic, WStringStream* response) {
+	bool publishMqtt(const char* topic, WStringStream* response, bool retained=false) {
 		wlog->notice(F("MQTT... '%s'"), topic);
 		wlog->notice(F("MQTT  .. '%s'"), response->c_str());
 		if (isMqttConnected()) {
 			wlog->notice(F("MQTT connected... "));
-			if (mqttClient->publish(topic, response->c_str())) {
+			if (mqttClient->publish(topic, response->c_str(), retained)) {
 				wlog->notice(F("MQTT sent. Topic: '%s'"), topic);
 				return true;
 			} else {
@@ -249,13 +255,13 @@ public:
 			}
 			webServer->onNotFound(std::bind(&WNetwork::handleUnknown, this));
 			if ((WiFi.status() != WL_CONNECTED) || (!this->isSupportingWebThing())) {
-				webServer->on("/", HTTP_GET, std::bind(&WNetwork::handleHttpRootRequest, this));
+				webServer->on(SLASH, HTTP_GET, std::bind(&WNetwork::handleHttpRootRequest, this));
 			}
 			webServer->on("/config", HTTP_GET, std::bind(&WNetwork::handleHttpRootRequest, this));
 			WDevice *device = this->firstDevice;
 			while (device != nullptr) {
 				if (device->isProvidingConfigPage()) {
-					String did("/");
+					String did(SLASH);
 					did.concat(device->getId());
 					webServer->on(did, HTTP_GET, std::bind(&WNetwork::handleHttpDeviceConfiguration, this, device));
 					String deviceConfiguration("/saveConfiguration");
@@ -287,11 +293,11 @@ public:
 				String mdnsName = this->getDeviceIp().toString();
 				if (MDNS.begin(mdnsName)) {
 					MDNS.addService("http", "tcp", 80);
-					MDNS.addServiceTxt("http", "tcp", "url", "http://" + mdnsName + "/");
+					MDNS.addServiceTxt("http", "tcp", "url", "http://" + mdnsName + SLASH);
 					MDNS.addServiceTxt("http", "tcp", "webthing", "true");
 					wlog->notice(F("MDNS responder started at %s"), mdnsName.c_str());
 				}
-				webServer->on("/", HTTP_GET, std::bind(&WNetwork::sendDevicesStructure, this));
+				webServer->on(SLASH, HTTP_GET, std::bind(&WNetwork::sendDevicesStructure, this));
 				WDevice *device = this->firstDevice;
 				while (device != nullptr) {
 					bindWebServerCalls(device);
@@ -390,8 +396,16 @@ public:
 		return settings->getString("mqttPort");
 	}
 
-	const char* getMqttTopic() {
-		return this->mqttTopic->c_str();
+	const char* getMqttBaseTopic() {
+		return this->mqttBaseTopic->c_str();
+	}
+
+	const char* getMqttSetTopic() {
+		return this->mqttSetTopic->c_str();
+	}
+
+	const char* getMqttStateTopic() {
+		return this->mqttStateTopic->c_str();
 	}
 
 	const char* getMqttUser() {
@@ -457,7 +471,9 @@ private:
 	WProperty *supportingMqtt;
 	WProperty *ssid;
 	WProperty *idx;
-	WProperty *mqttTopic;
+	WProperty *mqttBaseTopic;
+	WProperty *mqttSetTopic;
+	WProperty *mqttStateTopic;
 	WAdapterMqtt *mqttClient;
 	long lastMqttConnect, lastWifiConnect;
 	WStringStream* responseStream = nullptr;
@@ -466,32 +482,50 @@ private:
 	bool settingsFound;
 	WDevice *deepSleepFlag;
 	int deepSleepSeconds;
+	unsigned long startupTime;
 
-	void handleDeviceStateChange(WDevice *device) {
+
+	void handleDeviceStateChange(WDevice *device, bool complete) {
 		wlog->notice(F("Device state changed -> send device state..."));
-		String topic = String(getMqttTopic()) + "/things/" + String(device->getId()) + "/properties";
-		mqttSendDeviceState(topic, device);
+		String topic = String(getMqttBaseTopic()) + SLASH + String(device->getId()) + SLASH + String(getMqttStateTopic());
+		mqttSendDeviceState(topic, device, complete);
 	}
 
-	void mqttSendDeviceState(String topic, WDevice *device) {
+	void mqttSendDeviceState(String topic, WDevice *device, bool complete) {
 		if ((this->isMqttConnected()) && (isSupportingMqtt()) && (device->isDeviceStateComplete())) {
 			wlog->notice(F("Send actual device state via MQTT"));
 
-			WStringStream* response = getResponseStream();
-			WJson json(response);
-			json.beginObject();
-			if (device->isMainDevice()) {
-				json.propertyString("idx", getIdx());
-				json.propertyString("ip", getDeviceIp().toString().c_str());
-				json.propertyString("firmware", firmwareVersion.c_str());
-			}
-			device->toJsonValues(&json, MQTT);
-			json.endObject();
+			if (device->sendCompleteDeviceState()) {
+				//Send all properties of device in one json structure
+				WStringStream* response = getResponseStream();
+				WJson json(response);
+				json.beginObject();
+				if (device->isMainDevice()) {
+					json.propertyString("idx", getIdx());
+					json.propertyString("ip", getDeviceIp().toString().c_str());
+					json.propertyString("firmware", firmwareVersion.c_str());
+				}
+				device->toJsonValues(&json, MQTT);
+				json.endObject();
 
-			if (mqttClient->publish(topic.c_str(), response->c_str())) {
-				device->lastStateWaitForResponse = true;
-				wlog->notice(F("MQTT sent -wait for response"));
+				mqttClient->publish(topic.c_str(), response->c_str(), true);
+			} else {
+				//Send every changed property only
+				WProperty* property = device->firstProperty;
+				while (property != nullptr) {
+					if ((complete) || (property->isChanged())) {
+						if (property->isVisible(MQTT)) {
+							WStringStream* response = getResponseStream();
+							WJson json(response);
+							property->toJsonValue(&json, true);
+							mqttClient->publish(String(topic + SLASH + String(property->getId())).c_str(), response->c_str(), true);
+						}
+						property->setUnChanged();
+					}
+					property = property->next;
+				}
 			}
+
 			device->lastStateNotify = millis();
 			if ((deepSleepSeconds > 0)	&& ((!this->isSupportingWebThing())	|| (device->areAllPropertiesRequested()))) {
 				deepSleepFlag = device;
@@ -501,63 +535,82 @@ private:
 
 	void mqttCallback(char *ptopic, char *payload, unsigned int length) {
 		wlog->notice(F("Received MQTT callback: %s/{%s}"), ptopic, payload);
-		String topic = String(ptopic).substring(strlen(getMqttTopic()) + 1);
-		wlog->notice(F("Topic short '%s'"), topic.c_str());
-		if (topic.startsWith("things/")) {
-			topic = topic.substring(String("things/").length());
-			int i = topic.indexOf("/");
-			if (i > -1) {
-				String deviceId = topic.substring(0, i);
-				wlog->notice(F("look for device id '%s'"), deviceId.c_str());
-				WDevice *device = this->getDeviceById(deviceId.c_str());
-				if (device != nullptr) {
-					topic = topic.substring(i + 1);
-					if (topic.startsWith("properties")) {
-						topic = topic.substring(String("properties").length() + 1);
-						if (topic.equals("")) {
-							if (!device->lastStateWaitForResponse) {
-								if (length > 0) {
-									//Check, if it's only response to a state before
-									wlog->notice(F("Try to set several properties for device %s"), device->getId());
-									WJsonParser* parser = new WJsonParser();
-									if (parser->parse(payload, device) == nullptr) {
-										wlog->notice(F("No properties updated for device %s"), device->getId());
-									} else {
-										wlog->notice(F("One or more properties updated for device %s"), device->getId());
-									}
+		String baseT = String(getMqttBaseTopic());
+		String stateT = String(getMqttStateTopic());
+		String setT = String(getMqttSetTopic());
 
-								} else {
-									wlog->notice(F("Empty payload for topic 'properties' -> send device state..."));
-									//Empty payload for topic 'properties' -> send device state
-									mqttSendDeviceState(String(ptopic), device);
+		String topic = String(ptopic).substring(baseT.length() + 1);
+		wlog->notice(F("Topic short '%s'"), topic.c_str());
+		//Next is device id
+		int i = topic.indexOf(SLASH);
+		if (i > -1) {
+			String deviceId = topic.substring(0, i);
+			wlog->notice(F("look for device id '%s'"), deviceId.c_str());
+			WDevice *device = this->getDeviceById(deviceId.c_str());
+			if (device != nullptr) {
+				topic = topic.substring(i + 1);
+				if (topic.startsWith(stateT)) {
+					if (length == 0) {
+						//State request
+						topic = topic.substring(stateT.length() + 1);
+						if (topic.equals("")) {
+							//send all propertiesBase
+							wlog->notice(F("Send complete device state..."));
+							//Empty payload for topic 'properties' -> send device state
+							mqttSendDeviceState(String(ptopic), device, true);
+						} else {
+							WProperty* property = device->getPropertyById(topic.c_str());
+							if (property != nullptr) {
+								if (property->isVisible(MQTT)) {
+									wlog->notice(F("Send state of property: "), property->getId());
+									WStringStream* response = getResponseStream();
+									WJson json(response);
+									property->toJsonValue(&json, true);
+									mqttClient->publish(String(baseT + SLASH + deviceId + SLASH + stateT + SLASH + String(property->getId())).c_str(), response->c_str(), true);
 								}
 							} else {
-								device->lastStateWaitForResponse = false;
-								wlog->notice(F("No processing of mqtt message - just received response of last message..."));
-							}
-
-						} else {
-							//There are still some more topics after properties
-							//Try to find property with that topic and set single value
-							WProperty* property = device->getPropertyById(topic.c_str());
-							if ((property != nullptr) && (property->isVisible(MQTT))) {
-								//Set Property
-								wlog->notice(F("Try to set property %s for device %s"), property->getId(), device->getId());
-								if (!property->parse((char *) payload)) {
-									wlog->notice(F("Property not updated."));
-								} else {
-									wlog->notice(F("Property updated."));
-								}
+								device->handleUnknownMqttCallback(true, ptopic, topic, payload, length);
 							}
 						}
-					} else {
-						//unknown, ask the device
-						device->handleUnknownMqttCallback(ptopic, topic, payload, length);
 					}
+				}	else if (topic.startsWith(setT)) {
+					if (length > 0) {
+						//Set request
+						topic = topic.substring(setT.length() + 1);
+						if (topic.equals("")) {
+							//set all properties
+							wlog->notice(F("Try to set several properties for device %s"), device->getId());
+							WJsonParser* parser = new WJsonParser();
+							if (parser->parse(payload, device) == nullptr) {
+								wlog->notice(F("No properties updated for device %s"), device->getId());
+							} else {
+								wlog->notice(F("One or more properties updated for device %s"), device->getId());
+							}
+						}	else {
+							//Try to find property and set single value
+							WProperty* property = device->getPropertyById(topic.c_str());
+							if (property != nullptr) {
+								if (property->isVisible(MQTT)) {
+									//Set Property
+									wlog->notice(F("Try to set property %s for device %s"), property->getId(), device->getId());
+									if (!property->parse((char *) payload)) {
+										wlog->notice(F("Property not updated."));
+									} else {
+										wlog->notice(F("Property updated."));
+									}
+								}
+							} else {
+								device->handleUnknownMqttCallback(false, ptopic, topic, payload, length);
+							}
+						}
+					}
+				} else {
+					//unknown, ask the device
+					//device->handleUnknownMqttCallback(ptopic, topic, payload, length);
 				}
+			}	else if (deviceId.equals("webServer")) {
+				enableWebServer(String((char *) payload).equals("true"));
 			}
-		} else if (topic.equals("webServer")) {
-			enableWebServer(String((char *) payload).equals("true"));
 		}
 	}
 
@@ -584,15 +637,17 @@ private:
 						json.beginObject();
 						json.propertyString("url", "http://", getDeviceIp().toString().c_str(), "/things/", device->getId());
 						json.propertyString("ip", getDeviceIp().toString().c_str());
-						json.propertyString("topic", getMqttTopic(), "/things/", device->getId());
+						json.propertyString("stateTopic", getMqttBaseTopic(), SLASH.c_str(), device->getId(), SLASH.c_str(), getMqttStateTopic());
+						json.propertyString("setTopic", getMqttBaseTopic(), SLASH.c_str(), device->getId(), SLASH.c_str(), getMqttSetTopic());
 						json.endObject();
-						mqttClient->publish(topic.c_str(), response->c_str());
+
+						mqttClient->publish(topic.c_str(), response->c_str(), false);
 						device = device->next;
 					}
 					mqttClient->unsubscribe("devices/#");
 				}
 				//Subscribe to device specific topic
-				mqttClient->subscribe(String(String(getMqttTopic()) + "/#").c_str());
+				mqttClient->subscribe(String(String(getMqttBaseTopic()) + "/#").c_str());
 				notify(false);
 				return true;
 			} else {
@@ -619,7 +674,7 @@ private:
 		if (sendState) {
 			WDevice *device = this->firstDevice;
 			while (device != nullptr) {
-				handleDeviceStateChange(device);
+				handleDeviceStateChange(device, false);
 				device = device->next;
 			}
 		}
@@ -709,7 +764,10 @@ private:
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Port:", "mo", "4", getMqttPort());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT User:", "mu", "32", getMqttUser());
 			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "MQTT Password:", "mp", "64", getMqttPassword());
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic, e.g.'home/room':", "mt", "64", getMqttTopic());
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic, e.g.'home/room':", "mt", "64", getMqttBaseTopic());
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic for state requests, e.g.'properties':", "mtg", "16", getMqttStateTopic());
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic for setting values, e.g.'set':", "mts", "16", getMqttSetTopic());
+
 			page->print(FPSTR(HTTP_DIV_END));
 			page->printAndReplace(FPSTR(HTTP_SCRIPT_OPTION), "mqttEnabled", "mqttGroup");
 			page->print(FPSTR(HTTP_CONFIG_SAVE_BUTTON));
@@ -730,9 +788,20 @@ private:
 			settings->setString("mqttPort", (mqtt_port != "" ? mqtt_port.c_str() : "1883"));
 			settings->setString("mqttUser", webServer->arg("mu").c_str());
 			settings->setString("mqttPassword", webServer->arg("mp").c_str());
-			this->mqttTopic->setString(webServer->arg("mt").c_str());
+			this->mqttBaseTopic->setString(webServer->arg("mt").c_str());
+			String subTopic = webServer->arg("mtg");
+			if (subTopic.startsWith(SLASH)) subTopic.substring(1);
+			if (subTopic.endsWith(SLASH)) subTopic.substring(0, subTopic.length() - 1);
+			if (subTopic.equals("")) subTopic = DEFAULT_TOPIC_STATE;
+			this->mqttStateTopic->setString(subTopic.c_str());
+			subTopic = webServer->arg("mts");
+			if (subTopic.startsWith(SLASH)) subTopic.substring(1);
+			if (subTopic.endsWith(SLASH)) subTopic.substring(0, subTopic.length() - 1);
+			if (subTopic.equals("")) subTopic = DEFAULT_TOPIC_SET;
+			this->mqttSetTopic->setString(subTopic.c_str());
+
 			settings->save();
-			this->restart("Settings saved.");
+			this->restart("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker.");
 		}
 	}
 
@@ -788,6 +857,9 @@ private:
 			page->print("<tr><th>Heap fragmentation:</th><td>");
 			page->print(ESP.getHeapFragmentation());
 			page->print(" %</td></tr>");
+			page->print("<tr><th>Running since:</th><td>");
+			page->print(((millis() - this->startupTime)/1000/60));
+			page->print(" minutes</td></tr>");
 			page->print("</table>");
 			page->print(FPSTR(HTTP_BODY_END));
 			webServer->send(200, TEXT_HTML, page->c_str());
@@ -955,11 +1027,14 @@ private:
 		settings->setString("mqttPort", 4, "1883");
 		settings->setString("mqttUser", 32, "");
 		settings->setString("mqttPassword", 64, "");
-		this->mqttTopic = settings->setString("mqttTopic", 64, getIdx());
+		this->mqttBaseTopic = settings->setString("mqttTopic", 64, getIdx());
+		this->mqttStateTopic = settings->setString("mqttStateTopic", 16, DEFAULT_TOPIC_STATE);
+		this->mqttSetTopic = settings->setString("mqttSetTopic", 16, DEFAULT_TOPIC_SET);
+
 		bool settingsStored = settings->existsSettings();
 		if (settingsStored) {
-			if (getMqttTopic() == "") {
-				this->mqttTopic->setString(this->getClientName(true).c_str());
+			if (getMqttBaseTopic() == "") {
+				this->mqttBaseTopic->setString(this->getClientName(true).c_str());
 			}
 			if ((isSupportingMqtt()) && (this->mqttClient != nullptr)) {
 				this->disconnectMqtt();

@@ -5,7 +5,7 @@
 #include "WLog.h"
 #include "WProperty.h"
 
-const byte STORED_FLAG = 0x61;
+const byte STORED_FLAG = 0x63;
 const int EEPROM_SIZE = 512;
 
 class WSettingItem {
@@ -126,7 +126,7 @@ public:
 			property->setSettingsNotification([this](WProperty* property) {save(property);});
 		}
 	}
-	
+
 
 	bool getBoolean(const char* id) {
 		WProperty* setting = getSetting(id);
@@ -178,7 +178,7 @@ public:
 		}
 		return setting;
 	}
-	
+
 	long getLong(const char* id) {
 		WProperty* setting = getSetting(id);
 		return (setting != nullptr ? setting->getLong() : 0);
@@ -192,6 +192,23 @@ public:
 			add(setting);
 		} else {
 			setting->setLong(value);
+		}
+		return setting;
+	}
+
+	unsigned long getUnsignedLong(const char* id) {
+		WProperty* setting = getSetting(id);
+		return (setting != nullptr ? setting->getUnsignedLong() : 0);
+	}
+
+	WProperty* setUnsignedLong(const char* id, unsigned long value) {
+		WProperty* setting = getSetting(id);
+		if (setting == nullptr) {
+			setting = new WProperty(id, id, UNSIGNED_LONG);
+			setting->setUnsignedLong(value);
+			add(setting);
+		} else {
+			setting->setUnsignedLong(value);
 		}
 		return setting;
 	}

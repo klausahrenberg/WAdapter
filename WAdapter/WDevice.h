@@ -31,11 +31,10 @@ public:
 		this->name = name;
 		this->type = type;
 		this->visibility = ALL;
-		//this->webSocket = nullptr;
-		this->providingConfigPage = true;
-		this->mainDevice = true;
 		this->lastStateNotify = 0;
 		this->stateNotifyInterval = 300000;
+		this->providingConfigPage = true;
+		this->mainDevice = true;
 		this->lastStateWaitForResponse = false;
 	}
 
@@ -91,8 +90,9 @@ public:
 		WProperty* property = this->firstProperty;
 		while (property != nullptr) {
 			if (property->isVisible(visibility)) {
-				property->toJsonValue(json);
+				property->toJsonValue(json, false);
 			}
+			property->setUnChanged();
 			property = property->next;
 		}
 	}
@@ -150,7 +150,7 @@ public:
     virtual void bindWebServerCalls(ESP8266WebServer* webServer) {
     }
 
-    virtual void handleUnknownMqttCallback(String completeTopic, String partialTopic, char *payload, unsigned int length) {
+    virtual void handleUnknownMqttCallback(bool getState, String completeTopic, String partialTopic, char *payload, unsigned int length) {
 
     }
 
@@ -161,6 +161,10 @@ public:
     virtual bool isDeviceStateComplete() {
         return true;
     }
+
+		virtual bool sendCompleteDeviceState() {
+			  return true;
+		}
 
     virtual void on() {
 
@@ -180,14 +184,6 @@ public:
     	}
     	return true;
     }
-
-    /*WebSocketsServer* getWebSocket() {
-    	return webSocket;
-    }
-
-    void setWebSocket(WebSocketsServer* webSocket) {
-    	this->webSocket = webSocket;
-    }*/
 
     WPropertyVisibility getVisibility() {
     	return visibility;
@@ -211,9 +207,9 @@ public:
     WProperty* lastProperty = nullptr;
     WPin* firstPin = nullptr;
     WPin* lastPin = nullptr;
-    unsigned long lastStateNotify;
     bool lastStateWaitForResponse;
-    int stateNotifyInterval;
+		unsigned long lastStateNotify;
+		unsigned long stateNotifyInterval;
 protected:
     WNetwork* network;
     WLed* statusLed = nullptr;
