@@ -5,6 +5,7 @@
 #include "WProperty.h"
 #include "WLevelProperty.h"
 #include "WOnOffProperty.h"
+#include "WOpenProperty.h"
 #include "WStringProperty.h"
 #include "WIntegerProperty.h"
 #include "WLevelIntProperty.h"
@@ -25,6 +26,8 @@ class WNetwork;
 
 class WDevice {
 public:
+	typedef std::function<void(WDevice*, const char*, const char*)> TFailureHandlerFunction;
+
 	WDevice(WNetwork* network, const char* id, const char* name, const char* type) {
 		this->network = network;
 		this->id = id;
@@ -201,6 +204,10 @@ public:
 		return mainDevice;
 	}
 
+		void setOnFailure(TFailureHandlerFunction onFailure) {
+			this->onFailure = onFailure;
+		}
+
     WDevice* next = nullptr;
     //WebSocketsServer* webSocket;
     WProperty* firstProperty = nullptr;
@@ -217,10 +224,17 @@ protected:
     bool mainDevice;
     WPropertyVisibility visibility;
 
+		void notifyFailure(const char* failureType, const char* failure) {
+    	if (onFailure) {
+    		onFailure(this, failureType, failure);
+    	}
+    }
+
 private:
 	const char* id;
 	const char* name;
 	const char* type;
+	TFailureHandlerFunction onFailure;
 
 	void onPropertyChange() {
 		this->lastStateNotify = 0;

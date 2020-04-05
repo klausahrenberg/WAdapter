@@ -30,6 +30,7 @@ const char* TEXT_HTML = "text/html";
 const char* TEXT_PLAIN = "text/plain";
 const char* DEFAULT_TOPIC_STATE = "properties";
 const char* DEFAULT_TOPIC_SET = "set";
+const char* TOPIC_FAILURE = "failure";
 const String SLASH = "/";
 
 WiFiEventHandler gotIpEventHandler, disconnectedEventHandler;
@@ -226,7 +227,7 @@ public:
 	}
 
 	bool publishMqtt(const char* topic, const char* key, const char* value) {
-		if (this->isSupportingMqtt()) {
+		if ((this->isMqttConnected()) && (this->isSupportingMqtt())) {
 			WStringStream* response = getResponseStream();
 			WJson json(response);
 			json.beginObject();
@@ -435,6 +436,7 @@ public:
 		AsyncWebSocket *webSocket = new AsyncWebSocket("/things/" + device->getId());
 		device->setWebSocket(webSocket);
 		*/
+		device->setOnFailure(std::bind(&WNetwork::handleDeviceFailure, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		bindWebServerCalls(device);
 	}
 
@@ -484,6 +486,16 @@ private:
 	int deepSleepSeconds;
 	unsigned long startupTime;
 
+
+	void handleDeviceMessage(WDevice *device, const char* pTopic, const char* key, const char* value) {
+		wlog->notice(F("Device failure -> send "), pTopic, "... ", key, F(": "), value);
+		String topic = String(getMqttBaseTopic()) + SLASH + String(device->getId()) + SLASH + String(pTopic);
+		publishMqtt(topic.c_str(), key, value);
+	}
+
+	void handleDeviceFailure(WDevice* device, const char* failureType, const char* failure) {
+		handleDeviceMessage(device, TOPIC_FAILURE, failureType, failure);
+	}
 
 	void handleDeviceStateChange(WDevice *device, bool complete) {
 		wlog->notice(F("Device state changed -> send device state..."));

@@ -580,4 +580,3 @@ private:
 };
 
 #endif
-
