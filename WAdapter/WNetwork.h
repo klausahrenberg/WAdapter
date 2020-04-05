@@ -935,8 +935,15 @@ private:
 			page->print(" %</td></tr>");
 			page->print("</td></tr>");
 			page->print("<tr><th>Uptime:</th><td>");
-			page->print(millis()/1000);
-			page->print(" secs</td></tr>");
+			unsigned long secs=millis()/1000;
+			unsigned int days = secs / (60 * 60 * 24);
+			secs -= days * (60 * 60 * 24);
+			unsigned int hours = secs / (60 * 60);
+			secs -= hours * (60 * 60);
+			unsigned int minutes = secs / 60;
+			page->printf_P("%dd, %dh, %dm, %ds",
+			days, hours, minutes, secs);
+			page->print("</td></tr>");
 			page->print("</table>");
 			page->print(FPSTR(HTTP_BODY_END));
 			webServer->send(200, TEXT_HTML, page->c_str());
