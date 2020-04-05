@@ -43,6 +43,14 @@ const int maxApRunTimeMinutes = 5;
 const int maxConnectFail = 10;
 #endif
 
+typedef enum wnWifiMode
+{
+	WIFIMODE_UNSET = 0,
+	WIFIMODE_STATION = 1,
+	WIFIMODE_AP = 2,
+	WIFIMODE_FALLBACK = 3
+} wnWifiMode_t;
+
 WiFiEventHandler gotIpEventHandler, disconnectedEventHandler;
 WiFiClient wifiClient;
 WAdapterMqtt *mqttClient;
@@ -92,21 +100,25 @@ public:
 		settings = new WSettings(wlog);
 		settingsFound = loadSettings();
 		lastMqttConnect = lastWifiConnect = 0;
+		this->wifiModeDesired = (settingsFound &&  getSsid() != "" ? wnWifiMode::WIFIMODE_STATION : wnWifiMode::WIFIMODE_AP);
+		this->wifiModeRunning = wnWifiMode::WIFIMODE_UNSET;
+		lastWifiStatus = -1;
+
 		gotIpEventHandler = WiFi.onStationModeGotIP(
 				[this](const WiFiEventStationModeGotIP &event) {
 					wlog->notice(F("WiFi: Station connected, IP: %s"), this->getDeviceIp().toString().c_str());
 					this->connectFailCounter=0;
 					//Connect, if webThing supported and Wifi is connected as client
-
-					this->notify(false);
+					this->notify(true);
 				});
 		disconnectedEventHandler = WiFi.onStationModeDisconnected(
 				[this](const WiFiEventStationModeDisconnected &event) {
-					this->connectFailCounter++;
-					wlog->notice(F("WiFi: Station disconnected (count: %d)"), this->connectFailCounter);
-					this->disconnectMqtt();
-					this->lastMqttConnect = 0;
-					this->notify(false);
+					if (!isSoftAP()){
+						this->connectFailCounter++;
+						wlog->notice(F("WiFi: Station disconnected (count: %d)"), this->connectFailCounter);
+						this->disconnectMqtt();
+						this->lastMqttConnect = 0;
+					}
 				});
 
 
@@ -123,61 +135,73 @@ public:
 
 #ifdef DEBUG
 		if (this->lastLoopLog == 0 || now  > this->lastLoopLog + 2000){
-			if (WiFi.status() != WL_CONNECTED) wlog->trace(F("WiFi: loop, status: %d, isSoftAP: %d, now: %d"), WiFi.status(), isSoftAP(), now);
+			if (WiFi.status() != WL_CONNECTED) wlog->trace(F("WiFi: loop, wifiStatus: %d, modeRunning: %d, modeDesired: %d, now: %d"),
+			WiFi.status(), wifiModeRunning, wifiModeDesired, now);
 			this->lastLoopLog=now;
 		} 
 #endif
 		bool result = true;
-		if ((!settingsFound)  || this->connectFailCounter >= maxConnectFail) {
-			if (isSoftAP() ){
-				// Switch back to Station Mode if config is available
-				if (settingsFound && (now -  this->apStartedAt > maxApRunTimeMinutes * 60 * 1000)){
-					wlog->warning(F("WiFi: AP ran %d minutes, trying now to use configured WLAN again, Wifi Status %d "), maxApRunTimeMinutes, WiFi.status());
-					//this->stopWebServer();
-					this->connectFailCounter=0;
-					WiFi.softAPdisconnect();
-					lastWifiConnect=0;
-					apStartedAt=0;
-					deleteDnsApServer();
-				}
-			} else {
-				wlog->trace(F("Starting AP Mode"));
-				if (WiFi.status() != WL_CONNECTED) {
-					// even if currently disconnected - stop trying to connect
-					//WiFi.disconnect();
-					//Create own AP
-					this->apStartedAt=millis();
-					String apSsid = getClientName(false);
-					wlog->notice(F("Start AccessPoint for configuration. SSID '%s'; password '%s'"), apSsid.c_str(), CONFIG_PASSWORD);
-					dnsApServer = new DNSServer();
-					WiFi.mode(WIFI_AP);
-					WiFi.softAP(apSsid.c_str(), CONFIG_PASSWORD);
-					dnsApServer->setErrorReplyCode(DNSReplyCode::NoError);
-					dnsApServer->start(53, "*", WiFi.softAPIP());
-
-
-				} else {
-					wlog->notice(F("Start web server for configuration. IP %s"), this->getDeviceIp().toString().c_str());
-				}
-			}		
+		if (wifiModeRunning== wnWifiMode::WIFIMODE_STATION && this->connectFailCounter >= maxConnectFail && !isUpdateRunning()){
+			wlog->warning(F("WiFi: connectFailCounter > %d, activating AP"), maxConnectFail);
+			wifiModeDesired = wnWifiMode::WIFIMODE_FALLBACK;
 		}
+		if (wifiModeRunning == wnWifiMode::WIFIMODE_FALLBACK && !isUpdateRunning()){
+			// Switch back to Station Mode if config is available
+			if (settingsFound && (now -  this->apStartedAt > maxApRunTimeMinutes * 60 * 1000)){
+				wlog->warning(F("WiFi: AP ran %d minutes, trying now to use configured WLAN again, Wifi Status %d "), maxApRunTimeMinutes, WiFi.status());
+				//this->stopWebServer();
+				this->connectFailCounter=0;
+				wifiModeDesired = wnWifiMode::WIFIMODE_STATION;
+			}
+		}
+		if (wifiModeDesired!=wifiModeRunning){
+			if (wifiModeRunning == wnWifiMode::WIFIMODE_FALLBACK || wifiModeRunning == wnWifiMode::WIFIMODE_AP){
+				wlog->warning(F("WiFi: deactivating softApMode"));
+				WiFi.softAPdisconnect();
+				lastWifiConnect=0;
+				apStartedAt=0;
+				deleteDnsApServer();
+			}
+			if (wifiModeRunning == wnWifiMode::WIFIMODE_STATION){
+				WiFi.disconnect();
+			}
+
+			if (wifiModeDesired == wnWifiMode::WIFIMODE_FALLBACK || wifiModeDesired == wnWifiMode::WIFIMODE_AP){
+				wlog->trace(F("Starting AP Mode"));
+				wifiModeRunning = wifiModeDesired;
+				// even if currently disconnected - stop trying to connect
+				WiFi.disconnect();
+				//Create own AP
+				this->apStartedAt=millis();
+				String apSsid = getClientName(false);
+				wlog->notice(F("Start AccessPoint for configuration. SSID '%s'; password '%s'"), apSsid.c_str(), CONFIG_PASSWORD);
+				dnsApServer = new DNSServer();
+				WiFi.mode(WIFI_AP);
+				WiFi.softAP(apSsid.c_str(), CONFIG_PASSWORD);
+				dnsApServer->setErrorReplyCode(DNSReplyCode::NoError);
+				dnsApServer->start(53, "*", WiFi.softAPIP());
+			}
 
 
-		if (!isSoftAP() && (WiFi.status() != WL_CONNECTED)	&& getSsid() != "" && ((lastWifiConnect == 0) || (now - lastWifiConnect > 20 * 1000))) {
+			
+			if (wifiModeDesired == wnWifiMode::WIFIMODE_STATION){
+				wlog->trace(F("Starting AP Mode"));
+				wifiModeRunning = wifiModeDesired;
+				lastWifiConnect = 0;
+			}
+		}
+		if (wifiModeRunning == wnWifiMode::WIFIMODE_STATION && 
+			WiFi.status() != WL_CONNECTED	&& (lastWifiConnect == 0 || now - lastWifiConnect > 20 * 1000)){
 			wlog->notice(F("WiFi: Connecting to '%s', using Hostname '%s'"), getSsid(), getHostName().c_str());
 			wlog->notice(F("WiFi: SSID/PSK/Hostname '%s'/'%s'/'%s' (strlen %d/%d/%d)"), getSsid(), getPassword(), getHostName().c_str(),
 				strlen(getSsid()), strlen(getPassword()), strlen(getHostName().c_str()));
-			//Workaround: if disconnect is not called, WIFI connection fails after first startup
-			//WiFi.disconnect();
 			WiFi.mode(WIFI_STA);
 			WiFi.hostname(getHostName());
 			WiFi.begin(getSsid(), getPassword());
 			apStartedAt=0;
-			wlog->notice(F("Wait"));
-			WiFi.waitForConnectResult();
-			wlog->notice(F("Wait DONE"));
 			lastWifiConnect = now;
 		}
+
 
 
 		if (isWebServerRunning()){
@@ -235,6 +259,12 @@ public:
 			delay(1000);
 			ESP.restart();
 			delay(2000);
+		}
+
+		if (WiFi.status() != lastWifiStatus){
+			wlog->notice(F("WiFi: Status changed from %d to %d"), lastWifiConnect, WiFi.status());
+			lastWifiStatus = WiFi.status(); 
+			this->notify( (WiFi.status() == wl_status_t::WL_CONNECTED) );
 		}
 		return result;
 	}
@@ -388,7 +418,7 @@ public:
 		wlog->notice(F("webServer prepared."));
 
 		webServer->begin();
-		this->notify(true);
+		this->notify(false);
 		return;
 	}
 
@@ -398,7 +428,7 @@ public:
 			wlog->notice(F("stopWebServer"));
 			delay(100);
 			webServer->stop();
-			this->notify(true);
+			this->notify(false);
 		}
 		deleteDnsApServer();
 		disconnectMqtt();
@@ -425,7 +455,15 @@ public:
 	}
 
 	bool isSoftAP() {
-		return ((isWebServerRunning()) && (dnsApServer != nullptr));
+		return (wifiModeRunning == wnWifiMode::WIFIMODE_AP || wifiModeRunning == wnWifiMode::WIFIMODE_FALLBACK);
+	}
+
+	bool isSoftAPDesired() {
+		return (wifiModeDesired == wnWifiMode::WIFIMODE_AP || wifiModeDesired == wnWifiMode::WIFIMODE_FALLBACK);
+	}
+
+	bool isStation() {
+		return (wifiModeRunning == wnWifiMode::WIFIMODE_STATION);
 	}
 
 	bool isWifiConnected() {
@@ -529,6 +567,17 @@ public:
 		responseStream->flush();
 		return responseStream;
 	}
+	void setDesiredModeAp(){
+		this->wifiModeDesired = wnWifiMode::WIFIMODE_AP;
+	}
+
+	void setDesiredModeFallback(){
+		this->wifiModeDesired = wnWifiMode::WIFIMODE_FALLBACK;
+	}
+	void setDesiredModeStation(){
+		if (getSsid() != "" ) this->wifiModeDesired = wnWifiMode::WIFIMODE_STATION;
+	}
+
 
 private:
 	ESP8266WebServer *webServer;
@@ -559,6 +608,10 @@ private:
 	int connectFailCounter;
 	unsigned long apStartedAt;
 	unsigned long lastLoopLog;
+
+	wnWifiMode_t wifiModeDesired;
+	wnWifiMode_t wifiModeRunning;
+	int lastWifiStatus;
 
 	void handleDeviceStateChange(WDevice *device) {
 		String topic = String(getMqttTopic()) + "/" + MQTT_STAT + "/things/" + String(device->getId()) + "/properties";
@@ -829,6 +882,9 @@ private:
 
 	void handleHttpNetworkConfiguration() {
 		if (isWebServerRunning()) {
+			// stop timer 
+			// resetWifiTimeout
+			if (wifiModeRunning == wnWifiMode_t::WIFIMODE_FALLBACK) this->apStartedAt=millis();
 			wlog->notice(F("Network config page"));
 			WStringStream* page = new WStringStream(3072);
 			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Network Configuration");
@@ -1272,6 +1328,7 @@ private:
 		}
 		return nullptr;
 	}
+
 };
 
 #endif
