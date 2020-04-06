@@ -35,12 +35,18 @@ const char* MQTT_TELE = "tele";
 
 const char* FORM_PW_NOCHANGE = "___NOCHANGE___";
 
+const byte NETBITS1_MQTT       = 1;
+const byte NETBITS1_HASS       = 2;
+const byte NETBITS1_APFALLBACK = 4;
+
 #ifdef DEBUG
 const int maxApRunTimeMinutes = 2;
 const int maxConnectFail = 3;
+const int mqttHassAutodiscoverMinutes = 1;
 #else
 const int maxApRunTimeMinutes = 5;
 const int maxConnectFail = 10;
+const int mqttHassAutodiscoverMinutes = 5;
 #endif
 
 typedef enum wnWifiMode
@@ -51,6 +57,8 @@ typedef enum wnWifiMode
 	WIFIMODE_FALLBACK = 3
 } wnWifiMode_t;
 
+
+
 WiFiEventHandler gotIpEventHandler, disconnectedEventHandler;
 WiFiClient wifiClient;
 WAdapterMqtt *mqttClient;
@@ -58,9 +66,13 @@ WAdapterMqtt *mqttClient;
 class WNetwork {
 public:
 	typedef std::function<void(void)> THandlerFunction;
+	typedef std::function<bool(void)> THandlerReturnFunction;
 	WNetwork(bool debug, String applicationName, String firmwareVersion,
 			int statusLedPin) {
 
+		this->onConfigurationFinished = nullptr;
+		this->onNotify = nullptr;
+		this->onMqttHassAutodiscover = nullptr;
 		/* https://github.com/esp8266/Arduino/blob/master/doc/esp8266wifi/station-class.rst#reconnect */
 		//Serial.printf("AC: %d, ARC: %d\n", WiFi.getAutoConnect(), WiFi.getAutoReconnect());
 		WiFi.disconnect();
@@ -95,6 +107,7 @@ public:
 		this->connectFailCounter = 0;
 		this->apStartedAt = 0;
 		this->lastLoopLog = 0;
+		this->lastMqttHASS = 0;
 		this->mqttClient = nullptr;
 		//this->webSocket = nullptr;
 		settings = new WSettings(wlog);
@@ -103,6 +116,7 @@ public:
 		this->wifiModeDesired = (settingsFound &&  getSsid() != "" ? wnWifiMode::WIFIMODE_STATION : wnWifiMode::WIFIMODE_AP);
 		this->wifiModeRunning = wnWifiMode::WIFIMODE_UNSET;
 		lastWifiStatus = -1;
+
 
 		gotIpEventHandler = WiFi.onStationModeGotIP(
 				[this](const WiFiEventStationModeGotIP &event) {
@@ -141,7 +155,7 @@ public:
 		} 
 #endif
 		bool result = true;
-		if (wifiModeRunning== wnWifiMode::WIFIMODE_STATION && this->connectFailCounter >= maxConnectFail && !isUpdateRunning()){
+		if (this->isSupportingApFallback() && wifiModeRunning== wnWifiMode::WIFIMODE_STATION && this->connectFailCounter >= maxConnectFail && !isUpdateRunning()){
 			wlog->warning(F("WiFi: connectFailCounter > %d, activating AP"), maxConnectFail);
 			wifiModeDesired = wnWifiMode::WIFIMODE_FALLBACK;
 		}
@@ -260,6 +274,11 @@ public:
 			ESP.restart();
 			delay(2000);
 		}
+		if (isSupportingMqtt() && isSupportingMqttHASS() && isMqttConnected() && isStation() && onMqttHassAutodiscover && 
+			(lastMqttHASS==0 || now > lastMqttHASS  + (mqttHassAutodiscoverMinutes * 60 * 1000) )){
+				if (onMqttHassAutodiscover() ) lastMqttHASS=now;
+
+		}
 
 		if (WiFi.status() != lastWifiStatus){
 			wlog->notice(F("WiFi: Status changed from %d to %d"), lastWifiConnect, WiFi.status());
@@ -283,6 +302,10 @@ public:
 
 	void setOnConfigurationFinished(THandlerFunction onConfigurationFinished) {
 		this->onConfigurationFinished = onConfigurationFinished;
+	}
+	
+	void setOnMqttHassAutodiscover(THandlerReturnFunction onMqttHassAutodiscover) {
+		this->onMqttHassAutodiscover = onMqttHassAutodiscover;
 	}
 
 	bool publishMqtt(const char* topic, const char * message, bool retained=false) {
@@ -501,6 +524,14 @@ public:
 		return this->supportingMqtt->getBoolean();
 	}
 
+	bool isSupportingMqttHASS() {
+		return this->supportingMqttHASS->getBoolean();
+	}
+
+	bool isSupportingApFallback() {
+		return this->supportingApFallback->getBoolean();
+	}
+
 	const char* getIdx() {
 		return this->idx->c_str();
 	}
@@ -577,6 +608,18 @@ public:
 	void setDesiredModeStation(){
 		if (getSsid() != "" ) this->wifiModeDesired = wnWifiMode::WIFIMODE_STATION;
 	}
+	String getMacAddress(){
+		return WiFi.macAddress();
+	}
+	String getApplicationName(){
+		return applicationName;
+	}
+
+	String getFirmwareVersion(){
+		String fw=firmwareVersion;
+		fw.concat(debug ? " (debug)" : "");
+		return fw;
+	}
 
 
 private:
@@ -586,6 +629,7 @@ private:
 	WLog* wlog;
 	THandlerFunction onNotify;
 	THandlerFunction onConfigurationFinished;
+	THandlerReturnFunction onMqttHassAutodiscover;
 	bool debug, updateRunning;
 	String restartFlag;
 	DNSServer *dnsApServer;
@@ -593,7 +637,10 @@ private:
 	String applicationName;
 	String firmwareVersion;
 	const char* firmwareUpdateError;
+	WProperty *netBits1;
 	WProperty *supportingMqtt;
+	WProperty *supportingMqttHASS;
+	WProperty *supportingApFallback;
 	WProperty *ssid;
 	WProperty *idx;
 	WProperty *mqttTopic;
@@ -608,6 +655,7 @@ private:
 	int connectFailCounter;
 	unsigned long apStartedAt;
 	unsigned long lastLoopLog;
+	unsigned long lastMqttHASS;
 
 	wnWifiMode_t wifiModeDesired;
 	wnWifiMode_t wifiModeRunning;
@@ -897,14 +945,20 @@ private:
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Hostname/Idx:", "i", "32", getIdx());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Wifi ssid (only 2.4G):", "s", "32", getSsid());
 			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "Wifi password:", "p", "64", FORM_PW_NOCHANGE);
+			page->printFormat(FPSTR(HTTP_PAGE_CONFIGURATION_OPTION), "apfb", (this->isSupportingApFallback() ? "checked" : ""),
+			"", HTTP_PAGE_CONFIIGURATION_OPTION_APFALLBACK);
 			//mqtt
-			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_MQTT_OPTION), (this->isSupportingMqtt() ? "checked" : ""));
+			page->printFormat(FPSTR(HTTP_PAGE_CONFIGURATION_OPTION), "mq", (this->isSupportingMqtt() ? "checked" : ""), 
+				"id='mqttEnabled'onclick='hideMqttGroup()'", HTTP_PAGE_CONFIIGURATION_OPTION_MQTT);
 			page->print(FPSTR(HTTP_PAGE_CONFIGURATION_MQTT_BEGIN));
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Server:", "ms", "32", getMqttServer());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Port:", "mo", "4", getMqttPort());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT User:", "mu", "32", getMqttUser());
 			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "MQTT Password:", "mp", "64", FORM_PW_NOCHANGE);
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic, e.g.'home/room':", "mt", "64", getMqttTopic());
+
+			page->printFormat(FPSTR(HTTP_PAGE_CONFIGURATION_OPTION), "mqhass", (this->isSupportingMqttHASS() ? "checked" : ""),
+				"", HTTP_PAGE_CONFIIGURATION_OPTION_MQTTHASS);
 
 			page->print(FPSTR(HTTP_PAGE_CONFIGURATION_MQTT_END));
 			page->print(FPSTR(HTTP_CONFIG_SAVE_BUTTON));
@@ -919,15 +973,22 @@ private:
 			this->idx->setString(webServer->arg("i").c_str());
 			this->ssid->setString(webServer->arg("s").c_str());
 			settings->setString("password",  (webServer->arg("p").equals(FORM_PW_NOCHANGE) ? getPassword() : webServer->arg("p").c_str())) ;
-			this->supportingMqtt->setBoolean(webServer->arg("mq") == "true");
 			settings->setString("mqttServer", webServer->arg("ms").c_str());
 			String mqtt_port = webServer->arg("mo");
 			settings->setString("mqttPort", (mqtt_port != "" ? mqtt_port.c_str() : "1883"));
 			settings->setString("mqttUser", webServer->arg("mu").c_str());
 			settings->setString("mqttPassword",(webServer->arg("mp").equals(FORM_PW_NOCHANGE) ? getMqttPassword() : webServer->arg("mp").c_str()));
 			this->mqttTopic->setString(webServer->arg("mt").c_str());
-			settings->save();
+			byte nb1 = 0;
+			if (webServer->arg("mq") == "true") nb1 |= NETBITS1_MQTT;
+			if (webServer->arg("mqhass") == "true") nb1 |= NETBITS1_HASS;
+			if (webServer->arg("apfb") == "true") nb1 |= NETBITS1_APFALLBACK;
+			settings->setByte("netbits1", nb1);
+			wlog->notice(F("supportingMqtt set to: %d"), nb1);
+			settings->save(); 
 			this->restart("Settings saved.");
+			// we must not here this->supportingMqtt -> if it _was_ disabled and we're going to enable it here
+			// mqtt would not be initialized but would be used immediately
 		}
 	}
 
@@ -1174,7 +1235,21 @@ private:
 		this->idx = settings->setString("idx", 32, this->getClientName(true).c_str());
 		this->ssid = settings->setString("ssid", 32, "");
 		settings->setString("password", 64, "");
-		this->supportingMqtt = settings->setBoolean("supportingMqtt", false);
+		 
+		this->netBits1 = settings->setByte("netbits1", (NETBITS1_MQTT | NETBITS1_HASS));
+		// Split mqtt setting into bits - so we keep settings storage compatibility
+		if (this->netBits1->getByte() == 0xFF) this->netBits1->setByte(NETBITS1_MQTT); // compatibility
+		this->supportingMqtt = new WProperty("supportingMqtt", "supportingMqtt", BOOLEAN);
+		this->supportingMqtt->setBoolean(this->netBits1->getByte() & NETBITS1_MQTT);
+		this->supportingMqtt->setReadOnly(true);
+		this->supportingMqttHASS = new WProperty("supportingMqttHASS", "supportingMqttHASS", BOOLEAN);
+		this->supportingMqttHASS->setBoolean(this->netBits1->getByte() & NETBITS1_HASS);
+		this->supportingMqttHASS->setReadOnly(true);
+
+		this->supportingApFallback= new WProperty("supportingApFallback", "supportingApFallback", BOOLEAN);
+		this->supportingApFallback->setBoolean(this->netBits1->getByte() & NETBITS1_APFALLBACK);
+		this->supportingApFallback->setReadOnly(true);
+		
 		settings->setString("mqttServer", 32, "");
 		settings->setString("mqttPort", 4, "1883");
 		settings->setString("mqttUser", 32, "");

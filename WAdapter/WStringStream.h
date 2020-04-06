@@ -80,13 +80,8 @@ public:
     }
 
 	void vsprintFormat(const char *format, va_list args) {
-		char logbuf[1024];
-		size_t size = sizeof logbuf;
-		vsnprintf_P(logbuf, size-1, format, args);
-		for (char *c=logbuf; *c; c++){
-			write(*c);
-		}
-		
+		size_t written = vsnprintf_P(&string[position], maxLength - position-1, format, args);
+		position+=written;		
 	}
 	void printFormat(const char *format, ...) {
 		va_list args;
