@@ -417,7 +417,7 @@ public:
 				std::bind(&WNetwork::handleHttpFirmwareUpdateProgress, this));
 
 		//WebThings
-		if ((this->isSupportingWebThing()) && (this->isWifiConnected())) {
+		if (this->isSupportingWebThing()) {
 			//Make the thing discoverable
 			//String mdnsName = getHostName() + ".local";
 			String mdnsName = this->getDeviceIp().toString();
