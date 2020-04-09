@@ -42,6 +42,7 @@ public:
 		this->lastStateNotify = 0;
 		this->stateNotifyInterval = 300000;
 		this->mqttRetain = false;
+		this->mqttSendChangedValues = false;
 	}
 
 	~WDevice() {
@@ -234,6 +235,18 @@ public:
 	bool isMainDevice() {
 		return mainDevice;
 	}
+	void setMqttRetain(bool val){
+		this->mqttRetain = val;
+	}
+	bool isMqttRetain(){
+		return this->mqttRetain;
+	}
+	void setMqttSendChangedValues(bool val){
+		this->mqttSendChangedValues = val;
+	}
+	bool isMqttSendChangedValues(){
+		return this->mqttSendChangedValues;
+	}
 
     WDevice* next = nullptr;
     //WebSocketsServer* webSocket;
@@ -245,7 +258,6 @@ public:
     WPin* lastPin = nullptr;
     unsigned long lastStateNotify;
     int stateNotifyInterval;
-    bool mqttRetain;
 protected:
     WNetwork* network;
     WLed* statusLed = nullptr;
@@ -253,6 +265,8 @@ protected:
 	bool configNeedsReboot;
     bool mainDevice;
     WPropertyVisibility visibility;
+	bool mqttRetain;
+	bool mqttSendChangedValues;
 
 private:
 	const char* id;

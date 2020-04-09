@@ -350,6 +350,33 @@ public:
 		this->multipleOf = multipleOf;
 	}
 
+	virtual String toString() {
+		switch (getType()) {
+		case BOOLEAN:
+			return String( (getBoolean() ? "true" : "false"));
+			break;
+		case DOUBLE:
+			return String(getDouble());
+			break;
+		case INTEGER:
+			return String(getInteger());
+			break;
+		case LONG:
+			return String(getLong());
+			break;
+		case UNSIGNED_LONG:
+			return String(getUnsignedLong());
+			break;
+		case BYTE:
+			return String(getByte());
+			break;
+		case STRING:
+			return String(c_str());
+			break;
+		}
+
+	}
+
 	virtual void toJsonValue(WJson* json, bool onlyValue=false) {
 		requestValue();
 		const char* memberName = (onlyValue ? nullptr : getId());
@@ -550,6 +577,13 @@ public:
 		this->atType = atType;
 	}
 
+	void setMqttSendChangedValues(bool val) {
+		this->mqttSendChangedValues = val;
+	}
+	bool isMqttSendChangedValues() {
+		return this->mqttSendChangedValues;
+	}
+
 protected:
 	const char* atType;
 
@@ -559,6 +593,8 @@ protected:
 		this->type = type;
 		this->visibility = ALL;
 		this->supportingWebthing = true;
+		this->supportingMqtt = true;
+		this->mqttSendChangedValues = false;
 		this->valueNull = true;
 		this->changed = true;
 		this->requested = false;
@@ -616,6 +652,7 @@ private:
 	WPropertyType type;
 	WPropertyVisibility visibility;
 	bool supportingMqtt;
+	bool mqttSendChangedValues;
 	bool supportingWebthing;
 	byte length;
 	bool readOnly;

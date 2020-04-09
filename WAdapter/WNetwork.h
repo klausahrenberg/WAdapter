@@ -38,6 +38,7 @@ const char* FORM_PW_NOCHANGE = "___NOCHANGE___";
 const byte NETBITS1_MQTT       = 1;
 const byte NETBITS1_HASS       = 2;
 const byte NETBITS1_APFALLBACK = 4;
+const byte NETBITS1_MQTTSINGLEVALUES = 8;
 
 #ifdef DEBUG
 const int maxApRunTimeMinutes = 2;
@@ -265,6 +266,10 @@ public:
 		if ((!isUpdateRunning()) && (this->isSupportingWebThing()) && (isWifiConnected())) {
 			MDNS.update();
 		}
+
+		// process changed properties and send to MQTT
+		handleDevicesChangedPropertiesMQTT();
+
 		//Restart required?
 		if (!restartFlag.equals("")) {
 			wlog->notice(F("Restart flag: '%s'"), restartFlag.c_str());
@@ -532,6 +537,10 @@ public:
 		return this->supportingApFallback->getBoolean();
 	}
 
+	bool isSupportingMqttSingleValues() {
+		return this->supportingMqttSingleValues->getBoolean();
+	}
+
 	const char* getIdx() {
 		return this->idx->c_str();
 	}
@@ -641,6 +650,7 @@ private:
 	WProperty *supportingMqtt;
 	WProperty *supportingMqttHASS;
 	WProperty *supportingApFallback;
+	WProperty *supportingMqttSingleValues;
 	WProperty *ssid;
 	WProperty *idx;
 	WProperty *mqttTopic;
@@ -682,7 +692,7 @@ private:
 				device->toJsonValues(&json, MQTT);
 				json.endObject();
 								
-				if (mqttClient->publish(topic.c_str(), response->c_str(), device->mqttRetain)) {
+				if (mqttClient->publish(topic.c_str(), response->c_str(), device->isMqttRetain())) {
 					wlog->verbose(F("MQTT sent"));
 				}
 				device->lastStateNotify = millis();
@@ -744,10 +754,12 @@ private:
 										wlog->warning(F("Property not updated."));
 									} else {
 										wlog->trace(F("Property updated."));
+										// set to unchanged, because we're sending update now immediately
+										property->setUnChanged();
 									}
 								}
 								// answer just with changed value
-								//publishMqtt((stat_topic+topic).c_str(), property->c_str(), false);
+								publishMqtt((stat_topic+topic).c_str(), property->toString().c_str(), device->isMqttRetain());
 							}			
 							wlog->notice(F("Sending device State to %sproperties for device %s"), stat_topic.c_str(), device->getName());				
 							mqttSendDeviceState(stat_topic+"properties", device);
@@ -934,7 +946,7 @@ private:
 			// resetWifiTimeout
 			if (wifiModeRunning == wnWifiMode_t::WIFIMODE_FALLBACK) this->apStartedAt=millis();
 			wlog->notice(F("Network config page"));
-			WStringStream* page = new WStringStream(3072);
+			WStringStream* page = new WStringStream(4092);
 			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Network Configuration");
 			page->print(FPSTR(HTTP_SCRIPT));
 			page->print(FPSTR(HTTP_STYLE));
@@ -959,6 +971,8 @@ private:
 
 			page->printFormat(FPSTR(HTTP_PAGE_CONFIGURATION_OPTION), "mqhass", (this->isSupportingMqttHASS() ? "checked" : ""),
 				"", HTTP_PAGE_CONFIIGURATION_OPTION_MQTTHASS);
+			page->printFormat(FPSTR(HTTP_PAGE_CONFIGURATION_OPTION), "mqsv", (this->isSupportingMqttSingleValues() ? "checked" : ""),
+				"", HTTP_PAGE_CONFIIGURATION_OPTION_MQTTSINGLEVALUES);
 
 			page->print(FPSTR(HTTP_PAGE_CONFIGURATION_MQTT_END));
 			page->print(FPSTR(HTTP_CONFIG_SAVE_BUTTON));
@@ -983,6 +997,7 @@ private:
 			if (webServer->arg("mq") == "true") nb1 |= NETBITS1_MQTT;
 			if (webServer->arg("mqhass") == "true") nb1 |= NETBITS1_HASS;
 			if (webServer->arg("apfb") == "true") nb1 |= NETBITS1_APFALLBACK;
+			if (webServer->arg("mqsv") == "true") nb1 |= NETBITS1_MQTTSINGLEVALUES;
 			settings->setByte("netbits1", nb1);
 			wlog->notice(F("supportingMqtt set to: %d"), nb1);
 			settings->save(); 
@@ -1061,7 +1076,8 @@ private:
 			page->printf_P("%dd, %dh, %dm, %ds",
 			days, hours, minutes, secs);
 			page->print("</td></tr>");
-			page->print("</table>");
+			page->print("</table>");			
+			page->print(FPSTR(HTTP_HOME_BUTTON));
 			page->print(FPSTR(HTTP_BODY_END));
 			webServer->send(200, TEXT_HTML, page->c_str());
 			delete page;
@@ -1249,7 +1265,11 @@ private:
 		this->supportingApFallback= new WProperty("supportingApFallback", "supportingApFallback", BOOLEAN);
 		this->supportingApFallback->setBoolean(this->netBits1->getByte() & NETBITS1_APFALLBACK);
 		this->supportingApFallback->setReadOnly(true);
-		
+
+		this->supportingMqttSingleValues= new WProperty("supportingMqttSingleValues", "supportingMqttSingleValues", BOOLEAN);
+		this->supportingMqttSingleValues->setBoolean(this->netBits1->getByte() & NETBITS1_MQTTSINGLEVALUES);
+		this->supportingMqttSingleValues->setReadOnly(true);
+
 		settings->setString("mqttServer", 32, "");
 		settings->setString("mqttPort", 4, "1883");
 		settings->setString("mqttUser", 32, "");
@@ -1328,6 +1348,32 @@ private:
 		json.endObject();
 		webServer->send(200, APPLICATION_JSON, response->c_str());
 	}
+
+	void handleDevicesChangedPropertiesMQTT() {
+		if (!isMqttConnected()) return;
+		if (!isSupportingMqttSingleValues()) return;
+		WDevice *device = this->firstDevice;
+		while (device != nullptr) {
+			if (device->isVisible(MQTT) and device->isMqttSendChangedValues()) {
+				WProperty* property = device->firstProperty;
+				while (property != nullptr) {
+					if (property->isVisible(MQTT) && property->isChanged() && !property->isNull()) {
+						String stat_topic = String(getMqttTopic()) + String("/") + String(MQTT_STAT) + String("/things/") + String(device->getId()) + String("/properties/") + String(property->getId());
+						wlog->trace(F("sending changed property '%s' with value '%s' for device '%s' to topic '%s'"),
+							property->getId(), property->toString().c_str(), device->getId(), stat_topic.c_str());
+						publishMqtt(stat_topic.c_str(), property->toString().c_str(), device->isMqttRetain());
+						property->setUnChanged();
+
+						// only one per loop() -> bye
+						return;
+					}
+					property = property->next;
+				}
+			}
+			device = device->next;
+		}
+	}
+
 
 	void getPropertyValue(WProperty *property) {
 		WStringStream* response = getResponseStream();
