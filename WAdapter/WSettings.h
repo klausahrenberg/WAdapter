@@ -103,12 +103,15 @@ public:
 					property->setInteger(value);
 					break;
 				}
+				case UNSIGNED_LONG: {
+					unsigned long value = getUnsignedLong(EEPROM.read(settingItem->address), EEPROM.read(settingItem->address + 1),
+					                                      EEPROM.read(settingItem->address + 2), EEPROM.read(settingItem->address + 3));
+				  property->setUnsignedLong(value);
+					break;
+				}
 				case LONG: {
-					long four = EEPROM.read(settingItem->address);
-					long three = EEPROM.read(settingItem->address + 1);
-					long two = EEPROM.read(settingItem->address + 2);
-					long one = EEPROM.read(settingItem->address + 3);
-					long value = ((four << 0) & 0xFF) + ((three << 8) & 0xFFFF) + ((two << 16) & 0xFFFFFF) + ((one << 24) & 0xFFFFFFFF);
+					long value = getUnsignedLong(EEPROM.read(settingItem->address), EEPROM.read(settingItem->address + 1),
+					                             EEPROM.read(settingItem->address + 2), EEPROM.read(settingItem->address + 3));
 					property->setLong(value);
 					break;
 				}
@@ -127,6 +130,30 @@ public:
 		}
 	}
 
+	static unsigned long getUnsignedLong(byte l1, byte l2, byte l3, byte l4) {
+		return getLong(l1, l2, l3, l4);
+	}
+
+	static long getLong(byte l1, byte l2, byte l3, byte l4) {
+		long four = l4;
+		long three = l3;
+		long two = l2;
+		long one = l1;
+		long value = ((four << 0) & 0xFF) + ((three << 8) & 0xFFFF) + ((two << 16) & 0xFFFFFF) + ((one << 24) & 0xFFFFFFFF);
+		return value;
+	}
+
+	static void getUnsignedLongBytes(unsigned long value, byte* dest) {
+		return getLongBytes(value, dest);
+	}
+
+	static void getLongBytes(long value, byte* dest) {
+		byte l1, l2, l3, l4;
+		dest[3] = (value & 0xFF);
+		dest[2] = ((value >> 8) & 0xFF);
+		dest[1] = ((value >> 16) & 0xFF);
+		dest[0] = ((value >> 24) & 0xFF);
+	}
 
 	bool getBoolean(const char* id) {
 		WProperty* setting = getSetting(id);
@@ -285,16 +312,21 @@ protected:
 			EEPROM.write(settingItem->address, low);
 			EEPROM.write(settingItem->address + 1, high);
 			break;
+		case UNSIGNED_LONG:
+			byte ulValues[4];
+			getUnsignedLongBytes(setting->getUnsignedLong(), ulValues);
+			EEPROM.write(settingItem->address, ulValues[3]);
+			EEPROM.write(settingItem->address + 1, ulValues[2]);
+			EEPROM.write(settingItem->address + 2, ulValues[1]);
+			EEPROM.write(settingItem->address + 3, ulValues[0]);
+			break;
 		case LONG:
-			byte l1, l2, l3, l4;
-			l4 = (setting->getLong() & 0xFF);
-			l3 = ((setting->getLong() >> 8) & 0xFF);
-			l2 = ((setting->getLong() >> 16) & 0xFF);
-			l1 = ((setting->getLong() >> 24) & 0xFF);
-			EEPROM.write(settingItem->address, l4);
-			EEPROM.write(settingItem->address + 1, l3);
-			EEPROM.write(settingItem->address + 2, l2);
-			EEPROM.write(settingItem->address + 3, l1);
+			byte bValues[4];
+			getLongBytes(setting->getLong(), bValues);
+			EEPROM.write(settingItem->address, bValues[3]);
+			EEPROM.write(settingItem->address + 1, bValues[2]);
+			EEPROM.write(settingItem->address + 2, bValues[1]);
+			EEPROM.write(settingItem->address + 3, bValues[0]);
 			break;
 		case DOUBLE:
 			EEPROM.put(settingItem->address, setting->getDouble());

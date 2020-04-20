@@ -3,6 +3,12 @@
 
 #include "Arduino.h"
 
+const char* HTTP_SELECTED = "selected";
+const char* HTTP_CHECKED = "checked";
+const char* HTTP_NONE = "none";
+const char* HTTP_BLOCK = "block";
+const char* HTTP_TRUE = "true";
+
 const static char HTTP_HEAD_BEGIN[]         PROGMEM = R"=====(
 <!DOCTYPE html>
 <html lang='en'>

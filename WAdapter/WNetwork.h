@@ -621,7 +621,7 @@ private:
 					//device->handleUnknownMqttCallback(ptopic, topic, payload, length);
 				}
 			}	else if (deviceId.equals("webServer")) {
-				enableWebServer(String((char *) payload).equals("true"));
+				enableWebServer(String((char *) payload).equals(HTTP_TRUE));
 			}
 		}
 	}
@@ -765,20 +765,20 @@ private:
 			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
 			page->printAndReplace(FPSTR(HTTP_CONFIG_PAGE_BEGIN), "");
-			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_STYLE), (this->isSupportingMqtt() ? "block" : "none"));
+			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_STYLE), (this->isSupportingMqtt() ? HTTP_BLOCK : HTTP_NONE));
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Idx:", "i", "32", getIdx());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Wifi ssid (only 2.4G):", "s", "32", getSsid());
 			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "Wifi password:", "p", "64", getPassword());
 			//mqtt
-			page->printAndReplace(FPSTR(HTTP_CHECKBOX_OPTION), "mqttEnabled", "mq", (this->isSupportingMqtt() ? "checked" : ""), "hideMqttGroup()", "Support MQTT");
+			page->printAndReplace(FPSTR(HTTP_CHECKBOX_OPTION), "mqttEnabled", "mq", (this->isSupportingMqtt() ? HTTP_CHECKED : ""), "hideMqttGroup()", "Support MQTT");
 			page->printAndReplace(FPSTR(HTTP_DIV_ID_BEGIN), "mqttGroup");
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Server:", "ms", "32", getMqttServer());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Port:", "mo", "4", getMqttPort());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT User:", "mu", "32", getMqttUser());
 			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "MQTT Password:", "mp", "64", getMqttPassword());
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic, e.g.'home/room':", "mt", "64", getMqttBaseTopic());
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic for state requests, e.g.'properties':", "mtg", "16", getMqttStateTopic());
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic for setting values, e.g.'set':", "mts", "16", getMqttSetTopic());
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Topic:", "mt", "64", getMqttBaseTopic());
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic for state requests:", "mtg", "16", getMqttStateTopic());
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic for setting values:", "mts", "16", getMqttSetTopic());
 
 			page->print(FPSTR(HTTP_DIV_END));
 			page->printAndReplace(FPSTR(HTTP_SCRIPT_OPTION), "mqttEnabled", "mqttGroup");
@@ -794,7 +794,7 @@ private:
 			this->idx->setString(webServer->arg("i").c_str());
 			this->ssid->setString(webServer->arg("s").c_str());
 			settings->setString("password", webServer->arg("p").c_str());
-			this->supportingMqtt->setBoolean(webServer->arg("mq") == "true");
+			this->supportingMqtt->setBoolean(webServer->arg("mq") == HTTP_TRUE);
 			settings->setString("mqttServer", webServer->arg("ms").c_str());
 			String mqtt_port = webServer->arg("mo");
 			settings->setString("mqttPort", (mqtt_port != "" ? mqtt_port.c_str() : "1883"));

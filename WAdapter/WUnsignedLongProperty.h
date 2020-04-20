@@ -5,8 +5,8 @@
 
 class WUnsignedLongProperty: public WProperty {
 public:
-	WUnsignedLongProperty(const char* id)
-	: WProperty(id, id, UNSIGNED_LONG) {
+	WUnsignedLongProperty(const char* id, const char* title)
+	: WProperty(id, title, UNSIGNED_LONG) {
 		this->atType = "LongProperty";
 	}
 
