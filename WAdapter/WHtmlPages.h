@@ -8,6 +8,7 @@ const char* HTTP_CHECKED = "checked";
 const char* HTTP_NONE = "none";
 const char* HTTP_BLOCK = "block";
 const char* HTTP_TRUE = "true";
+const char* HTTP_FALSE = "false";
 
 const static char HTTP_HEAD_BEGIN[]         PROGMEM = R"=====(
 <!DOCTYPE html>
@@ -65,15 +66,6 @@ button{
 </style>
 )=====";
 
-const static char HTTP_SCRIPT[]             PROGMEM = R"=====(
-<script>
-	function c(l){
-		document.getElementById('s').value=l.innerText||l.textContent;
-		document.getElementById('p').focus();
-	}
-</script>
-)=====";
-
 const static char HTTP_HEAD_END[]           PROGMEM = R"=====(
 	</head>
 	<body>
@@ -88,22 +80,14 @@ const static char HTTP_BODY_END[]           PROGMEM = R"=====(
 
 const static char HTTP_BUTTON[]    PROGMEM = R"=====(
 	<div>
-        <form action='/%s' method='%s'>
-        	<button>%s</button>
-        </form>
-    </div>
+  	<form action='/%s' method='%s'>
+    	<button>%s</button>
+    </form>
+  </div>
 )=====";
 
-
-const static char HTTP_PAGE_CONFIGURATION_STYLE[]    PROGMEM = R"=====(
-<style>
-#mqttEnabled,#webthingEnabled{
-	width:15%;
-}
-#mqttGroup {
-  display:%s;
-}
-</style>
+const static char HTTP_DIV_BEGIN[]    PROGMEM = R"=====(
+	<div>
 )=====";
 
 const static char HTTP_DIV_ID_BEGIN[]    PROGMEM = R"=====(
@@ -114,18 +98,31 @@ const static char HTTP_DIV_END[]    PROGMEM = R"=====(
 	</div>
 )=====";
 
-const static char HTTP_SCRIPT_OPTION[]    PROGMEM = R"=====(
+const char* HTTP_FUNCTION_TOGGLE = "tg()";
+
+const static char HTTP_SCRIPT_FUNCTION_TOGGLE[]    PROGMEM = R"=====(
 	<script>
-		function hideMqttGroup() {
-			var cb = document.getElementById('%s');
-  			var x = document.getElementById('%s');
-  			if (cb.checked) {
-	    		x.style.display = 'block';
-  			} else {
-    			x.style.display = 'none';
-  			}
+		function tg() {
+			var sa = document.getElementById('sa');
+			var ga = document.getElementById('ga');
+			ga.style.display = (sa.checked ? 'block' : 'none');
+			var gb = document.getElementById('gb');
+			if (gb != null && gb !== undefined) {
+				gb.style.display = (sa.checked ? 'none' : 'block');
+			}
 		}
 	</script>
+)=====";
+
+const static char HTTP_PAGE_CONFIGURATION_STYLE[]    PROGMEM = R"=====(
+<style>
+#ga {
+  display:%s;
+}
+#gb {
+	display:%s;
+}
+</style>
 )=====";
 
 const static char HTTP_SAVED[]              PROGMEM = R"=====(
@@ -185,6 +182,12 @@ const static char HTTP_CHECKBOX_OPTION[]    PROGMEM = R"=====(
 			<input type='checkbox' id='%s' name='%s' value='true' %s onclick='%s'>%s
 		</label>
 	</div>
+)=====";
+
+const static char HTTP_RADIO_OPTION[]    PROGMEM = R"=====(
+	<label>
+		<input type='radio' id='%s' name='%s' value='%s' %s onclick='%s'>%s
+	</label>
 )=====";
 
 const static char HTTP_COMBOBOX_BEGIN[]         PROGMEM = R"=====(

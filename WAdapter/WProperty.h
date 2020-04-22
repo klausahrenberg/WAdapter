@@ -4,6 +4,19 @@
 #include <Arduino.h>
 #include "WJson.h"
 
+//for reference see https://iot.mozilla.org/schemas
+const char* TYPE_COLOR_PROPERTY = "ColorProperty";
+const char* TYPE_FAN_MODE_PROPERTY = "FanModeProperty";
+const char* TYPE_HEATING_COOLING_PROPERTY = "HeatingCoolingProperty";
+const char* TYPE_LEVEL_PROPERTY = "LevelProperty";
+const char* TYPE_ON_OFF_PROPERTY = "OnOffProperty";
+const char* TYPE_OPEN_PROPERTY = "OpenProperty";
+const char* TYPE_TARGET_TEMPERATURE_PROPERTY = "TargetTemperatureProperty";
+const char* TYPE_THERMOSTAT_MODE_PROPERTY = "ThermostatModeProperty";
+const char* TYPE_TEMPERATURE_PROPERTY = "TemperatureProperty";
+
+const char* UNIT_CELSIUS = "degree celsius";
+
 enum WPropertyType {
 	BOOLEAN, DOUBLE, INTEGER, LONG, UNSIGNED_LONG, BYTE, STRING
 };
@@ -24,14 +37,58 @@ union WPropertyValue {
 
 class WProperty {
 public:
-	typedef std::function<void(WProperty* property)> TOnPropertyChange;
-
-	WProperty(const char* id, const char* title, WPropertyType type) {
-		initialize(id, title, type, (type == STRING ? 32 : 0));
+	static WProperty* createIntegerProperty(const char* id, const char* title) {
+		return new WProperty(id, title, INTEGER, "");
 	}
 
-	WProperty(const char* id, const char* title, WPropertyType type, byte length) {
-		initialize(id, title, type, length);
+	static WProperty* createStringProperty(const char* id, const char* title, byte length) {
+		return new WProperty(id, title, STRING, length, "");
+	}
+
+	static WProperty* createByteProperty(const char* id, const char* title) {
+		return new WProperty(id, title, BYTE, "");
+	}
+
+	static WProperty* createDoubleProperty(const char* id, const char* title) {
+		return new WProperty(id, title, DOUBLE, "");
+	}
+
+	static WProperty* createUnsignedLongProperty(const char* id, const char* title) {
+		return new WProperty(id, title, UNSIGNED_LONG, "");
+	}
+
+	static WProperty* createLongProperty(const char* id, const char* title) {
+		return new WProperty(id, title, LONG, "");
+	}
+
+	static WProperty* createBooleanProperty(const char* id, const char* title) {
+		return new WProperty(id, title, BOOLEAN, "");
+	}
+
+	static WProperty* createTargetTemperatureProperty(const char* id, const char* title) {
+		WProperty* p = new WProperty(id, title, DOUBLE, TYPE_TARGET_TEMPERATURE_PROPERTY);
+		p->setUnit(UNIT_CELSIUS);
+		return p;
+	}
+
+	static WProperty* createTemperatureProperty(const char* id, const char* title) {
+		WProperty* p = new WProperty(id, title, DOUBLE, TYPE_TEMPERATURE_PROPERTY);
+		p->setUnit(UNIT_CELSIUS);
+		return p;
+	}
+
+	static WProperty* createOnOffProperty(const char* id, const char* title) {
+		return new WProperty(id, title, BOOLEAN, TYPE_ON_OFF_PROPERTY);
+	}
+
+	typedef std::function<void(WProperty* property)> TOnPropertyChange;
+
+	WProperty(const char* id, const char* title, WPropertyType type, const char* atType) {
+		initialize(id, title, type, (type == STRING ? 32 : 0), atType);
+	}
+
+	WProperty(const char* id, const char* title, WPropertyType type, byte length, const char* atType) {
+		initialize(id, title, type, length, atType);
 	}
 
 	~WProperty() {
@@ -302,9 +359,9 @@ public:
 	    return this->value;
 	}
 
-	void setString(const char* newValue) {
+	bool setString(const char* newValue) {
 		if (type != STRING) {
-			return;
+			return false;
 		}
 		bool changed = ((this->valueNull) || (strcmp(value.string, newValue) != 0));
 		if (changed) {
@@ -324,6 +381,7 @@ public:
 			valueChanged();
 			notify();
 		}
+		return changed;
 	}
 
 	bool isReadOnly() {
@@ -459,7 +517,7 @@ public:
 		if (type != BOOLEAN) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", this->type, 0);
+		WProperty* valueE = new WProperty("", "", this->type, 0, "");
 		valueE->setBoolean(enumBoolean);
 		this->addEnum(valueE);
 	}
@@ -468,7 +526,7 @@ public:
 		if (type != DOUBLE) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", this->type, 0);
+		WProperty* valueE = new WProperty("", "", this->type, 0, "");
 		valueE->setDouble(enumNumber);
 		this->addEnum(valueE);
 	}
@@ -477,7 +535,7 @@ public:
 		if (type != INTEGER) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", this->type, 0);
+		WProperty* valueE = new WProperty("", "", this->type, 0, "");
 		valueE->setInteger(enumNumber);
 		this->addEnum(valueE);
 	}
@@ -486,7 +544,7 @@ public:
 		if (type != LONG) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", this->type, 0);
+		WProperty* valueE = new WProperty("", "", this->type, 0, "");
 		valueE->setLong(enumNumber);
 		this->addEnum(valueE);
 	}
@@ -495,7 +553,7 @@ public:
 		if (type != UNSIGNED_LONG) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", this->type, 0);
+		WProperty* valueE = new WProperty("", "", this->type, 0, "");
 		valueE->setUnsignedLong(enumNumber);
 		this->addEnum(valueE);
 	}
@@ -504,7 +562,7 @@ public:
 		if (type != BYTE) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", this->type, 0);
+		WProperty* valueE = new WProperty("", "", this->type, 0, "");
 		valueE->setByte(enumByte);
 		this->addEnum(valueE);
 	}
@@ -513,9 +571,47 @@ public:
 		if (type != STRING) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", this->type, this->length - 1);
+		WProperty* valueE = new WProperty("", "", this->type, this->length - 1, "");
 		valueE->setString(enumString);
 		this->addEnum(valueE);
+	}
+
+	byte getEnumIndex() {
+		return getEnumIndex(this, this->getValue().string);
+	}
+
+	static byte getEnumIndex(WProperty* property, const char* enumString) {
+		if ((property->getType() != STRING) || (property->isNull())) {
+			return 0xFF;
+		}
+		byte result = 0xFF;
+		WProperty* en = property->firstEnum;
+		byte i = 0x00;
+		while ((result == 0xFF) && (en != nullptr)) {
+			if (strcmp(en->getValue().string, enumString) == 0) {
+				result = i;
+			}
+			en = en->next;
+			i++;
+		}
+		return result;
+	}
+
+	const char* getEnumString(byte enumIndex) {
+		return getEnumString(this, enumIndex);
+	}
+
+	static const char* getEnumString(WProperty* property, byte enumIndex) {
+		if (property->getType() != STRING) {
+			return nullptr;
+		}
+		WProperty* en = property->firstEnum;
+		byte i = 0x00;
+		while ((i < enumIndex) && (en != nullptr)) {
+			en = en->next;
+			i++;
+		}
+		return (en != nullptr ? en->getValue().string : nullptr);
 	}
 
 	void addEnum(WProperty* propEnum) {
@@ -546,14 +642,10 @@ public:
 		return ((this->visibility == ALL) || (this->visibility == visibility));
 	}
 
-	void setAtType(const char* atType) {
-		this->atType = atType;
-	}
-
 protected:
 	const char* atType;
 
-	void initialize(const char* id, const char* title, WPropertyType type, byte length) {
+	void initialize(const char* id, const char* title, WPropertyType type, byte length, const char* atType) {
 		this->id = id;
 		this->title = title;
 		this->type = type;
@@ -565,7 +657,7 @@ protected:
 		this->valueRequesting = false;
 		this->notifying = false;
 		this->readOnly = false;
-		this->atType = "";
+		this->atType = atType;
 		this->unit = "";
 		this->multipleOf = 0.0;
 		this->onChange = nullptr;

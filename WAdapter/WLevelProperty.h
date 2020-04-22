@@ -6,8 +6,7 @@
 class WLevelProperty: public WProperty {
 public:
 	WLevelProperty(const char* id, const char* title, double minimum, double maximum)
-	: WProperty(id, title, DOUBLE) {
-		this->atType = "LevelProperty";
+	: WProperty(id, title, DOUBLE, TYPE_LEVEL_PROPERTY) {
 		this->minimum = minimum;
 		this->maximum = maximum;
 	}

@@ -163,7 +163,7 @@ public:
 	WProperty* setBoolean(const char* id, bool value) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = new WProperty(id, id, BOOLEAN);
+			setting = WProperty::createBooleanProperty(id, id);
 			setting->setBoolean(value);
 			add(setting);
 		} else {
@@ -180,7 +180,7 @@ public:
 	WProperty* setByte(const char* id, byte value) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = new WProperty(id, id, BYTE);
+			setting = WProperty::createByteProperty(id, id);
 			setting->setByte(value);
 			add(setting);
 		} else {
@@ -197,7 +197,7 @@ public:
 	WProperty* setInteger(const char* id, int value) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = new WProperty(id, id, INTEGER);
+			setting = WProperty::createIntegerProperty(id, id);
 			setting->setInteger(value);
 			add(setting);
 		} else {
@@ -214,7 +214,7 @@ public:
 	WProperty* setLong(const char* id, long value) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = new WProperty(id, id, LONG);
+			setting = WProperty::createLongProperty(id, id);
 			setting->setLong(value);
 			add(setting);
 		} else {
@@ -231,7 +231,7 @@ public:
 	WProperty* setUnsignedLong(const char* id, unsigned long value) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = new WProperty(id, id, UNSIGNED_LONG);
+			setting = WProperty::createUnsignedLongProperty(id, id);
 			setting->setUnsignedLong(value);
 			add(setting);
 		} else {
@@ -248,7 +248,7 @@ public:
 	WProperty* setDouble(const char* id, double value) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = new WProperty(id, id, DOUBLE);
+			setting = WProperty::createDoubleProperty(id, id);
 			setting->setDouble(value);
 			add(setting);
 		} else {
@@ -270,7 +270,7 @@ public:
 	WProperty* setString(const char* id, byte length, const char* value) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = new WStringProperty(id, id, length);
+			setting = WProperty::createStringProperty(id, id, length);
 			setting->setString(value);
 			add(setting);
 		} else  {

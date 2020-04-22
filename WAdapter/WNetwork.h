@@ -700,7 +700,6 @@ private:
 			if (restartFlag.equals("")) {
 				WStringStream* page = new WStringStream(2048);
 				page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), applicationName.c_str());
-				page->print(FPSTR(HTTP_SCRIPT));
 				page->print(FPSTR(HTTP_STYLE));
 				page->print(FPSTR(HTTP_HEAD_END));
 				printHttpCaption(page);
@@ -724,7 +723,6 @@ private:
 			} else {
 				WStringStream* page = new WStringStream(2048);
 				page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Info");
-				page->print(FPSTR(HTTP_SCRIPT));
 				page->print(FPSTR(HTTP_STYLE));
 				page->print("<meta http-equiv=\"refresh\" content=\"10\">");
 				page->print(FPSTR(HTTP_HEAD_END));
@@ -743,7 +741,6 @@ private:
 			wlog->notice(F("Device config page"));
 			WStringStream* page = new WStringStream(3072);
 			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Device Configuration");
-			page->print(FPSTR(HTTP_SCRIPT));
 			page->print(FPSTR(HTTP_STYLE));
 			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
@@ -760,18 +757,17 @@ private:
 			wlog->notice(F("Network config page"));
 			WStringStream* page = new WStringStream(3072);
 			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Network Configuration");
-			page->print(FPSTR(HTTP_SCRIPT));
 			page->print(FPSTR(HTTP_STYLE));
 			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
 			page->printAndReplace(FPSTR(HTTP_CONFIG_PAGE_BEGIN), "");
-			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_STYLE), (this->isSupportingMqtt() ? HTTP_BLOCK : HTTP_NONE));
+			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_STYLE), (this->isSupportingMqtt() ? HTTP_BLOCK : HTTP_NONE), HTTP_NONE);
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Idx:", "i", "32", getIdx());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Wifi ssid (only 2.4G):", "s", "32", getSsid());
 			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "Wifi password:", "p", "64", getPassword());
 			//mqtt
-			page->printAndReplace(FPSTR(HTTP_CHECKBOX_OPTION), "mqttEnabled", "mq", (this->isSupportingMqtt() ? HTTP_CHECKED : ""), "hideMqttGroup()", "Support MQTT");
-			page->printAndReplace(FPSTR(HTTP_DIV_ID_BEGIN), "mqttGroup");
+			page->printAndReplace(FPSTR(HTTP_CHECKBOX_OPTION), "sa", "sa", (this->isSupportingMqtt() ? HTTP_CHECKED : ""), HTTP_FUNCTION_TOGGLE, "Support MQTT");
+			page->printAndReplace(FPSTR(HTTP_DIV_ID_BEGIN), "ga");
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Server:", "ms", "32", getMqttServer());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Port:", "mo", "4", getMqttPort());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT User:", "mu", "32", getMqttUser());
@@ -781,7 +777,7 @@ private:
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic for setting values:", "mts", "16", getMqttSetTopic());
 
 			page->print(FPSTR(HTTP_DIV_END));
-			page->printAndReplace(FPSTR(HTTP_SCRIPT_OPTION), "mqttEnabled", "mqttGroup");
+			page->print(FPSTR(HTTP_SCRIPT_FUNCTION_TOGGLE));
 			page->print(FPSTR(HTTP_CONFIG_SAVE_BUTTON));
 			page->print(FPSTR(HTTP_BODY_END));
 			webServer->send(200, TEXT_HTML, page->c_str());
@@ -794,7 +790,7 @@ private:
 			this->idx->setString(webServer->arg("i").c_str());
 			this->ssid->setString(webServer->arg("s").c_str());
 			settings->setString("password", webServer->arg("p").c_str());
-			this->supportingMqtt->setBoolean(webServer->arg("mq") == HTTP_TRUE);
+			this->supportingMqtt->setBoolean(webServer->arg("sa") == HTTP_TRUE);
 			settings->setString("mqttServer", webServer->arg("ms").c_str());
 			String mqtt_port = webServer->arg("mo");
 			settings->setString("mqttPort", (mqtt_port != "" ? mqtt_port.c_str() : "1883"));
@@ -831,7 +827,6 @@ private:
 		if (isWebServerRunning()) {
 			WStringStream* page = new WStringStream(2048);
 			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Info");
-			page->print(FPSTR(HTTP_SCRIPT));
 			page->print(FPSTR(HTTP_STYLE));
 			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
@@ -925,7 +920,6 @@ private:
 		if (isWebServerRunning()) {
 			WStringStream* page = new WStringStream(2048);
 			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Firmware update");
-			page->print(FPSTR(HTTP_SCRIPT));
 			page->print(FPSTR(HTTP_STYLE));
 			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
@@ -1021,7 +1015,6 @@ private:
 		webServer->client().setNoDelay(true);
 		WStringStream* page = new WStringStream(2048);
 		page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), reasonMessage);
-		page->print(FPSTR(HTTP_SCRIPT));
 		page->print(FPSTR(HTTP_STYLE));
 		page->print(FPSTR(HTTP_HEAD_END));
 		printHttpCaption(page);

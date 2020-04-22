@@ -6,8 +6,7 @@
 class WColorProperty: public WProperty {
 public:
 	WColorProperty(const char* id, const char* title, byte red, byte green, byte blue)
-	: WProperty(id, title, STRING, 7) {
-		this->atType = "ColorProperty";
+	: WProperty(id, title, STRING, 7, TYPE_COLOR_PROPERTY) {
 		this->setRGB(red, green, blue);
 		this->changeValue = false;
 	}
