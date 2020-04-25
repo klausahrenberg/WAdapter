@@ -5,9 +5,11 @@
 #include "WLog.h"
 #include "WProperty.h"
 
-const byte STORED_FLAG_OLD = 0x59;
+const byte STORED_FLAG_OLDLOW = 0x59;
+const byte STORED_FLAG_OLDHIGH = 0x63;
 const byte STORED_FLAG = 0xF0;
 const int EEPROM_SIZE = 512;
+const int ADDRESS_COMPAT_MAXSTARTADDRESS = 128; // 64 IDX +32  SSID + 32 PSK
 
 class WSettingItem {
 public:
@@ -22,7 +24,8 @@ public:
 		this->log = log;
 		EEPROM.begin(EEPROM_SIZE);
 		uint8_t epromStored = EEPROM.read(0);
-		this->_existsSettings = (epromStored == STORED_FLAG || epromStored == STORED_FLAG_OLD);
+		this->_existsSettingsCompat = (epromStored >= STORED_FLAG_OLDLOW && epromStored <= STORED_FLAG_OLDHIGH);
+		this->_existsSettings = (epromStored == STORED_FLAG || this->_existsSettingsCompat);
 		EEPROM.end();
 	}
 
@@ -59,6 +62,10 @@ public:
 	bool existsSettings() {
 		return this->_existsSettings;
 	}
+	
+	bool existsSettingsCompat() {
+		return this->_existsSettingsCompat;
+	}
 
 	WProperty* getSetting(String id) {
 		WSettingItem* settingItem = firstSetting;
@@ -86,7 +93,7 @@ public:
 	void add(WProperty* property) {
 		if (!exists(property)) {
 			WSettingItem* settingItem = addSetting(property);
-			if (existsSettings()) {
+			if (existsSettings() && (!existsSettingsCompat() || settingItem->address <= ADDRESS_COMPAT_MAXSTARTADDRESS)) {
 				if (settingItem->address + property->getLength() > EEPROM_SIZE){
 					log->error(F("Cannot add EPROM property. Size too small, Adrress=%d, Id='%s', size=%d, MEM: %d"),
 					settingItem->address, property->getId(), property->getLength(), EEPROM_SIZE);
@@ -320,6 +327,7 @@ protected:
 private:
 	WLog* log;
 	bool _existsSettings;
+	bool _existsSettingsCompat;
 	WSettingItem* firstSetting = nullptr;
 	WSettingItem* lastSetting = nullptr;
 

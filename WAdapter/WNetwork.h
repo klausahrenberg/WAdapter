@@ -13,7 +13,9 @@
 #include <DNSServer.h>
 #include <StreamString.h>
 #include "WHtmlPages.h"
+#ifndef MINIMAL
 #include "WAdapterMqtt.h"
+#endif
 #include "WStringStream.h"
 #include "WDevice.h"
 #include "WLed.h"
@@ -29,9 +31,11 @@ const char* APPLICATION_JSON = "application/json";
 const char* TEXT_HTML = "text/html";
 const char* TEXT_PLAIN = "text/plain";
 
+#ifndef MINIMAL
 const char* MQTT_CMND = "cmnd";
 const char* MQTT_STAT = "stat";
 const char* MQTT_TELE = "tele";
+#endif
 
 const char* FORM_PW_NOCHANGE = "___NOCHANGE___";
 
@@ -62,7 +66,9 @@ typedef enum wnWifiMode
 
 WiFiEventHandler gotIpEventHandler, disconnectedEventHandler;
 WiFiClient wifiClient;
+#ifndef MINIMAL
 WAdapterMqtt *mqttClient;
+#endif
 
 class WNetwork {
 public:
@@ -73,7 +79,9 @@ public:
 
 		this->onConfigurationFinished = nullptr;
 		this->onNotify = nullptr;
+#ifndef MINIMAL
 		this->onMqttHassAutodiscover = nullptr;
+#endif
 		/* https://github.com/esp8266/Arduino/blob/master/doc/esp8266wifi/station-class.rst#reconnect */
 		//Serial.printf("AC: %d, ARC: %d\n", WiFi.getAutoConnect(), WiFi.getAutoReconnect());
 		WiFi.disconnect();
@@ -108,12 +116,16 @@ public:
 		this->connectFailCounter = 0;
 		this->apStartedAt = 0;
 		this->lastLoopLog = 0;
+#ifndef MINIMAL
 		this->lastMqttHASS = 0;
 		this->mqttClient = nullptr;
+#endif
 		//this->webSocket = nullptr;
 		settings = new WSettings(wlog);
 		settingsFound = loadSettings();
+#ifndef MINIMAL
 		lastMqttConnect = lastWifiConnect = 0;
+#endif
 		this->wifiModeDesired = (settingsFound &&  getSsid() != "" ? wnWifiMode::WIFIMODE_STATION : wnWifiMode::WIFIMODE_AP);
 		this->wifiModeRunning = wnWifiMode::WIFIMODE_UNSET;
 		lastWifiStatus = -1;
@@ -131,8 +143,10 @@ public:
 					if (!isSoftAP()){
 						this->connectFailCounter++;
 						wlog->notice(F("WiFi: Station disconnected (count: %d)"), this->connectFailCounter);
+#ifndef MINIMAL
 						this->disconnectMqtt();
 						this->lastMqttConnect = 0;
+#endif
 					}
 				});
 
@@ -156,7 +170,11 @@ public:
 		} 
 #endif
 		bool result = true;
-		if (this->isSupportingApFallback() && wifiModeRunning== wnWifiMode::WIFIMODE_STATION && this->connectFailCounter >= maxConnectFail && !isUpdateRunning()){
+		if ((
+#ifdef MINIMAL
+true ||
+#endif
+			this->isSupportingApFallback()) && wifiModeRunning== wnWifiMode::WIFIMODE_STATION && this->connectFailCounter >= maxConnectFail && !isUpdateRunning()){
 			wlog->warning(F("WiFi: connectFailCounter > %d, activating AP"), maxConnectFail);
 			wifiModeDesired = wnWifiMode::WIFIMODE_FALLBACK;
 		}
@@ -230,6 +248,7 @@ public:
 			result = ((!isSoftAP()) && (!isUpdateRunning()));
 		}
 		if (!isSoftAP()){
+#ifndef MINIMAL
 			//MQTT connection
 			if ((isWifiConnected()) && (isSupportingMqtt())
 					&& (!mqttClient->connected())
@@ -242,6 +261,7 @@ public:
 			if ((!isUpdateRunning()) && (this->isMqttConnected())) {
 				mqttClient->loop();
 			}
+#endif
 		}
 
 		//Loop led
@@ -252,6 +272,7 @@ public:
 		WDevice *device = firstDevice;
 		while (device != nullptr) {
 			device->loop(now);
+#ifndef MINIMAL
 			if ((this->isMqttConnected()) && (this->isSupportingMqtt())
 					&& ((device->lastStateNotify == 0)
 							|| ((device->stateNotifyInterval > 0) && (now > device->lastStateNotify) &&
@@ -260,8 +281,10 @@ public:
 				wlog->notice(F("Notify interval is up -> Device state changed..."));
 				handleDeviceStateChange(device);
 			}
+#endif
 			device = device->next;
 		}
+#ifndef MINIMAL
 		//WebThingAdapter
 		if ((!isUpdateRunning()) && (this->isSupportingWebThing()) && (isWifiConnected())) {
 			MDNS.update();
@@ -269,6 +292,7 @@ public:
 
 		// process changed properties and send to MQTT
 		handleDevicesChangedPropertiesMQTT();
+#endif
 
 		//Restart required?
 		if (!restartFlag.equals("")) {
@@ -279,12 +303,13 @@ public:
 			ESP.restart();
 			delay(2000);
 		}
+#ifndef MINIMAL
 		if (isSupportingMqtt() && isSupportingMqttHASS() && isMqttConnected() && isStation() && onMqttHassAutodiscover && 
 			(lastMqttHASS==0 || now > lastMqttHASS  + (mqttHassAutodiscoverMinutes * 60 * 1000) )){
 				if (onMqttHassAutodiscover() ) lastMqttHASS=now;
 
 		}
-
+#endif
 		if (WiFi.status() != lastWifiStatus){
 			wlog->notice(F("WiFi: Status changed from %d to %d"), lastWifiConnect, WiFi.status());
 			lastWifiStatus = WiFi.status(); 
@@ -308,7 +333,8 @@ public:
 	void setOnConfigurationFinished(THandlerFunction onConfigurationFinished) {
 		this->onConfigurationFinished = onConfigurationFinished;
 	}
-	
+
+#ifndef MINIMAL
 	void setOnMqttHassAutodiscover(THandlerReturnFunction onMqttHassAutodiscover) {
 		this->onMqttHassAutodiscover = onMqttHassAutodiscover;
 	}
@@ -355,18 +381,19 @@ public:
 			return false;
 		}
 	}
+#endif
 
 	// Creates a web server
 	void startWebServer() {
 		wlog->trace(F("Starting Webserver"));
-
+#ifndef MINIMAL
 		if (this->isSupportingMqtt()) {
 			this->mqttClient = new WAdapterMqtt(debug, wifiClient, SIZE_JSON_PACKET);
 			mqttClient->setCallback(std::bind(&WNetwork::mqttCallback, this,
 										std::placeholders::_1, std::placeholders::_2,
 										std::placeholders::_3));
 		}
-		
+#endif		
 		if (this->statusLedPin != NO_LED) {
 			statusLed = new WLed(statusLedPin);
 			statusLed->setOn(true, 500);
@@ -421,6 +448,7 @@ public:
 				std::bind(&WNetwork::handleHttpFirmwareUpdateFinished, this),
 				std::bind(&WNetwork::handleHttpFirmwareUpdateProgress, this));
 
+#ifndef MINIMAL
 		//WebThings
 		if (this->isSupportingWebThing()) {
 			//Make the thing discoverable
@@ -440,7 +468,7 @@ public:
 				device = device->next;
 			}
 		}
-
+#endif
 
 		//Start http server
 		wlog->notice(F("webServer prepared."));
@@ -459,7 +487,9 @@ public:
 			this->notify(false);
 		}
 		deleteDnsApServer();
+#ifndef MINIMAL
 		disconnectMqtt();
+#endif
 		wlog->notice(F("kill"));
 		if (webServer!=nullptr){
 			delete webServer;
@@ -499,6 +529,7 @@ public:
 				&& (WiFi.status() == WL_CONNECTED));
 	}
 
+#ifndef MINIMAL
 	bool isMqttConnected() {
 		return ((this->isSupportingMqtt()) && (this->mqttClient != nullptr)
 				&& (this->mqttClient->connected()));
@@ -509,6 +540,8 @@ public:
 			this->mqttClient->disconnect();
 		}
 	}
+#endif
+
 	void deleteDnsApServer(){
 		if (this->dnsApServer){
 			this->dnsApServer->stop();
@@ -625,9 +658,7 @@ public:
 	}
 
 	String getFirmwareVersion(){
-		String fw=firmwareVersion;
-		fw.concat(debug ? " (debug)" : "");
-		return fw;
+		return firmwareVersion;
 	}
 
 
@@ -651,11 +682,15 @@ private:
 	WProperty *supportingMqttHASS;
 	WProperty *supportingApFallback;
 	WProperty *supportingMqttSingleValues;
+	WProperty *mqttTopic;
+#ifndef MINIMAL
+	WAdapterMqtt *mqttClient;
+	long lastMqttConnect;
+	unsigned long lastMqttHASS;
+#endif
 	WProperty *ssid;
 	WProperty *idx;
-	WProperty *mqttTopic;
-	WAdapterMqtt *mqttClient;
-	long lastMqttConnect, lastWifiConnect;
+	long lastWifiConnect;
 	WStringStream* responseStream = nullptr;
 	WLed *statusLed;
 	int statusLedPin;
@@ -665,12 +700,12 @@ private:
 	int connectFailCounter;
 	unsigned long apStartedAt;
 	unsigned long lastLoopLog;
-	unsigned long lastMqttHASS;
 
 	wnWifiMode_t wifiModeDesired;
 	wnWifiMode_t wifiModeRunning;
 	int lastWifiStatus;
 
+#ifndef MINIMAL
 	void handleDeviceStateChange(WDevice *device) {
 		String topic = String(getMqttTopic()) + "/" + MQTT_STAT + "/things/" + String(device->getId()) + "/properties";
 		wlog->notice(F("Device state changed -> send device state... %s"), topic.c_str());
@@ -814,6 +849,7 @@ private:
 			}
 		}
 	}
+#endif
 
 	void notify(bool sendState) {
 		if (statusLed != nullptr) {
@@ -825,6 +861,7 @@ private:
 				//statusLed->setOn(true, 500);
 			}
 		}
+#ifndef MINIMAL
 		if (sendState) {
 			WDevice *device = this->firstDevice;
 			while (device != nullptr) {
@@ -832,6 +869,7 @@ private:
 				device = device->next;
 			}
 		}
+#endif
 		if (onNotify) {
 			onNotify();
 		}
@@ -841,7 +879,7 @@ private:
 		wlog->notice(F("handleHttpRootRequest"));
 		if (isWebServerRunning()) {
 			if (restartFlag.equals("")) {
-				WStringStream* page = new WStringStream(2048);
+				WStringStream* page = new WStringStream(3072);
 				page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), applicationName.c_str());
 				page->print(FPSTR(HTTP_SCRIPT));
 				page->print(FPSTR(HTTP_STYLE));
@@ -1050,17 +1088,23 @@ private:
 			page->print("<tr><th>MAC address:</th><td>");
 			page->print(WiFi.macAddress());
 			page->print("</td></tr>");
+			page->print("<tr><th>Flash Chip size:</th><td>");
+			page->print(ESP.getFlashChipSize());
+			page->print(" kByte");
 			page->print("<tr><th>Current sketch size:</th><td>");
 			page->print(ESP.getSketchSize());
+			page->print(" kByte");
 			page->print("</td></tr>");
 			page->print("<tr><th>Available sketch size:</th><td>");
 			page->print(ESP.getFreeSketchSpace());
-			page->print("</td></tr>");
+			page->print(" kByte");
 			page->print("<tr><th>Free heap size:</th><td>");
 			page->print(ESP.getFreeHeap());
+			page->print(" kByte");
 			page->print("</td></tr>");
 			page->print("<tr><th>Largest free heap block:</th><td>");
 			page->print(ESP.getMaxFreeBlockSize());
+			page->print(" kByte");
 			page->print("</td></tr>");
 			page->print("<tr><th>Heap fragmentation:</th><td>");
 			page->print(ESP.getHeapFragmentation());
@@ -1073,6 +1117,7 @@ private:
 			unsigned int hours = secs / (60 * 60);
 			secs -= hours * (60 * 60);
 			unsigned int minutes = secs / 60;
+			secs -= minutes * 60;
 			page->printf_P("%dd, %dh, %dm, %ds",
 			days, hours, minutes, secs);
 			page->print("</td></tr>");
@@ -1141,6 +1186,9 @@ private:
 			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
 			page->print(FPSTR(HTTP_FORM_FIRMWARE));
+			page->print("Available sketch size: ");
+			page->print(ESP.getFreeSketchSpace());
+			page->print(" kByte");
 			page->print(FPSTR(HTTP_BODY_END));
 			webServer->send(200, TEXT_HTML, page->c_str());
 			delete page;
@@ -1163,8 +1211,10 @@ private:
 			HTTPUpload& upload = webServer->upload();
 			//Start firmwareUpdate
 			this->updateRunning = true;
+#ifndef MINIMAL
 			//Close existing MQTT connections
 			this->disconnectMqtt();
+#endif
 
 			if (upload.status == UPLOAD_FILE_START){
 				firmwareUpdateError = "";
@@ -1251,7 +1301,6 @@ private:
 		this->idx = settings->setString("idx", 32, this->getClientName(true).c_str());
 		this->ssid = settings->setString("ssid", 32, "");
 		settings->setString("password", 64, "");
-		 
 		this->netBits1 = settings->setByte("netbits1", (NETBITS1_MQTT | NETBITS1_HASS));
 		// Split mqtt setting into bits - so we keep settings storage compatibility
 		if (this->netBits1->getByte() == 0xFF) this->netBits1->setByte(NETBITS1_MQTT); // compatibility
@@ -1277,12 +1326,15 @@ private:
 		this->mqttTopic = settings->setString("mqttTopic", 64, getIdx());
 		bool settingsStored = settings->existsSettings();
 		if (settingsStored) {
+
 			if (getMqttTopic() == "") {
 				this->mqttTopic->setString(this->getClientName(true).c_str());
 			}
+#ifndef MINIMAL
 			if ((isSupportingMqtt()) && (this->mqttClient != nullptr)) {
 				this->disconnectMqtt();
 			}
+#endif
 			settingsStored = ((strcmp(getSsid(), "") != 0)
 					&& (((isSupportingMqtt()) && (strcmp(getMqttServer(), "") != 0) && (strcmp(getMqttPort(), "") != 0)) || (isSupportingWebThing())));
 			if (settingsStored) {
@@ -1349,6 +1401,7 @@ private:
 		webServer->send(200, APPLICATION_JSON, response->c_str());
 	}
 
+#ifndef MINIMAL
 	void handleDevicesChangedPropertiesMQTT() {
 		if (!isMqttConnected()) return;
 		if (!isSupportingMqttSingleValues()) return;
@@ -1373,7 +1426,7 @@ private:
 			device = device->next;
 		}
 	}
-
+#endif
 
 	void getPropertyValue(WProperty *property) {
 		WStringStream* response = getResponseStream();
