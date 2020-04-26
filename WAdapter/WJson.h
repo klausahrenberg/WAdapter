@@ -80,51 +80,6 @@ public:
 		return *this;
 	}
 
-	WJson& propertyString(const char* name, const char *value) {
-		return propertyString(name, value, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-	}
-
-	WJson& propertyString(const char* name, const char *value1, const char *value2) {
-		return propertyString(name, value1, value2, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-	}
-
-	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3) {
-		return propertyString(name, value1, value2, value3, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-	}
-
-	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3, const char *value4) {
-		return propertyString(name, value1, value2, value3, value4, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-	}
-
-	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3, const char *value4, const char *value5) {
-		return propertyString(name, value1, value2, value3, value4, value5, nullptr, nullptr, nullptr, nullptr, nullptr);
-	}
-
-	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3, const char *value4, const char *value5, const char *value6) {
-		return propertyString(name, value1, value2, value3, value4, value5, value6, nullptr, nullptr, nullptr, nullptr);
-	}
-
-	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3, const char *value4, const char *value5, const char *value6, const char *value7) {
-		return propertyString(name, value1, value2, value3, value4, value5, value6, value7, nullptr, nullptr, nullptr);
-	}
-
-	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3, const char *value4, const char *value5, const char *value6, const char *value7, const char *value8) {
-		return propertyString(name, value1, value2, value3, value4, value5, value6, value7, value8, nullptr, nullptr);
-	}
-
-	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3, const char *value4, const char *value5, const char *value6, const char *value7, const char *value8, const char *value9) {
-		return propertyString(name, value1, value2, value3, value4, value5, value6, value7, value8, value9, nullptr);
-	}
-
-	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3, const char *value4, const char *value5, const char *value6, const char *value7, const char *value8, const char *value9, const char *value10) {
-		ifSeparator();
-		separatorAlreadyCalled = true;
-		memberName(name);
-		string(value1, value2, value3, value4, value5, value6, value7, value8, value9, value10);
-		separatorAlreadyCalled = false;
-		return *this;
-	}
-
 	WJson& propertyInteger(const char* name, int value) {
 		ifSeparator();
 		separatorAlreadyCalled = true;
@@ -175,6 +130,51 @@ public:
 		separatorAlreadyCalled = true;
 		memberName(name);
 		boolean(value);
+		separatorAlreadyCalled = false;
+		return *this;
+	}
+
+	WJson& propertyString(const char* name, const char *value) {
+		return propertyString(name, value, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+	}
+
+	WJson& propertyString(const char* name, const char *value1, const char *value2) {
+		return propertyString(name, value1, value2, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+	}
+
+	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3) {
+		return propertyString(name, value1, value2, value3, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+	}
+
+	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3, const char *value4) {
+		return propertyString(name, value1, value2, value3, value4, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+	}
+
+	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3, const char *value4, const char *value5) {
+		return propertyString(name, value1, value2, value3, value4, value5, nullptr, nullptr, nullptr, nullptr, nullptr);
+	}
+
+	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3, const char *value4, const char *value5, const char *value6) {
+		return propertyString(name, value1, value2, value3, value4, value5, value6, nullptr, nullptr, nullptr, nullptr);
+	}
+
+	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3, const char *value4, const char *value5, const char *value6, const char *value7) {
+		return propertyString(name, value1, value2, value3, value4, value5, value6, value7, nullptr, nullptr, nullptr);
+	}
+
+	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3, const char *value4, const char *value5, const char *value6, const char *value7, const char *value8) {
+		return propertyString(name, value1, value2, value3, value4, value5, value6, value7, value8, nullptr, nullptr);
+	}
+
+	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3, const char *value4, const char *value5, const char *value6, const char *value7, const char *value8, const char *value9) {
+		return propertyString(name, value1, value2, value3, value4, value5, value6, value7, value8, value9, nullptr);
+	}
+
+	WJson& propertyString(const char* name, const char *value1, const char *value2, const char *value3, const char *value4, const char *value5, const char *value6, const char *value7, const char *value8, const char *value9, const char *value10) {
+		ifSeparator();
+		separatorAlreadyCalled = true;
+		memberName(name);
+		string(value1, value2, value3, value4, value5, value6, value7, value8, value9, value10);
 		separatorAlreadyCalled = false;
 		return *this;
 	}
@@ -295,6 +295,34 @@ private:
 			separator();
 		}
 	}
+
+
+
+	/*WJson& stringImpl(const char *format, va_list args) {
+		for (; *format != 0; ++format) {
+			if (*format == '%') {
+				++format;
+				printFormat(*format, &args);
+			} else {
+				this->output->print(*format);
+			}
+		}
+		if (this->printLineBreak) this->output->println();
+	}
+
+	WJson& stringImpl(const __FlashStringHelper *format, va_list args) {
+		PGM_P p = reinterpret_cast<PGM_P>(format);
+		char c = pgm_read_byte(p++);
+		for(;c != 0; c = pgm_read_byte(p++)) {
+			if (c == '%') {
+				c = pgm_read_byte(p++);
+				printFormat(c, &args);
+			} else {
+				this->output->print(c);
+			}
+		}
+		if (this->printLineBreak) this->output->println();
+	}*/
 
 };
 

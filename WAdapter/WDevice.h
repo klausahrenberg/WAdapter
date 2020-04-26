@@ -18,7 +18,6 @@ class WNetwork;
 
 class WDevice {
 public:
-	typedef std::function<void(WDevice*, const char*, const char*)> TFailureHandlerFunction;
 
 	WDevice(WNetwork* network, const char* id, const char* name, const char* type) {
 		this->network = network;
@@ -196,37 +195,26 @@ public:
 		return mainDevice;
 	}
 
-		void setOnFailure(TFailureHandlerFunction onFailure) {
-			this->onFailure = onFailure;
-		}
-
-    WDevice* next = nullptr;
-    //WebSocketsServer* webSocket;
-    WProperty* firstProperty = nullptr;
-    WProperty* lastProperty = nullptr;
-    WPin* firstPin = nullptr;
-    WPin* lastPin = nullptr;
-    bool lastStateWaitForResponse;
-		unsigned long lastStateNotify;
-		unsigned long stateNotifyInterval;
+	WDevice* next = nullptr;
+  //WebSocketsServer* webSocket;
+  WProperty* firstProperty = nullptr;
+  WProperty* lastProperty = nullptr;
+  WPin* firstPin = nullptr;
+  WPin* lastPin = nullptr;
+  bool lastStateWaitForResponse;
+	unsigned long lastStateNotify;
+	unsigned long stateNotifyInterval;
 protected:
-    WNetwork* network;
-    WLed* statusLed = nullptr;
-    bool providingConfigPage;
-    bool mainDevice;
-    WPropertyVisibility visibility;
-
-		void notifyFailure(const char* failureType, const char* failure) {
-    	if (onFailure) {
-    		onFailure(this, failureType, failure);
-    	}
-    }
+  WNetwork* network;
+  WLed* statusLed = nullptr;
+  bool providingConfigPage;
+  bool mainDevice;
+  WPropertyVisibility visibility;
 
 private:
 	const char* id;
 	const char* name;
 	const char* type;
-	TFailureHandlerFunction onFailure;
 
 	void onPropertyChange() {
 		this->lastStateNotify = 0;

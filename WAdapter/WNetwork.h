@@ -30,7 +30,6 @@ const char* TEXT_HTML = "text/html";
 const char* TEXT_PLAIN = "text/plain";
 const char* DEFAULT_TOPIC_STATE = "properties";
 const char* DEFAULT_TOPIC_SET = "set";
-const char* TOPIC_FAILURE = "failure";
 const String SLASH = "/";
 
 WiFiEventHandler gotIpEventHandler, disconnectedEventHandler;
@@ -40,7 +39,7 @@ WAdapterMqtt *mqttClient;
 class WNetwork {
 public:
 	typedef std::function<void(void)> THandlerFunction;
-	WNetwork(bool debug, String applicationName, String firmwareVersion,
+	WNetwork(bool debugging, String applicationName, String firmwareVersion,
 			bool startWebServerAutomaticly, int statusLedPin) {
 		WiFi.setAutoConnect(false);
 		//WiFi.setAutoReconnect(false);
@@ -50,8 +49,9 @@ public:
 		this->startWebServerAutomaticly = startWebServerAutomaticly;
 		this->webServer = nullptr;
 		this->dnsApServer = nullptr;
-		this->debug = debug;
-		wlog = new WLog((this->debug ? LOG_LEVEL_VERBOSE : LOG_LEVEL_SILENT), &Serial);
+		this->debugging = debugging;
+		this->wlog = new WLog();
+		this->setDebuggingOutput(&Serial);
 		this->updateRunning = false;
 		this->restartFlag = "";
 		this->deepSleepFlag = nullptr;
@@ -79,7 +79,7 @@ public:
 					this->notify(false);
 				});
 		if (this->isSupportingMqtt()) {
-			this->mqttClient = new WAdapterMqtt(debug, wifiClient, SIZE_JSON_PACKET);
+			this->mqttClient = new WAdapterMqtt(debugging, wifiClient, SIZE_JSON_PACKET);
 			mqttClient->setCallback(std::bind(&WNetwork::mqttCallback, this,
 										std::placeholders::_1, std::placeholders::_2,
 										std::placeholders::_3));
@@ -193,6 +193,10 @@ public:
 
 	WSettings* getSettings() {
 		return this->settings;
+	}
+
+	void setDebuggingOutput(Print* output) {
+		this->wlog->setOutput(output, (debugging ? LOG_LEVEL_NOTICE : LOG_LEVEL_SILENT), true, true);
 	}
 
 	void setOnNotify(THandlerFunction onNotify) {
@@ -341,10 +345,6 @@ public:
 		return this->updateRunning;
 	}
 
-	bool isDebug() {
-		return this->debug;
-	}
-
 	bool isSoftAP() {
 		return ((isWebServerRunning()) && (dnsApServer != nullptr));
 	}
@@ -436,16 +436,11 @@ public:
 		AsyncWebSocket *webSocket = new AsyncWebSocket("/things/" + device->getId());
 		device->setWebSocket(webSocket);
 		*/
-		device->setOnFailure(std::bind(&WNetwork::handleDeviceFailure, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 		bindWebServerCalls(device);
 	}
 
 	void setDeepSleepSeconds(int dsp) {
 		this->deepSleepSeconds = dsp;
-	}
-
-	WLog* log() {
-		return wlog;
 	}
 
 	WStringStream* getResponseStream() {
@@ -456,13 +451,47 @@ public:
 		return responseStream;
 	}
 
+	template<class T, typename ... Args> void error(T msg, Args ... args) {
+		logLevel(LOG_LEVEL_ERROR, msg, args...);
+	}
+
+	template<class T, typename ... Args> void debug(T msg, Args ...args) {
+		logLevel(LOG_LEVEL_DEBUG, msg, args...);
+	}
+
+	template<class T, typename ... Args> void notice(T msg, Args ...args) {
+		logLevel(LOG_LEVEL_NOTICE, msg, args...);
+	}
+
+	template<class T, typename ... Args> void logLevel(int level, T msg, Args ...args) {
+		wlog->printLevel(level, msg, args...);
+		if ((isMqttConnected()) && ((level == LOG_LEVEL_ERROR) || (debugging))) {
+			String topic = getMqttBaseTopic();
+			WStringStream* response = getResponseStream();
+			WJson json(response);
+			json.beginObject();
+			json.memberName(this->wlog->getLevelString(level));
+			response->print(QUOTE);
+			this->wlog->setOutput(response, level, false, false);
+			this->wlog->printLevel(level, msg, args...);
+			this->setDebuggingOutput(&Serial);
+			response->print(QUOTE);
+			json.endObject();
+			publishMqtt(topic.c_str(), response);
+		}
+	}
+
+	bool isDebugging() {
+		return this->debugging;
+	}
+
 private:
 	WLog* wlog;
 	WDevice *firstDevice = nullptr;
 	WDevice *lastDevice = nullptr;
 	THandlerFunction onNotify;
 	THandlerFunction onConfigurationFinished;
-	bool debug, updateRunning, startWebServerAutomaticly;
+	bool debugging, updateRunning, startWebServerAutomaticly;
 	String restartFlag;
 	DNSServer *dnsApServer;
 	ESP8266WebServer *webServer;
@@ -487,15 +516,11 @@ private:
 	unsigned long startupTime;
 
 
-	void handleDeviceMessage(WDevice *device, const char* pTopic, const char* key, const char* value) {
+	/*void handleDeviceMessage(WDevice *device, const char* pTopic, const char* key, const char* value) {
 		wlog->notice(F("Device failure -> send "), pTopic, "... ", key, F(": "), value);
 		String topic = String(getMqttBaseTopic()) + SLASH + String(device->getId()) + SLASH + String(pTopic);
 		publishMqtt(topic.c_str(), key, value);
-	}
-
-	void handleDeviceFailure(WDevice* device, const char* failureType, const char* failure) {
-		handleDeviceMessage(device, TOPIC_FAILURE, failureType, failure);
-	}
+	}*/
 
 	void handleDeviceStateChange(WDevice *device, bool complete) {
 		wlog->notice(F("Device state changed -> send device state..."));
@@ -886,7 +911,7 @@ private:
 		page->print(applicationName);
 		page->print("</h2><h3>Revision ");
 		page->print(firmwareVersion);
-		page->print(debug ? " (debug)" : "");
+		page->print(debugging ? " (debug)" : "");
 		page->print("</h3>");
 	}
 
