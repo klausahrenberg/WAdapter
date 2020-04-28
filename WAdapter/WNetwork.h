@@ -208,10 +208,8 @@ public:
 	}
 
 	bool publishMqtt(const char* topic, WStringStream* response, bool retained=false) {
-		wlog->notice(F("MQTT... '%s'"), topic);
-		wlog->notice(F("MQTT  .. '%s'"), response->c_str());
+		wlog->notice(F("MQTT... '%s'; %s"), topic, response->c_str());
 		if (isMqttConnected()) {
-			wlog->notice(F("MQTT connected... "));
 			if (mqttClient->publish(topic, response->c_str(), retained)) {
 				wlog->notice(F("MQTT sent. Topic: '%s'"), topic);
 				return true;
@@ -221,7 +219,6 @@ public:
 				return false;
 			}
 		} else {
-			wlog->notice(F("MQTT not connected... "));
 			if (strcmp(getMqttServer(), "") != 0) {
 				wlog->notice(F("Can't send MQTT. Not connected to server: %s"), getMqttServer());
 			}
@@ -432,10 +429,6 @@ public:
 			this->lastDevice = device;
 		}
 
-		/*ToDo
-		AsyncWebSocket *webSocket = new AsyncWebSocket("/things/" + device->getId());
-		device->setWebSocket(webSocket);
-		*/
 		bindWebServerCalls(device);
 	}
 
@@ -466,7 +459,6 @@ public:
 	template<class T, typename ... Args> void logLevel(int level, T msg, Args ...args) {
 		wlog->printLevel(level, msg, args...);
 		if ((isMqttConnected()) && ((level == LOG_LEVEL_ERROR) || (debugging))) {
-			String topic = getMqttBaseTopic();
 			WStringStream* response = getResponseStream();
 			WJson json(response);
 			json.beginObject();
@@ -477,7 +469,7 @@ public:
 			this->setDebuggingOutput(&Serial);
 			response->print(QUOTE);
 			json.endObject();
-			publishMqtt(topic.c_str(), response);
+			publishMqtt(mqttBaseTopic->c_str(), response);
 		}
 	}
 

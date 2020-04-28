@@ -10,6 +10,10 @@
 #define LOG_LEVEL_DEBUG  2
 #define LOG_LEVEL_NOTICE 3
 
+const char* LOG_LEVEL_STRING_ERROR = "error";
+const char* LOG_LEVEL_STRING_DEBUG = "debug";
+const char* LOG_LEVEL_STRING_NOTICE = "notice";
+
 /**
  * Logging is a helper class to output informations over
  * RS232. If you know log4j or log4net, this logging class
@@ -84,9 +88,9 @@ public:
 
 	const char* getLevelString(int level) {
 		switch (level) {
-			case LOG_LEVEL_ERROR : return "error";
-			case LOG_LEVEL_DEBUG : return "debug";
-			case LOG_LEVEL_NOTICE : return "notice";
+			case LOG_LEVEL_ERROR : return LOG_LEVEL_STRING_ERROR;
+			case LOG_LEVEL_DEBUG : return LOG_LEVEL_STRING_DEBUG;
+			case LOG_LEVEL_NOTICE : return LOG_LEVEL_STRING_NOTICE;
 		}
 		return "";
 	}

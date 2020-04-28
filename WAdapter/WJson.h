@@ -298,31 +298,34 @@ private:
 
 
 
-	/*WJson& stringImpl(const char *format, va_list args) {
-		for (; *format != 0; ++format) {
-			if (*format == '%') {
-				++format;
-				printFormat(*format, &args);
-			} else {
-				this->output->print(*format);
-			}
-		}
-		if (this->printLineBreak) this->output->println();
-	}
+	/*#include <stdarg.h>
+// Concatenate strings from NULL-terminated list to a buffer
 
-	WJson& stringImpl(const __FlashStringHelper *format, va_list args) {
-		PGM_P p = reinterpret_cast<PGM_P>(format);
-		char c = pgm_read_byte(p++);
-		for(;c != 0; c = pgm_read_byte(p++)) {
-			if (c == '%') {
-				c = pgm_read_byte(p++);
-				printFormat(c, &args);
-			} else {
-				this->output->print(c);
-			}
-		}
-		if (this->printLineBreak) this->output->println();
-	}*/
+char *mcat(char *b,...)
+{  char *r = b, *s = b;                // Pointers to buffer
+   va_list ap;                         // Parameter list reference
+   while (*s) ++s;                     // Find buffer string terminator
+   va_start(ap,b);                     // Initialize ap
+   while (b = va_arg(ap,char *))       // If the next parameter is non-NULL
+      while (*b) *s++ = *b++;          // Concatenate string to buffer
+   va_end(ap);                         // Done with parameter list
+   *s = '\0';                          // Terminate the concatenated string
+   return r;                           // Return pointer to buffer
+}                                      //  end: mcat() function
+
+
+#ifdef MCAT_TEST
+
+// Test program - dummy fusion reactor log line
+#include <stdio.h>
+int main(void)
+{  char b[81] = "\0";
+   mcat(b,"YY-MM-DD HH:MM:SS.SSS"," 123"," 456"," 789",NULL);
+   mcat(b," # ","Annotation",NULL);
+   puts(b);
+   return 0;
+}
+#endif*/
 
 };
 
