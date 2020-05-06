@@ -93,7 +93,8 @@ public:
 
 	virtual void toJsonStructure(WJson* json, const char* deviceHRef, WPropertyVisibility visibility) {
 		json->beginObject();
-		json->propertyString("name", this->getName());
+		json->propertyString("id", this->getName());
+		json->propertyString("title", this->getName());
 		String result(deviceHRef);
 		result.concat("/things/");
 		result.concat(this->getId());

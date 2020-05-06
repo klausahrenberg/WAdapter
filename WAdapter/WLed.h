@@ -26,16 +26,6 @@ public:
 		}
 		blinkOn = false;
 		lastBlinkOn = 0;
-		/*if (ledOn != isOn()) {
-			this->ledOn = ledOn;
-			digitalWrite(this->getPin(), ledOn ? LOW : HIGH);
-			if (this->ledOn) {
-				blinkOn = true;
-				lastBlinkOn = millis();
-			}
-			log("Switch LED " + String(ledOn ? "on" : "off") + ". pin:" + String(this->getPin()));
-			notify(true);
-		}*/
 	}
 
 	void setOn(bool ledOn, int blinkMillis) {
@@ -77,11 +67,6 @@ public:
 			//switchoff
 			digitalWrite(this->getPin(), HIGH);
 		}
-		/*if ((isOn()) && (isBlinking()) && (now - lastBlinkOn > this->blinkMillis)) {
-			blinkOn = !blinkOn;
-			lastBlinkOn = now;
-			digitalWrite(this->getPin(), blinkOn ? LOW : HIGH);
-		}*/
 	}
 
 protected:

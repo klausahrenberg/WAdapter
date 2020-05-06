@@ -28,16 +28,12 @@ public:
 			this->red = red;
 			this->green = green;
 			this->blue = blue;
-			const char* rgbString = createRGBString();
-			this->changeValue = true;
-			setString(rgbString);
-			this->changeValue = false;
-			delete rgbString;
+			setRGBString();
 		}
 	}
 
-	const char* createRGBString() {
-		WStringStream result(7, true);
+	void setRGBString() {
+		WStringStream result(7);
 		result.print("#");
 		char buffer[2];
 		itoa(red, buffer, 16);
@@ -49,7 +45,9 @@ public:
 		itoa(blue, buffer, 16);
 		if (blue < 0x10) result.print("0");
 		result.print(buffer);
-		return result.c_str();
+		this->changeValue = true;
+		setString(result.c_str());
+		this->changeValue = false;
 	}
 
 	void parseRGBString() {

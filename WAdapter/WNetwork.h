@@ -38,7 +38,7 @@ WAdapterMqtt *mqttClient;
 
 class WNetwork {
 public:
-	typedef std::function<void(void)> THandlerFunction;
+	typedef std::function<void()> THandlerFunction;
 	WNetwork(bool debugging, String applicationName, String firmwareVersion,
 			bool startWebServerAutomaticly, int statusLedPin) {
 		WiFi.setAutoConnect(false);
@@ -291,8 +291,8 @@ public:
 			//WebThings
 			if ((this->isSupportingWebThing()) && (this->isWifiConnected())) {
 				//Make the thing discoverable
-				//String mdnsName = getHostName() + ".local";
-				String mdnsName = this->getDeviceIp().toString();
+				String mdnsName = getHostName();
+				//String mdnsName = this->getDeviceIp().toString();
 				if (MDNS.begin(mdnsName)) {
 					MDNS.addService("http", "tcp", 80);
 					MDNS.addServiceTxt("http", "tcp", "url", "http://" + mdnsName + SLASH);

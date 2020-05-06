@@ -3,6 +3,8 @@
 
 #include "WProperty.h"
 
+const int NO_PIN = -1;
+
 class WPin {
 public:
 	WPin(int pin, int mode) {

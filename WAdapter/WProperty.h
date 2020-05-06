@@ -507,7 +507,11 @@ public:
 			json->propertyString("@type", this->getAtType());
 		}
 		toJsonStructureAdditionalParameters(json);
+		//json->beginArray("links");
+		//json->beginObject();
 		json->propertyString("href", deviceHRef, "/properties/", this->getId());
+		//json->endObject();
+		//json->endArray();
 		json->endObject();
 	}
 
