@@ -41,9 +41,14 @@ public:
 	typedef std::function<void()> THandlerFunction;
 	WNetwork(bool debugging, String applicationName, String firmwareVersion,
 			bool startWebServerAutomaticly, int statusLedPin) {
+		WiFi.disconnect();
+		WiFi.mode(WiFiMode::WIFI_STA);
+		WiFi.encryptionType(wl_enc_type::ENC_TYPE_CCMP);
+		WiFi.setOutputPower(20.5);
+		WiFi.setPhyMode(WiFiPhyMode::WIFI_PHY_MODE_11N);
 		WiFi.setAutoConnect(false);
-		//WiFi.setAutoReconnect(false);
-		WiFi.mode(WIFI_STA);
+		WiFi.setAutoReconnect(true);
+		WiFi.persistent(false);
 		this->applicationName = applicationName;
 		this->firmwareVersion = firmwareVersion;
 		this->startWebServerAutomaticly = startWebServerAutomaticly;
@@ -756,7 +761,7 @@ private:
 	void handleHttpDeviceConfiguration(WDevice *&device) {
 		if (isWebServerRunning()) {
 			wlog->notice(F("Device config page"));
-			WStringStream* page = new WStringStream(3072);
+			WStringStream* page = new WStringStream(4096);
 			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Device Configuration");
 			page->print(FPSTR(HTTP_STYLE));
 			page->print(FPSTR(HTTP_HEAD_END));
@@ -778,23 +783,23 @@ private:
 			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
 			page->printAndReplace(FPSTR(HTTP_CONFIG_PAGE_BEGIN), "");
-			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_STYLE), (this->isSupportingMqtt() ? HTTP_BLOCK : HTTP_NONE), HTTP_NONE);
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Idx:", "i", "32", getIdx());
+			page->printAndReplace(FPSTR(HTTP_TOGGLE_GROUP_STYLE), "ga", (this->isSupportingMqtt() ? HTTP_BLOCK : HTTP_NONE), "gb", HTTP_NONE);
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Idx:", "i", "16", getIdx());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Wifi ssid (only 2.4G):", "s", "32", getSsid());
-			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "Wifi password:", "p", "64", getPassword());
+			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "Wifi password:", "p", "32", getPassword());
 			//mqtt
-			page->printAndReplace(FPSTR(HTTP_CHECKBOX_OPTION), "sa", "sa", (this->isSupportingMqtt() ? HTTP_CHECKED : ""), HTTP_FUNCTION_TOGGLE, "Support MQTT");
+			page->printAndReplace(FPSTR(HTTP_CHECKBOX_OPTION), "sa", "sa", (this->isSupportingMqtt() ? HTTP_CHECKED : ""), "tg()", "Support MQTT");
 			page->printAndReplace(FPSTR(HTTP_DIV_ID_BEGIN), "ga");
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Server:", "ms", "32", getMqttServer());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Port:", "mo", "4", getMqttPort());
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT User:", "mu", "32", getMqttUser());
-			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "MQTT Password:", "mp", "64", getMqttPassword());
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Topic:", "mt", "64", getMqttBaseTopic());
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT User:", "mu", "16", getMqttUser());
+			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "MQTT Password:", "mp", "32", getMqttPassword());
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Topic:", "mt", "32", getMqttBaseTopic());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic for state requests:", "mtg", "16", getMqttStateTopic());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic for setting values:", "mts", "16", getMqttSetTopic());
 
 			page->print(FPSTR(HTTP_DIV_END));
-			page->print(FPSTR(HTTP_SCRIPT_FUNCTION_TOGGLE));
+			page->printAndReplace(FPSTR(HTTP_TOGGLE_FUNCTION_SCRIPT), "tg()", "sa", "ga", "gb");
 			page->print(FPSTR(HTTP_CONFIG_SAVE_BUTTON));
 			page->print(FPSTR(HTTP_BODY_END));
 			webServer->send(200, TEXT_HTML, page->c_str());
@@ -804,6 +809,7 @@ private:
 
 	void handleHttpSaveConfiguration() {
 		if (isWebServerRunning()) {
+			settings->saveOnPropertyChanges = false;
 			this->idx->setString(webServer->arg("i").c_str());
 			this->ssid->setString(webServer->arg("s").c_str());
 			settings->setString("password", webServer->arg("p").c_str());
@@ -824,8 +830,8 @@ private:
 			if (subTopic.endsWith(SLASH)) subTopic.substring(0, subTopic.length() - 1);
 			if (subTopic.equals("")) subTopic = DEFAULT_TOPIC_SET;
 			this->mqttSetTopic->setString(subTopic.c_str());
-
 			settings->save();
+			delay(300);
 			this->restart("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker.");
 		}
 	}
@@ -833,6 +839,7 @@ private:
 	void handleHttpSaveDeviceConfiguration(WDevice *&device) {
 		if (isWebServerRunning()) {
 			wlog->notice(F("handleHttpSaveDeviceConfiguration "), device->getId());
+			settings->saveOnPropertyChanges = false;
 			device->saveConfigPage(webServer);
 			settings->save();
 			delay(300);
@@ -1041,19 +1048,19 @@ private:
 	}
 
 	bool loadSettings() {
-		this->idx = settings->setString("idx", 32, this->getClientName(true).c_str());
+		this->idx = settings->setString("idx", 16, this->getClientName(true).c_str());
 		this->ssid = settings->setString("ssid", 32, "");
-		settings->setString("password", 64, "");
+		settings->setString("password", 32, "");
 		this->supportingMqtt = settings->setBoolean("supportingMqtt", false);
 		settings->setString("mqttServer", 32, "");
 		settings->setString("mqttPort", 4, "1883");
-		settings->setString("mqttUser", 32, "");
-		settings->setString("mqttPassword", 64, "");
-		this->mqttBaseTopic = settings->setString("mqttTopic", 64, getIdx());
+		settings->setString("mqttUser", 16, "");
+		settings->setString("mqttPassword", 32, "");
+		this->mqttBaseTopic = settings->setString("mqttTopic", 32, getIdx());
 		this->mqttStateTopic = settings->setString("mqttStateTopic", 16, DEFAULT_TOPIC_STATE);
 		this->mqttSetTopic = settings->setString("mqttSetTopic", 16, DEFAULT_TOPIC_SET);
 
-		bool settingsStored = settings->existsSettings();
+		bool settingsStored = settings->existsNetworkSettings();
 		if (settingsStored) {
 			if (getMqttBaseTopic() == "") {
 				this->mqttBaseTopic->setString(this->getClientName(true).c_str());
@@ -1064,14 +1071,15 @@ private:
 			settingsStored = ((strcmp(getSsid(), "") != 0)
 					&& (((isSupportingMqtt()) && (strcmp(getMqttServer(), "") != 0) && (strcmp(getMqttPort(), "") != 0)) || (isSupportingWebThing())));
 			if (settingsStored) {
-				wlog->notice(F("Settings loaded successfully:"));
+				wlog->notice(F("Network settings loaded successfully."));
 			} else {
-				wlog->notice(F("Settings are not complete:"));
+				wlog->notice(F("Network settings are missing."));
 			}
 			wlog->notice(F("SSID: '%s'; MQTT enabled: %T; MQTT server: '%s'; MQTT port: %s; WebThings enabled: %T"),
 								  getSsid(), isSupportingMqtt(), getMqttServer(), getMqttPort(), isSupportingWebThing());
 		}
 		EEPROM.end();
+		settings->addingNetworkSettings = false;
 		return settingsStored;
 	}
 

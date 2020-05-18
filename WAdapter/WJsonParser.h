@@ -95,7 +95,7 @@ private:
 	}
 
 	WProperty* processKeyValue(const char* key, const char* value) {
-		WProperty* result = nullptr;
+		WProperty* result = nullptr;	
 		if (device != nullptr) {
 			result = device->getPropertyById(key);
 			if (result != nullptr) {
@@ -472,7 +472,7 @@ private:
 	}
 
 	WProperty* endNumber() {
-		WProperty* result = false;
+		WProperty* result = nullptr;
 		if (currentKey != "") {
 			buffer[bufferPos] = '\0';
 			result = processKeyValue(currentKey.c_str(), buffer);

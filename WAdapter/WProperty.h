@@ -18,7 +18,7 @@ const char* TYPE_TEMPERATURE_PROPERTY = "TemperatureProperty";
 const char* UNIT_CELSIUS = "degree celsius";
 
 enum WPropertyType {
-	BOOLEAN, DOUBLE, INTEGER, LONG, UNSIGNED_LONG, BYTE, STRING
+	BOOLEAN, DOUBLE, SHORT, INTEGER, UNSIGNED_LONG, BYTE, STRING, BYTE_ARRAY
 };
 
 enum WPropertyVisibility {
@@ -28,11 +28,12 @@ enum WPropertyVisibility {
 union WPropertyValue {
 	bool asBoolean;
 	double asDouble;
+	short asShort;
 	int asInteger;
-	long asLong;
 	unsigned long asUnsignedLong;
 	byte asByte;
 	char* string;
+	byte* asByteArray;
 };
 
 class WProperty {
@@ -57,8 +58,8 @@ public:
 		return new WProperty(id, title, UNSIGNED_LONG, "");
 	}
 
-	static WProperty* createLongProperty(const char* id, const char* title) {
-		return new WProperty(id, title, LONG, "");
+	static WProperty* createShortProperty(const char* id, const char* title) {
+		return new WProperty(id, title, SHORT, "");
 	}
 
 	static WProperty* createBooleanProperty(const char* id, const char* title) {
@@ -103,6 +104,9 @@ public:
 		if(this->value.string) {
 		    delete[] this->value.string;
 		}
+		if(this->value.asByteArray) {
+			delete[] this->value.asByteArray;
+		}
 	}
 
 	void setOnValueRequest(TOnPropertyChange onValueRequest) {
@@ -145,10 +149,6 @@ public:
 		return atType;
 	}
 
-	/*void setAtType(String atType) {
-		this->atType = atType;
-	}*/
-
 	bool isNull() {
 		return (this->valueNull);
 	}
@@ -188,12 +188,12 @@ public:
 				setDouble(value.toDouble());
 				return true;
 			}
-			case INTEGER: {
-				setInteger(value.toInt());
+			case SHORT: {
+				setShort(value.toInt());
 				return true;
 			}
-			case LONG: {
-				setLong(value.toInt());
+			case INTEGER: {
+				setInteger(value.toInt());
 				return true;
 			}
 			case UNSIGNED_LONG: {
@@ -204,10 +204,15 @@ public:
 				setByte(value.toInt());
 				return true;
 			}
-			case STRING:
+			case STRING: {
 				setString(value.c_str());
 				return true;
 			}
+			case BYTE_ARRAY: {
+				//tbi not implemented yet
+				return false;
+			}
+		}
 		}
 		return false;
 	}
@@ -279,19 +284,19 @@ public:
 		}
 	}
 
-	long getLong() {
+	short getShort() {
 		requestValue();
-		return (!this->valueNull ? this->value.asLong : 0);
+		return (!this->valueNull ? this->value.asShort : 0);
 	}
 
-	void setLong(long newValue) {
-		if (type != LONG) {
+	void setShort(short newValue) {
+		if (type != SHORT) {
 			return;
 		}
-		bool changed = ((this->valueNull) || (this->value.asLong != newValue));
+		bool changed = ((this->valueNull) || (this->value.asShort != newValue));
 		if (changed) {
 			WPropertyValue valueB;
-			valueB.asLong = newValue;
+			valueB.asShort = newValue;
 			this->setValue(valueB);
 		}
 	}
@@ -317,8 +322,8 @@ public:
 		return ((!this->valueNull) && (this->value.asInteger == number));
 	}
 
-	bool equalsLong(long number) {
-		return ((!this->valueNull) && (this->value.asLong == number));
+	bool equalsShort(short number) {
+		return ((!this->valueNull) && (this->value.asShort == number));
 	}
 
 	bool equalsString(const char* toCompare) {
@@ -355,6 +360,10 @@ public:
 		return value.string;
 	}
 
+	byte getByteArrayValue(byte index) {
+		return value.asByteArray[index];
+	}
+
 	WPropertyValue getValue() {
 	    return this->value;
 	}
@@ -377,6 +386,21 @@ public:
 				value.string[0] = '\0';
 				this->valueNull = true;
 			}
+			this->changed = true;
+			valueChanged();
+			notify();
+		}
+		return changed;
+	}
+
+	bool setByteArrayValue(byte index, byte newValue) {
+		if (type != BYTE_ARRAY) {
+			return false;
+		}
+		bool changed = ((this->valueNull) || (value.asByteArray[index] != newValue));
+		if (changed) {
+			value.asByteArray[index] = newValue;
+			this->valueNull = false;
 			this->changed = true;
 			valueChanged();
 			notify();
@@ -421,8 +445,8 @@ public:
 		case INTEGER:
 			json->propertyInteger(memberName, getInteger());
 			break;
-		case LONG:
-			json->propertyLong(memberName, getLong());
+		case SHORT:
+			json->propertyShort(memberName, getShort());
 			break;
 		case UNSIGNED_LONG:
 			json->propertyUnsignedLong(memberName, getUnsignedLong());
@@ -432,6 +456,9 @@ public:
 			break;
 		case STRING:
 			json->propertyString(memberName, c_str());
+			break;
+		case BYTE_ARRAY:
+			//niy
 			break;
 		}
 	}
@@ -448,8 +475,8 @@ public:
 			json->propertyString("type", "boolean");
 			break;
 		case DOUBLE:
+		case SHORT:
 		case INTEGER:
-		case LONG:
 		case UNSIGNED_LONG:
 		case BYTE:
 			json->propertyString("type", "number");
@@ -482,11 +509,11 @@ public:
 				case DOUBLE:
 					json->numberDouble(propE->getDouble());
 					break;
+				case SHORT:
+					json->numberShort(propE->getShort());
+					break;
 				case INTEGER:
 					json->numberInteger(propE->getInteger());
-					break;
-				case LONG:
-					json->numberLong(propE->getLong());
 					break;
 				case UNSIGNED_LONG:
 					json->numberUnsignedLong(propE->getUnsignedLong());
@@ -544,12 +571,12 @@ public:
 		this->addEnum(valueE);
 	}
 
-	void addEnumLong(long enumNumber) {
-		if (type != LONG) {
+	void addEnumShort(short enumNumber) {
+		if (type != SHORT) {
 			return;
 		}
 		WProperty* valueE = new WProperty("", "", this->type, 0, "");
-		valueE->setLong(enumNumber);
+		valueE->setShort(enumNumber);
 		this->addEnum(valueE);
 	}
 
@@ -677,16 +704,25 @@ protected:
 		case DOUBLE:
 			this->length = sizeof(double);
 			break;
-		case INTEGER:
-			this->length = 2;
+		case SHORT:
+			this->length = sizeof(short);
 			break;
-		case LONG:
+		case INTEGER:
+			this->length = sizeof(int);
+			break;
 		case UNSIGNED_LONG:
-			this->length = 4;
+			this->length = sizeof(unsigned long);
 			break;
 		case BYTE:
 		case BOOLEAN:
 			this->length = 1;
+			break;
+		case BYTE_ARRAY:
+			this->length = length;
+			value.asByteArray = new byte[length];
+			for (byte i = 0; i < length; i++) {
+				value.asByteArray[i] = 0;
+			}
 			break;
 		}
 	}

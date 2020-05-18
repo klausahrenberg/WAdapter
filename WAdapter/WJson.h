@@ -89,11 +89,11 @@ public:
 		return *this;
 	}
 
-	WJson& propertyLong(const char* name, long value) {
+	WJson& propertyShort(const char* name, short value) {
 		ifSeparator();
 		separatorAlreadyCalled = true;
 		memberName(name);
-		numberLong(value);
+		numberShort(value);
 		separatorAlreadyCalled = false;
 		return *this;
 	}
@@ -240,7 +240,7 @@ public:
 		return *this;
 	}
 
-	WJson& numberLong(long number) {
+	WJson& numberShort(short number) {
 		if (!separatorAlreadyCalled)
 			ifSeparator();
 		stream->print(number, DEC);

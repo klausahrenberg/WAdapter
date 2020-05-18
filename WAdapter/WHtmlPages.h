@@ -63,6 +63,15 @@ button{
 	font-size:1.2rem;
 	width:100%;
 }
+
+.settingstable th, .settingstable td {
+	border: 1px solid lightgray;
+  border-collapse: collapse;
+}
+.settingstable input[type='text']{
+	width: 40px;
+}
+
 </style>
 )=====";
 
@@ -98,15 +107,13 @@ const static char HTTP_DIV_END[]    PROGMEM = R"=====(
 	</div>
 )=====";
 
-const char* HTTP_FUNCTION_TOGGLE = "tg()";
-
-const static char HTTP_SCRIPT_FUNCTION_TOGGLE[]    PROGMEM = R"=====(
+const static char HTTP_TOGGLE_FUNCTION_SCRIPT[]    PROGMEM = R"=====(
 	<script>
-		function tg() {
-			var sa = document.getElementById('sa');
-			var ga = document.getElementById('ga');
+		function %s {
+			var sa = document.getElementById('%s');
+			var ga = document.getElementById('%s');
 			ga.style.display = (sa.checked ? 'block' : 'none');
-			var gb = document.getElementById('gb');
+			var gb = document.getElementById('%s');
 			if (gb != null && gb !== undefined) {
 				gb.style.display = (sa.checked ? 'none' : 'block');
 			}
@@ -114,12 +121,12 @@ const static char HTTP_SCRIPT_FUNCTION_TOGGLE[]    PROGMEM = R"=====(
 	</script>
 )=====";
 
-const static char HTTP_PAGE_CONFIGURATION_STYLE[]    PROGMEM = R"=====(
+const static char HTTP_TOGGLE_GROUP_STYLE[]    PROGMEM = R"=====(
 <style>
-#ga {
+#%s {
   display:%s;
 }
-#gb {
+#%s {
 	display:%s;
 }
 </style>
@@ -154,10 +161,16 @@ const static char HTTP_CONFIG_PAGE_BEGIN[]         PROGMEM = R"=====(
 <form method='get' action='saveConfiguration%s'>
 )=====";
 
+const static char HTTP_INPUT_FIELD[]    PROGMEM = R"=====(
+	<div>
+		<input type='text' name='%s' maxlength='%s' value='%s'>
+	</div>
+)=====";
+
 const static char HTTP_TEXT_FIELD[]    PROGMEM = R"=====(
 	<div>
 		%s<br>
-		<input type='text' name='%s' length=%s value='%s'>
+		<input type='text' name='%s' maxlength='%s' value='%s'>
 	</div>
 )=====";
 

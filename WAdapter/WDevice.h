@@ -13,6 +13,8 @@ const char* DEVICE_TYPE_LIGHT = "Light";
 const char* DEVICE_TYPE_TEMPERATURE_SENSOR = "TemperatureSensor";
 const char* DEVICE_TYPE_THERMOSTAT = "Thermostat";
 const char* DEVICE_TYPE_TEXT_DISPLAY = "TextDisplay";
+const char* DEVICE_TYPE_MULTI_LEVEL_SENSOR = "MultiLevelSensor";
+const char* DEVICE_TYPE_MULTI_LEVEL_SWITCH = "MultiLevelSwitch";
 
 class WNetwork;
 
@@ -27,7 +29,6 @@ public:
 		this->visibility = ALL;
 		this->lastStateNotify = 0;
 		this->stateNotifyInterval = 300000;
-		this->providingConfigPage = true;
 		this->mainDevice = true;
 		this->lastStateWaitForResponse = false;
 	}
@@ -93,7 +94,7 @@ public:
 
 	virtual void toJsonStructure(WJson* json, const char* deviceHRef, WPropertyVisibility visibility) {
 		json->beginObject();
-		json->propertyString("id", this->getName());
+		json->propertyString("id", this->getId());
 		json->propertyString("title", this->getName());
 		String result(deviceHRef);
 		result.concat("/things/");
@@ -132,7 +133,7 @@ public:
     }
 
     virtual bool isProvidingConfigPage() {
-    	return providingConfigPage;
+    	return false;
     }
 
     virtual void printConfigPage(WStringStream* page) {
@@ -208,7 +209,6 @@ public:
 protected:
   WNetwork* network;
   WLed* statusLed = nullptr;
-  bool providingConfigPage;
   bool mainDevice;
   WPropertyVisibility visibility;
 
