@@ -132,17 +132,6 @@ public:
     	}
     }
 
-    virtual bool isProvidingConfigPage() {
-    	return false;
-    }
-
-    virtual void printConfigPage(WStringStream* page) {
-    }
-
-    virtual void saveConfigPage(ESP8266WebServer* webServer) {
-
-    }
-
     virtual void bindWebServerCalls(ESP8266WebServer* webServer) {
     }
 

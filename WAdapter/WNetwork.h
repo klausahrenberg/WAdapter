@@ -20,6 +20,7 @@
 #include "WSettings.h"
 #include "WJsonParser.h"
 #include "WLog.h"
+#include "WPage.h"
 
 #define SIZE_MQTT_PACKET 1024
 #define SIZE_JSON_PACKET 1280
@@ -265,21 +266,19 @@ public:
 				webServer->on(SLASH, HTTP_GET, std::bind(&WNetwork::handleHttpRootRequest, this));
 			}
 			webServer->on("/config", HTTP_GET, std::bind(&WNetwork::handleHttpRootRequest, this));
-			WDevice *device = this->firstDevice;
-			while (device != nullptr) {
-				if (device->isProvidingConfigPage()) {
-					String did(SLASH);
-					did.concat(device->getId());
-					webServer->on(did, HTTP_GET, std::bind(&WNetwork::handleHttpDeviceConfiguration, this, device));
-					String deviceConfiguration("/saveConfiguration");
-					deviceConfiguration.concat(device->getId());
-					webServer->on(deviceConfiguration.c_str(), HTTP_GET, std::bind(&WNetwork::handleHttpSaveDeviceConfiguration, this, device));
-				}
-				device = device->next;
+			WPage* page = this->firstPage;
+			while (page != nullptr) {
+				String did(SLASH);
+				did.concat(page->getId());
+				webServer->on(did, HTTP_GET, std::bind(&WNetwork::handleHttpCustomPage, this, page));
+				String dis("/submit");
+				dis.concat(page->getId());
+				webServer->on(dis.c_str(), HTTP_GET, std::bind(&WNetwork::handleHttpSubmittedCustomPage, this, page));
+				page = page->next;
 			}
 			webServer->on("/wifi", HTTP_GET,
 					std::bind(&WNetwork::handleHttpNetworkConfiguration, this));
-			webServer->on("/saveConfiguration", HTTP_GET,
+			webServer->on("/submitnetwork", HTTP_GET,
 					std::bind(&WNetwork::handleHttpSaveConfiguration, this));
 			webServer->on("/info", HTTP_GET,
 					std::bind(&WNetwork::handleHttpInfo, this));
@@ -437,6 +436,16 @@ public:
 		bindWebServerCalls(device);
 	}
 
+	void addCustomPage(WPage *Page) {
+		if (lastPage == nullptr) {
+			firstPage = Page;
+			lastPage = Page;
+		} else {
+			lastPage->next = Page;
+			lastPage = Page;
+		}
+	}
+
 	void setDeepSleepSeconds(int dsp) {
 		this->deepSleepSeconds = dsp;
 	}
@@ -486,6 +495,8 @@ private:
 	WLog* wlog;
 	WDevice *firstDevice = nullptr;
 	WDevice *lastDevice = nullptr;
+	WPage* firstPage = nullptr;
+	WPage* lastPage = nullptr;
 	THandlerFunction onNotify;
 	THandlerFunction onConfigurationFinished;
 	bool debugging, updateRunning, startWebServerAutomaticly;
@@ -725,16 +736,11 @@ private:
 				page->print(FPSTR(HTTP_STYLE));
 				page->print(FPSTR(HTTP_HEAD_END));
 				printHttpCaption(page);
-				WDevice *device = firstDevice;
 				page->printAndReplace(FPSTR(HTTP_BUTTON), "wifi", "get", "Configure network");
-				while (device != nullptr) {
-					if (device->isProvidingConfigPage()) {
-						String s("Configure ");
-						s.concat(device->getName());
-						page->printAndReplace(FPSTR(HTTP_BUTTON), device->getId(), "get", s.c_str());
-						//page->printAndReplace(FPSTR(HTTP_BUTTON_DEVICE), device->getId(), device->getName());
-					}
-					device = device->next;
+				WPage *customPage = firstPage;
+				while (customPage != nullptr) {
+					page->printAndReplace(FPSTR(HTTP_BUTTON), customPage->getId(), "get", customPage->getTitle());
+					customPage = customPage->next;
 				}
 				page->printAndReplace(FPSTR(HTTP_BUTTON), "firmware", "get", "Update firmware");
 				page->printAndReplace(FPSTR(HTTP_BUTTON), "info", "get", "Info");
@@ -758,15 +764,15 @@ private:
 		}
 	}
 
-	void handleHttpDeviceConfiguration(WDevice *&device) {
+	void handleHttpCustomPage(WPage *&customPage) {
 		if (isWebServerRunning()) {
-			wlog->notice(F("Device config page"));
+			wlog->notice(F("Custom page called: %s"), customPage->getId());
 			WStringStream* page = new WStringStream(4096);
-			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Device Configuration");
+			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), customPage->getTitle());
 			page->print(FPSTR(HTTP_STYLE));
 			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
-			device->printConfigPage(page);
+			customPage->printPage(webServer, page);
 			page->print(FPSTR(HTTP_BODY_END));
 			webServer->send(200, TEXT_HTML, page->c_str());
 			delete page;
@@ -782,7 +788,7 @@ private:
 			page->print(FPSTR(HTTP_STYLE));
 			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
-			page->printAndReplace(FPSTR(HTTP_CONFIG_PAGE_BEGIN), "");
+			page->printAndReplace(FPSTR(HTTP_CONFIG_PAGE_BEGIN), "network");
 			page->printAndReplace(FPSTR(HTTP_TOGGLE_GROUP_STYLE), "ga", (this->isSupportingMqtt() ? HTTP_BLOCK : HTTP_NONE), "gb", HTTP_NONE);
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Idx:", "i", "16", getIdx());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Wifi ssid (only 2.4G):", "s", "32", getSsid());
@@ -836,14 +842,16 @@ private:
 		}
 	}
 
-	void handleHttpSaveDeviceConfiguration(WDevice *&device) {
+	void handleHttpSubmittedCustomPage(WPage *&customPage) {
 		if (isWebServerRunning()) {
-			wlog->notice(F("handleHttpSaveDeviceConfiguration "), device->getId());
+			wlog->notice(F("Save custom page: %s"), customPage->getId());
 			settings->saveOnPropertyChanges = false;
-			device->saveConfigPage(webServer);
+			WStringStream* page = new WStringStream(1024);
+			customPage->submittedPage(webServer, page);
 			settings->save();
 			delay(300);
-			this->restart("Device settings saved.");
+			this->restart(strlen(page->c_str()) == 0 ? "Settings saved." : page->c_str());
+			delete page;
 		}
 	}
 

@@ -104,8 +104,6 @@ private:
   unsigned int maxLength;
   unsigned int position;
 
-
-
   size_t printFormat(const char c, va_list *args) {
     size_t n = 0;
     if (c == 's') {

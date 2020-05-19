@@ -158,13 +158,11 @@ const static char HTTP_FORM_FIRMWARE[] PROGMEM = R"=====(
 )=====";
 
 const static char HTTP_CONFIG_PAGE_BEGIN[]         PROGMEM = R"=====(
-<form method='get' action='saveConfiguration%s'>
+<form method='get' action='submit%s'>
 )=====";
 
 const static char HTTP_INPUT_FIELD[]    PROGMEM = R"=====(
-	<div>
-		<input type='text' name='%s' maxlength='%s' value='%s'>
-	</div>
+	<input type='text' name='%s' maxlength='%s' value='%s'>
 )=====";
 
 const static char HTTP_TEXT_FIELD[]    PROGMEM = R"=====(
