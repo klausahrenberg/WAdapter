@@ -322,6 +322,10 @@ public:
 		return ((!this->valueNull) && (this->value.asInteger == number));
 	}
 
+	bool isIntegerBetween(int lowerLimit, int upperLimit) {
+		return ((!this->valueNull) && (this->value.asInteger >= lowerLimit) && (this->value.asInteger < upperLimit));
+	}
+
 	bool equalsShort(short number) {
 		return ((!this->valueNull) && (this->value.asShort == number));
 	}
@@ -332,6 +336,10 @@ public:
 
 	bool equalsUnsignedLong(unsigned long number) {
 		return ((!this->valueNull) && (this->value.asUnsignedLong == number));
+	}
+
+	bool isUnsignedLongBetween(unsigned long lowerLimit, unsigned long upperLimit) {
+		return ((!this->valueNull) && (this->value.asUnsignedLong >= lowerLimit) && (this->value.asUnsignedLong < upperLimit));
 	}
 
 	byte getByte() {

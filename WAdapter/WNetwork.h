@@ -22,8 +22,8 @@
 #include "WLog.h"
 #include "WPage.h"
 
-#define SIZE_MQTT_PACKET 1024
 #define SIZE_JSON_PACKET 1280
+#define SIZE_WEB_PAGE 4096
 #define NO_LED -1
 const char* CONFIG_PASSWORD = "12345678";
 const char* APPLICATION_JSON = "application/json";
@@ -731,7 +731,7 @@ private:
 	void handleHttpRootRequest() {
 		if (isWebServerRunning()) {
 			if (restartFlag.equals("")) {
-				WStringStream* page = new WStringStream(2048);
+				WStringStream* page = new WStringStream(SIZE_WEB_PAGE);
 				page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), applicationName.c_str());
 				page->print(FPSTR(HTTP_STYLE));
 				page->print(FPSTR(HTTP_HEAD_END));
@@ -749,7 +749,7 @@ private:
 				webServer->send(200, TEXT_HTML, page->c_str());
 				delete page;
 			} else {
-				WStringStream* page = new WStringStream(2048);
+				WStringStream* page = new WStringStream(SIZE_WEB_PAGE);
 				page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Info");
 				page->print(FPSTR(HTTP_STYLE));
 				page->print("<meta http-equiv=\"refresh\" content=\"10\">");
@@ -767,7 +767,7 @@ private:
 	void handleHttpCustomPage(WPage *&customPage) {
 		if (isWebServerRunning()) {
 			wlog->notice(F("Custom page called: %s"), customPage->getId());
-			WStringStream* page = new WStringStream(4096);
+			WStringStream* page = new WStringStream(SIZE_WEB_PAGE);
 			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), customPage->getTitle());
 			page->print(FPSTR(HTTP_STYLE));
 			page->print(FPSTR(HTTP_HEAD_END));
@@ -783,7 +783,7 @@ private:
 	void handleHttpNetworkConfiguration() {
 		if (isWebServerRunning()) {
 			wlog->notice(F("Network config page"));
-			WStringStream* page = new WStringStream(3072);
+			WStringStream* page = new WStringStream(SIZE_WEB_PAGE);
 			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Network Configuration");
 			page->print(FPSTR(HTTP_STYLE));
 			page->print(FPSTR(HTTP_HEAD_END));
@@ -857,7 +857,7 @@ private:
 
 	void handleHttpInfo() {
 		if (isWebServerRunning()) {
-			WStringStream* page = new WStringStream(2048);
+			WStringStream* page = new WStringStream(SIZE_WEB_PAGE);
 			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Info");
 			page->print(FPSTR(HTTP_STYLE));
 			page->print(FPSTR(HTTP_HEAD_END));
@@ -950,7 +950,7 @@ private:
 
 	void handleHttpFirmwareUpdate() {
 		if (isWebServerRunning()) {
-			WStringStream* page = new WStringStream(2048);
+			WStringStream* page = new WStringStream(SIZE_WEB_PAGE);
 			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Firmware update");
 			page->print(FPSTR(HTTP_STYLE));
 			page->print(FPSTR(HTTP_HEAD_END));
@@ -1045,7 +1045,7 @@ private:
 	void restart(const char* reasonMessage) {
 		this->restartFlag = reasonMessage;
 		webServer->client().setNoDelay(true);
-		WStringStream* page = new WStringStream(2048);
+		WStringStream* page = new WStringStream(SIZE_WEB_PAGE);
 		page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), reasonMessage);
 		page->print(FPSTR(HTTP_STYLE));
 		page->print(FPSTR(HTTP_HEAD_END));
@@ -1053,6 +1053,7 @@ private:
 		page->printAndReplace(FPSTR(HTTP_SAVED), reasonMessage);
 		page->print(FPSTR(HTTP_BODY_END));
 		webServer->send(200, TEXT_HTML, page->c_str());
+		delete page;
 	}
 
 	bool loadSettings() {
@@ -1097,7 +1098,7 @@ private:
 
 	void sendDevicesStructure() {
 		wlog->notice(F("Send description for all devices... "));
-		WStringStream* response = getResponseStream();
+		WStringStream* response = new WStringStream(SIZE_WEB_PAGE);
 		WJson json(response);
 		json.beginArray();
 		WDevice *device = this->firstDevice;
@@ -1109,19 +1110,21 @@ private:
 		}
 		json.endArray();
 		webServer->send(200, APPLICATION_JSON, response->c_str());
+		delete response;
 	}
 
 	void sendDeviceStructure(WDevice *&device) {
 		wlog->notice(F("Send description for device: %s"), device->getId());
-		WStringStream* response = getResponseStream();
+		WStringStream* response = new WStringStream(SIZE_WEB_PAGE);
 		WJson json(response);
 		device->toJsonStructure(&json, "", WEBTHING);
 		webServer->send(200, APPLICATION_JSON, response->c_str());
+		delete response;
 	}
 
 	void sendDeviceValues(WDevice *&device) {
 		wlog->notice(F("Send all properties for device: "), device->getId());
-		WStringStream* response = getResponseStream();
+		WStringStream* response = new WStringStream(SIZE_WEB_PAGE);
 		WJson json(response);
 		json.beginObject();
 		if (device->isMainDevice()) {
@@ -1132,10 +1135,11 @@ private:
 		device->toJsonValues(&json, WEBTHING);
 		json.endObject();
 		webServer->send(200, APPLICATION_JSON, response->c_str());
+		delete response;
 	}
 
 	void getPropertyValue(WProperty *property) {
-		WStringStream* response = getResponseStream();
+		WStringStream* response = new WStringStream(SIZE_WEB_PAGE);
 		WJson json(response);
 		json.beginObject();
 		property->toJsonValue(&json);
@@ -1143,6 +1147,7 @@ private:
 		property->setRequested(true);
 		wlog->notice(F("getPropertyValue %s"), response->c_str());
 		webServer->send(200, APPLICATION_JSON, response->c_str());
+		delete response;
 
 		if (deepSleepSeconds > 0) {
 			WDevice *device = firstDevice;
