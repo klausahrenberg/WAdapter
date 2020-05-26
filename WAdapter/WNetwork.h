@@ -816,8 +816,15 @@ private:
 			this->mqttClient->setServer(getMqttServer(), String(getMqttPort()).toInt());
 			if (mqttClient->connect(getClientName(true).c_str(),
 					getMqttUser(), //(mqttUser != "" ? mqttUser.c_str() : NULL),
-					getMqttPassword())) { //(mqttPassword != "" ? mqttPassword.c_str() : NULL))) {
+					getMqttPassword(),
+					((String)getMqttTopic()+"/"+MQTT_TELE+"/LWT").c_str(), 2, true, // willTopic, WillQos, willRetain
+					"Offline", true// willMessage, cleanSession
+					)) { //(mqttPassword != "" ? mqttPassword.c_str() : NULL))) {
 				wlog->notice(F("Connected to MQTT server."));
+
+				// send Online
+				mqttClient->publish(((String)getMqttTopic()+"/"+MQTT_TELE+"/LWT").c_str(), "Online", true);
+
 				//Send device structure and status
 				mqttClient->subscribe("devices/#");
 
@@ -896,7 +903,7 @@ private:
 					}
 					WPage *subpage = device->firstPage;
 					while (subpage != nullptr) {
-						String url =(String)device->getId()+"_"+(String)subpage->getId();
+						String url =(String)device->getId()+"-"+(String)subpage->getId();
 						page->printAndReplace(FPSTR(HTTP_BUTTON), url.c_str() , "get", subpage->getTitle());
 						subpage = subpage->next;
 					}
