@@ -116,7 +116,7 @@ public:
 					WiFi.hostname(getHostName());
 					WiFi.begin(getSsid(), getPassword());
 					while ((waitForWifiConnection) && (WiFi.status() != WL_CONNECTED)) {
-						delay(500);
+						delay(100);
 						if (millis() - now >= 5000) {
 							break;
 						}
@@ -130,9 +130,6 @@ public:
 				dnsApServer->processNextRequest();
 			}
 			webServer->handleClient();
-			/*if (webSocket != nullptr) {
-				webSocket->loop();
-			}*/
 			result = ((!isSoftAP()) && (!isUpdateRunning()));
 		}
 		//MQTT connection
@@ -371,7 +368,11 @@ public:
 	}
 
 	bool isSupportingWebThing() {
-		return true;
+		return this->supportingWebThing;
+	}
+
+	void setSupportingWebThing(bool supportingWebThing) {
+		this->supportingWebThing = supportingWebThing;
 	}
 
 	bool isSupportingMqtt() {
@@ -508,6 +509,7 @@ private:
 	String firmwareVersion;
 	const char* firmwareUpdateError;
 	WProperty *supportingMqtt;
+	bool supportingWebThing;
 	WProperty *ssid;
 	WProperty *idx;
 	WProperty *mqttBaseTopic;
@@ -1060,6 +1062,7 @@ private:
 		this->idx = settings->setString("idx", 16, this->getClientName(true).c_str());
 		this->ssid = settings->setString("ssid", 32, "");
 		settings->setString("password", 32, "");
+		this->supportingWebThing = true;
 		this->supportingMqtt = settings->setBoolean("supportingMqtt", false);
 		settings->setString("mqttServer", 32, "");
 		settings->setString("mqttPort", 4, "1883");

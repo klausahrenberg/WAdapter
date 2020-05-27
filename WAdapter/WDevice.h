@@ -8,6 +8,8 @@
 #include "WColorProperty.h"
 #include "WLed.h"
 
+const char* DEVICE_TYPE_BINARY_SENSOR = "BinarySensor";
+const char* DEVICE_TYPE_DOOR_SENSOR = "DoorSensor";
 const char* DEVICE_TYPE_ON_OFF_SWITCH = "OnOffSwitch";
 const char* DEVICE_TYPE_LIGHT = "Light";
 const char* DEVICE_TYPE_TEMPERATURE_SENSOR = "TemperatureSensor";
