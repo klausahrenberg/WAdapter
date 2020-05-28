@@ -23,7 +23,7 @@
 #include "WPage.h"
 
 #define SIZE_JSON_PACKET 1280
-#define SIZE_WEB_PAGE 4096
+#define SIZE_WEB_PAGE 5120
 #define NO_LED -1
 const char* CONFIG_PASSWORD = "12345678";
 const char* APPLICATION_JSON = "application/json";
