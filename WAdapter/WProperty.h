@@ -610,7 +610,7 @@ public:
 		if (type != STRING) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", this->type, this->length - 1, "");
+		WProperty* valueE = new WProperty("", "", this->type, this->length, "");
 		valueE->setString(enumString);
 		this->addEnum(valueE);
 	}

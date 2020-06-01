@@ -41,7 +41,7 @@ class WNetwork {
 public:
 	typedef std::function<void()> THandlerFunction;
 	WNetwork(bool debugging, String applicationName, String firmwareVersion,
-			bool startWebServerAutomaticly, int statusLedPin) {
+			bool startWebServerAutomaticly, int statusLedPin, byte appSettingsFlag) {
 		WiFi.disconnect();
 		WiFi.mode(WiFiMode::WIFI_STA);
 		WiFi.encryptionType(wl_enc_type::ENC_TYPE_CCMP);
@@ -63,8 +63,7 @@ public:
 		this->deepSleepFlag = nullptr;
 		this->deepSleepSeconds = 0;
 		this->startupTime = millis();
-		//this->webSocket = nullptr;
-		settings = new WSettings(wlog);
+		settings = new WSettings(wlog, appSettingsFlag);
 		settingsFound = loadSettings();
 		this->mqttClient = nullptr;
 		lastMqttConnect = lastWifiConnect = 0;

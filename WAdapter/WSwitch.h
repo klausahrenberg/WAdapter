@@ -11,6 +11,7 @@ const long SWITCH_SENSITIVENESS = 10;
 
 class WSwitch: public WPin {
 public:
+	typedef std::function<void()> THandlerFunction;
 	WSwitch(int switchPin, byte mode)
 	: WPin(switchPin, INPUT) {
 		startTime = 0;
@@ -46,14 +47,14 @@ public:
 							if (getProperty() != nullptr) {
 								getProperty()->setBoolean(!getProperty()->getBoolean());
 							}
-							//notify(false);
+							notify();
 						}
 					}
 					if (this->mode == MODE_BUTTON_LONG_PRESS) {
 						if (now - startTime >= longPressDuration && !_pressedLong) {
 							_pressedLong = true;
 							//log("Switch pressed long. pin:" + String(this->getPin()));
-							//notify(true);
+							notify();
 						}
 					}
 				}
@@ -72,13 +73,25 @@ public:
 			}
 		}
 	}
+
+	void setOnPressed(THandlerFunction onPressed) {
+		this->onPressed = onPressed;
+	}
+
 private:
+	THandlerFunction onPressed;
 	byte mode;
 	int longPressDuration, switchChangeDuration;
 	bool state;
 	unsigned long startTime;
 	bool _pressed;
 	bool _pressedLong;
+
+	void notify() {
+		if (onPressed) {
+			onPressed();
+		}
+ 	}
 };
 
 #endif

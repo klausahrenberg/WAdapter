@@ -34,7 +34,7 @@ public:
 protected:
 
 	virtual bool isInitialized() {
-		return (pin > -1);
+		return (pin != NO_PIN);
 	}
 
 	int getPin() {

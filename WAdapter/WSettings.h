@@ -6,7 +6,6 @@
 #include "WProperty.h"
 
 const byte FLAG_OPTIONS_NETWORK = 0x64;
-const byte FLAG_OPTIONS_APPLICATION = 0x68;
 const int EEPROM_SIZE = 512;
 
 class WSettingItem {
@@ -19,13 +18,14 @@ public:
 
 class WSettings {
 public:
-	WSettings(WLog* log) {
+	WSettings(WLog* log, byte appSettingsFlag = 0x68) {
 		this->log = log;
+		this->appSettingsFlag = appSettingsFlag;
 		this->addingNetworkSettings = true;
 		this->saveOnPropertyChanges = true;
 		EEPROM.begin(EEPROM_SIZE);
 		this->existsSettingsNetwork = (EEPROM.read(0) == FLAG_OPTIONS_NETWORK);
-		this->existsSettingsApplication = (EEPROM.read(1) == FLAG_OPTIONS_APPLICATION);
+		this->existsSettingsApplication = (EEPROM.read(1) == this->appSettingsFlag);
 		EEPROM.end();
 	}
 
@@ -51,7 +51,7 @@ public:
 		}
 		//1. Byte - settingsStored flag
 		EEPROM.write(0, FLAG_OPTIONS_NETWORK);
-		EEPROM.write(1, FLAG_OPTIONS_APPLICATION);
+		EEPROM.write(1, this->appSettingsFlag);
 		EEPROM.commit();
 		EEPROM.end();
 	}
@@ -358,6 +358,7 @@ protected:
 private:
 	WLog* log;
 	bool existsSettingsNetwork, existsSettingsApplication;
+	byte appSettingsFlag;
 	WSettingItem* firstSetting = nullptr;
 	WSettingItem* lastSetting = nullptr;
 
