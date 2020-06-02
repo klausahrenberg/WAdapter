@@ -131,6 +131,7 @@ public:
 		va_list args;
 		va_start(args, msg);
 		print(level, msg, args);
+		va_end(args);
 
 		if (_suffix != NULL && level <=_levelConsole) {
 			_suffix(_logOutput);

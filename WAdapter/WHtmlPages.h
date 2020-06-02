@@ -3,16 +3,21 @@
 
 #include "Arduino.h"
 
-const static char HTTP_HEAD_BEGIN[]         PROGMEM = R"=====(
-<!DOCTYPE html>
+const char* HTTP_SELECTED = "selected";
+const char* HTTP_CHECKED = "checked";
+const char* HTTP_NONE = "none";
+const char* HTTP_BLOCK = "block";
+const char* HTTP_TRUE = "true";
+const char* HTTP_FALSE = "false";
+
+const static char HTTP_HEAD_BEGIN[]         PROGMEM = R"=====(<!DOCTYPE html>
 <html lang='en'>
 	<head>
 		<meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'/>
 		<title>%s</title>
 )=====";
 
-const static char HTTP_STYLE[]              PROGMEM = R"=====(
-<style>
+const static char HTTP_STYLE[]              PROGMEM = R"=====(<style>
 body{
 	text-align: center;
 	font-family: arial, sans-serif;
@@ -68,8 +73,7 @@ button{
 </style>
 )=====";
 
-const static char HTTP_SCRIPT[]             PROGMEM = R"=====(
-<script>
+const static char HTTP_SCRIPT[]             PROGMEM = R"=====(<script>
 	function c(l){
 		document.getElementById('s').value=l.innerText||l.textContent;
 		document.getElementById('p').focus();
@@ -192,6 +196,15 @@ const static char HTTP_CHECKBOX[]         PROGMEM = R"=====(
 				<input type='checkbox' name='%s' value='true' %s>%s
 			</label>
 		</div>
+)=====";
+
+const static char HTTP_CHECKBOX_OPTION[]    PROGMEM = R"=====(
+	<div>
+		<label>
+			%s<br>
+			<input type='checkbox' id='%s' name='%s' value='true' %s onclick='%s'>%s
+		</label>
+	</div>
 )=====";
 
 const static char HTTP_COMBOBOX_BEGIN[]         PROGMEM = R"=====(

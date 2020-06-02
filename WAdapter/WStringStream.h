@@ -55,6 +55,12 @@ public:
     	this->string[0] = '\0';
     }
 
+
+	virtual void webserverSendAndFlush(ESP8266WebServer *webServer) {
+		webServer->sendContent(this->c_str());
+		this->flush();
+	}
+
     // Print methods
     virtual size_t write(uint8_t c) {
     	if (position < maxLength) {
@@ -79,82 +85,50 @@ public:
     	return this->string[index];
     }
 
-	void vsprintFormat(const char *format, va_list args) {
-		size_t written = vsnprintf_P(&string[position], maxLength - position-1, format, args);
-		position+=written;		
+	size_t printf(const char *format, va_list args) {
+		size_t written = vsnprintf(&string[position], maxLength - position-1, format, args);
+		position+=written;
+		return written;	
 	}
-	void printFormat(const char *format, ...) {
+	size_t printf(const char *format, ...) {
 		va_list args;
 		va_start(args, format);
-		vsprintFormat(format, args);
+		size_t len = printf(format, args);
+		va_end(args);
+		return len;
 	}
-	void printFormat(const __FlashStringHelper *format, ...) {
+	size_t printf(const __FlashStringHelper *format, va_list args) {
 		char buf[1024];
 		size_t size = sizeof buf;
 		PGM_P p = reinterpret_cast<PGM_P>(format);
 		char c;
 		int pos=0;
 		for (; pos < size-1 && (c = pgm_read_byte(p++)) != 0; pos++) {
-				buf[pos]=c;	
+				buf[pos]=c;
 		}
-		buf[pos]=0;	
+		buf[pos]='\0';
+		size_t len = printf(buf, args);
+		return len;
+	}
+	
+	size_t printf(const __FlashStringHelper *format, ...) {
 		va_list args;
 		va_start(args, format);
-		vsprintFormat(buf, args);
+		size_t len = printf(format, args);
+		va_end(args);
+		return len;
 	}
 
-    size_t printAndReplace(const __FlashStringHelper *toPrint, const char* wc1) {
-    	return printAndReplace(toPrint, wc1, nullptr, nullptr, nullptr);
-    }
-
-    size_t printAndReplace(const __FlashStringHelper *toPrint, const char* wc1, const char* wc2) {
-    	return printAndReplace(toPrint, wc1, wc2, nullptr, nullptr);
-    }
-
-    size_t printAndReplace(const __FlashStringHelper *toPrint, const char* wc1, const char* wc2, const char* wc3) {
-    	return printAndReplace(toPrint, wc1, wc2, wc3, nullptr);
-    }
-
-    size_t printAndReplace(const __FlashStringHelper *toPrint, const char* wc1, const char* wc2, const char* wc3, const char* wc4) {
-    	PGM_P p = reinterpret_cast<PGM_P>(toPrint);
-    	size_t n = 0;
-    	int wcCount = (wc1 != nullptr ? 1 : 0);
-    	wcCount = (wc2 != nullptr ? 2 : wcCount);
-    	wcCount = (wc3 != nullptr ? 3 : wcCount);
-    	wcCount = (wc4 != nullptr ? 4 : wcCount);
-    	int wcIndex = 0;
-    	//int lp = strlen(toPrint);
-    	while (1) {
-    	//for (int i = 0; i < lp; i++) {
-    		unsigned char c = pgm_read_byte(p++);
-    		if (c == 0) break;
-    		if ((c == '%') && (wcIndex < wcCount)) {
-    			c = pgm_read_byte(p++);
-    			if (c == 's') {
-    				//wildcard
-    				const char* wc = (wcIndex == 0 ? wc1 : (wcIndex == 1 ? wc2 : (wcIndex == 2 ? wc3 : wc4)));
-    				wcIndex++;
-    				for (int b = 0; b < strlen(wc); b++) {
-    					if (write(wc[b])) n++;
-    					else break;
-    				}
-    			} else {
-    				if (write('%')) n++;
-    				else break;
-    				if (write(c)) n++;
-    				else break;
-    			}
-    		} else {
-    			//just copy
-    			if (write(c)) n++;
-    			else break;
-    		}
-    	}
-		return n;
-    }
+	size_t printAndReplace(const __FlashStringHelper *format, ...) {
+		va_list args;
+		va_start(args, format);
+		size_t len = printf(format, args);
+		va_end(args);
+		return len;
+	}
 
     const char* c_str() {
-    	return this->string;
+		return this->string;
     }
 
 private:

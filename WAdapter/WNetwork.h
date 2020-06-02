@@ -47,11 +47,9 @@ const byte NETBITS1_MQTTSINGLEVALUES = 8;
 #ifdef DEBUG
 const int maxApRunTimeMinutes = 2;
 const int maxConnectFail = 3;
-const int mqttHassAutodiscoverMinutes = 1;
 #else
 const int maxApRunTimeMinutes = 5;
 const int maxConnectFail = 10;
-const int mqttHassAutodiscoverMinutes = 5;
 #endif
 
 typedef enum wnWifiMode
@@ -305,7 +303,7 @@ true ||
 		}
 #ifndef MINIMAL
 		if (isSupportingMqtt() && isSupportingMqttHASS() && isMqttConnected() && isStation() && onMqttHassAutodiscover && 
-			(lastMqttHASS==0 || now > lastMqttHASS  + (mqttHassAutodiscoverMinutes * 60 * 1000) )){
+			(lastMqttHASS==0)){
 				if (onMqttHassAutodiscover() ) lastMqttHASS=now;
 
 		}
@@ -886,25 +884,25 @@ private:
 		wlog->notice(F("handleHttpRootRequest"));
 		if (isWebServerRunning()) {
 			if (restartFlag.equals("")) {
-				WStringStream* page = new WStringStream(3072);
-				page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), applicationName.c_str());
-				page->print(FPSTR(HTTP_SCRIPT));
-				page->print(FPSTR(HTTP_STYLE));
-				page->print(FPSTR(HTTP_HEAD_END));
+				httpHeader(applicationName.c_str());
+				WStringStream* page = new WStringStream(2*1024);
 				printHttpCaption(page);
 				WDevice *device = firstDevice;
 				page->printAndReplace(FPSTR(HTTP_BUTTON), "wifi", "get", "Configure network");
+				page->webserverSendAndFlush(webServer);
 				while (device != nullptr) {
 					if (device->isProvidingConfigPage()) {
 						String s("Configure ");
 						s.concat(device->getName());
 						page->printAndReplace(FPSTR(HTTP_BUTTON), device->getId(), "get", s.c_str());
 						//page->printAndReplace(FPSTR(HTTP_BUTTON_DEVICE), device->getId(), device->getName());
+						page->webserverSendAndFlush(webServer);
 					}
 					WPage *subpage = device->firstPage;
 					while (subpage != nullptr) {
-						String url =(String)device->getId()+"-"+(String)subpage->getId();
+						String url =(String)device->getId()+"_"+(String)subpage->getId();
 						page->printAndReplace(FPSTR(HTTP_BUTTON), url.c_str() , "get", subpage->getTitle());
+						page->webserverSendAndFlush(webServer);
 						subpage = subpage->next;
 					}
 					device = device->next;
@@ -912,22 +910,18 @@ private:
 				page->printAndReplace(FPSTR(HTTP_BUTTON), "firmware", "get", "Update firmware");
 				page->printAndReplace(FPSTR(HTTP_BUTTON), "info", "get", "Info");
 				page->printAndReplace(FPSTR(HTTP_BUTTON), "reset", "post", "Reboot");
-				page->print(FPSTR(HTTP_BODY_END));
-				webServer->send(200, TEXT_HTML, page->c_str());
+				page->webserverSendAndFlush(webServer);
 				delete page;
+				httpFooter();
 			} else {
+				httpHeader("Info", F("<meta http-equiv=\"refresh\" content=\"10\">"));
 				WStringStream* page = new WStringStream(2048);
-				page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Info");
-				page->print(FPSTR(HTTP_SCRIPT));
-				page->print(FPSTR(HTTP_STYLE));
-				page->print("<meta http-equiv=\"refresh\" content=\"10\">");
-				page->print(FPSTR(HTTP_HEAD_END));
 				page->print(restartFlag);
 				page->print("<br><br>");
 				page->print("Module will reset in a few seconds...");
-				page->print(FPSTR(HTTP_BODY_END));
-				webServer->send(200, TEXT_HTML, page->c_str());
+				page->webserverSendAndFlush(webServer);
 				delete page;
+				httpFooter();
 			}
 		}
 	}
@@ -935,32 +929,27 @@ private:
 	void handleHttpDeviceConfiguration(WDevice *&device) {
 		if (isWebServerRunning()) {
 			wlog->notice(F("Device config page"));
-			WStringStream* page = new WStringStream(8*1024);
-			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Device Configuration");
-			page->print(FPSTR(HTTP_SCRIPT));
-			page->print(FPSTR(HTTP_STYLE));
-			page->print(FPSTR(HTTP_HEAD_END));
+			httpHeader(F("Device Configuration"));
+			WStringStream* page = new WStringStream(4*1024);
 			printHttpCaption(page);
+			page->webserverSendAndFlush(webServer);
 			device->printConfigPage(page);
-			page->print(FPSTR(HTTP_BODY_END));
-			webServer->send(200, TEXT_HTML, page->c_str());
+			page->webserverSendAndFlush(webServer);
 			delete page;
+			httpFooter();
 		}
 
 	}
 	void handleHttpDevicePage(WDevice *&device, WPage *&subpage) {
 		if (isWebServerRunning()) {
 			wlog->notice(F("Device subpage"));
-			WStringStream* page = new WStringStream(8*1024);
-			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), subpage->getTitle());
-			page->print(FPSTR(HTTP_SCRIPT));
-			page->print(FPSTR(HTTP_STYLE));
-			page->print(FPSTR(HTTP_HEAD_END));
+			WStringStream* page = new WStringStream(4*1024);
+			httpHeader(subpage->getTitle());
 			printHttpCaption(page);
 			subpage->printPage(webServer, page);
-			page->print(FPSTR(HTTP_BODY_END));
-			webServer->send(200, TEXT_HTML, page->c_str());
+			page->webserverSendAndFlush(webServer);
 			delete page;
+			httpFooter();
 		}
 	}
 
@@ -968,19 +957,13 @@ private:
 		if (isWebServerRunning()) {
 			wlog->notice(F("handleHttpDevicePageSubmitted "), device->getId());
 			webServer->client().setNoDelay(true);
+			httpHeader(subpage->getTitle());
 			WStringStream* page = new WStringStream(2048);
-			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), subpage->getTitle());
-			page->print(FPSTR(HTTP_SCRIPT));
-			page->print(FPSTR(HTTP_STYLE));
-			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
 			subpage->submittedPage(webServer, page);
-
-			page->print(FPSTR(HTTP_HOME_BUTTON));
-			page->print(FPSTR(HTTP_BODY_END));
-			webServer->send(200, TEXT_HTML, page->c_str());
-			settings->save();
+			page->webserverSendAndFlush(webServer);
 			delete page;
+			httpFooter();
 			wlog->notice(F("handleHttpDevicePageSubmitted Done"));
 		}
 	}
@@ -991,21 +974,19 @@ private:
 			// resetWifiTimeout
 			if (wifiModeRunning == wnWifiMode_t::WIFIMODE_FALLBACK) this->apStartedAt=millis();
 			wlog->notice(F("Network config page"));
-			WStringStream* page = new WStringStream(4092);
-			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Network Configuration");
-			page->print(FPSTR(HTTP_SCRIPT));
-			page->print(FPSTR(HTTP_STYLE));
-			page->print(FPSTR(HTTP_HEAD_END));
+			httpHeader(F("Network Configuration"));
+			WStringStream* page = new WStringStream(2*1024);
 			printHttpCaption(page);
 			page->printAndReplace(FPSTR(HTTP_CONFIG_PAGE_BEGIN), "");
 			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_STYLE), (this->isSupportingMqtt() ? "block" : "none"));
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Hostname/Idx:", "i", "32", getIdx());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Wifi ssid (only 2.4G):", "s", "32", getSsid());
 			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "Wifi password:", "p", "64", FORM_PW_NOCHANGE);
-			page->printFormat(FPSTR(HTTP_PAGE_CONFIGURATION_OPTION), "apfb", (this->isSupportingApFallback() ? "checked" : ""),
+			page->printf(FPSTR(HTTP_PAGE_CONFIGURATION_OPTION), "apfb", (this->isSupportingApFallback() ? HTTP_CHECKED : ""),
 			"", HTTP_PAGE_CONFIIGURATION_OPTION_APFALLBACK);
+			page->webserverSendAndFlush(webServer);
 			//mqtt
-			page->printFormat(FPSTR(HTTP_PAGE_CONFIGURATION_OPTION), "mq", (this->isSupportingMqtt() ? "checked" : ""), 
+			page->printf(FPSTR(HTTP_PAGE_CONFIGURATION_OPTION), "mq", (this->isSupportingMqtt() ? HTTP_CHECKED : ""), 
 				"id='mqttEnabled'onclick='hideMqttGroup()'", HTTP_PAGE_CONFIIGURATION_OPTION_MQTT);
 			page->print(FPSTR(HTTP_PAGE_CONFIGURATION_MQTT_BEGIN));
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Server:", "ms", "32", getMqttServer());
@@ -1014,16 +995,16 @@ private:
 			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "MQTT Password:", "mp", "64", FORM_PW_NOCHANGE);
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic, e.g.'home/room':", "mt", "64", getMqttTopic());
 
-			page->printFormat(FPSTR(HTTP_PAGE_CONFIGURATION_OPTION), "mqhass", (this->isSupportingMqttHASS() ? "checked" : ""),
+			page->printf(FPSTR(HTTP_PAGE_CONFIGURATION_OPTION), "mqhass", (this->isSupportingMqttHASS() ? HTTP_CHECKED : ""),
 				"", HTTP_PAGE_CONFIIGURATION_OPTION_MQTTHASS);
-			page->printFormat(FPSTR(HTTP_PAGE_CONFIGURATION_OPTION), "mqsv", (this->isSupportingMqttSingleValues() ? "checked" : ""),
+			page->printf(FPSTR(HTTP_PAGE_CONFIGURATION_OPTION), "mqsv", (this->isSupportingMqttSingleValues() ? HTTP_CHECKED : ""),
 				"", HTTP_PAGE_CONFIIGURATION_OPTION_MQTTSINGLEVALUES);
 
 			page->print(FPSTR(HTTP_PAGE_CONFIGURATION_MQTT_END));
 			page->print(FPSTR(HTTP_CONFIG_SAVE_BUTTON));
-			page->print(FPSTR(HTTP_BODY_END));
-			webServer->send(200, TEXT_HTML, page->c_str());
+			page->webserverSendAndFlush(webServer);
 			delete page;
+			httpFooter();
 		}
 	}
 
@@ -1070,11 +1051,8 @@ private:
 
 	void handleHttpInfo() {
 		if (isWebServerRunning()) {
-			WStringStream* page = new WStringStream(2048);
-			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Info");
-			page->print(FPSTR(HTTP_SCRIPT));
-			page->print(FPSTR(HTTP_STYLE));
-			page->print(FPSTR(HTTP_HEAD_END));
+			httpHeader("Info");
+			WStringStream* page = new WStringStream(1024);
 			printHttpCaption(page);
 			page->print("<table>");
 			page->print("<tr><th>Chip ID:</th><td>");
@@ -1130,9 +1108,9 @@ private:
 			page->print("</td></tr>");
 			page->print("</table>");			
 			page->print(FPSTR(HTTP_HOME_BUTTON));
-			page->print(FPSTR(HTTP_BODY_END));
-			webServer->send(200, TEXT_HTML, page->c_str());
+			page->webserverSendAndFlush(webServer);
 			delete page;
+			httpFooter();
 		}
 	}
 
@@ -1157,6 +1135,30 @@ private:
 		}
 
 	}
+
+	template<class T, typename ... Args> void httpHeader(T title, const __FlashStringHelper * HeaderAdditional) {
+		if (!isWebServerRunning()) return;
+		webServer->setContentLength(CONTENT_LENGTH_UNKNOWN);
+		webServer->send(200, TEXT_HTML, "");
+		WStringStream* page = new WStringStream(1*1024);
+		page->printf(FPSTR(HTTP_HEAD_BEGIN), title);
+		page->webserverSendAndFlush(webServer);
+		delete page;
+		webServer->sendContent_P(HTTP_SCRIPT);
+		webServer->sendContent_P(HTTP_STYLE);
+		if (HeaderAdditional!=nullptr) webServer->sendContent(FPSTR(HeaderAdditional));
+		webServer->sendContent_P(HTTP_HEAD_END);
+	}
+
+	template<class T, typename ... Args> void httpHeader(T title) {
+		httpHeader(title, NULL);
+	}
+
+	void httpFooter() {
+		if (!isWebServerRunning()) return;
+		webServer->sendContent_P(HTTP_BODY_END);
+	}
+
 
 	String getClientName(bool lowerCase) {
 		String result = (applicationName.equals("") ? "ESP" : String(applicationName));
@@ -1186,19 +1188,17 @@ private:
 
 	void handleHttpFirmwareUpdate() {
 		if (isWebServerRunning()) {
-			WStringStream* page = new WStringStream(2048);
-			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Firmware update");
-			page->print(FPSTR(HTTP_SCRIPT));
-			page->print(FPSTR(HTTP_STYLE));
-			page->print(FPSTR(HTTP_HEAD_END));
+			httpHeader(F("Firmware update"));
+			WStringStream* page = new WStringStream(1024);
 			printHttpCaption(page);
 			page->print(FPSTR(HTTP_FORM_FIRMWARE));
 			page->print("Available sketch size: ");
 			page->print(ESP.getFreeSketchSpace());
 			page->print(" kByte");
 			page->print(FPSTR(HTTP_BODY_END));
-			webServer->send(200, TEXT_HTML, page->c_str());
+			page->webserverSendAndFlush(webServer);
 			delete page;
+			httpFooter();
 		}
 	}
 
@@ -1286,17 +1286,14 @@ private:
 
 	void webReturnStatusPage(const char* reasonMessage1, const char* reasonMessage2) {
 		webServer->client().setNoDelay(true);
-		WStringStream* page = new WStringStream(2048);
-		page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), reasonMessage1);
-		page->print(FPSTR(HTTP_SCRIPT));
-		page->print(FPSTR(HTTP_STYLE));
-		page->print(FPSTR(HTTP_HEAD_END));
+		httpHeader(reasonMessage1);
+		WStringStream* page = new WStringStream(1024);
 		printHttpCaption(page);
 		page->printAndReplace(FPSTR(HTTP_SAVED), reasonMessage1, reasonMessage2);
 		page->print(FPSTR(HTTP_HOME_BUTTON));
-		page->print(FPSTR(HTTP_BODY_END));
-		webServer->send(200, TEXT_HTML, page->c_str());
+		page->webserverSendAndFlush(webServer);
 		delete page;
+		httpFooter();
 	}
 	
 	void restart(const char* reasonMessage) {
