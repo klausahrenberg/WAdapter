@@ -5,27 +5,65 @@
 #include "WLog.h"
 #include "WProperty.h"
 
-const byte STORED_FLAG_OLDLOW = 0x59;
-const byte STORED_FLAG_OLDHIGH = 0x63;
-const byte STORED_FLAG = 0xF0;
+const byte STORED_FLAG_OLDLOW = 0x59; //1.00 ..
+const byte STORED_FLAG_OLDHIGH = 0x63; //1.02
+const byte STORED_FLAG_OLD = 0xF0; //FAS
+const byte FLAG_OPTIONS_NETWORK = 0x64; //1.09
+const byte FLAG_OPTIONS_APPLICATION = 0xF0;
 const int EEPROM_SIZE = 512;
-const int ADDRESS_COMPAT_MAXSTARTADDRESS = 128; // 64 IDX +32  SSID + 32 PSK
+unsigned int startAddressReadOffset = 2;
+unsigned int startAddressSaveOffset = 2;
+
 
 class WSettingItem {
 public:
 	WProperty* value;
 	int address;
+	bool networkSetting;
 	WSettingItem* next = nullptr;
 };
+const int NETWORKSETTINGS_UNKNOWN = 0;
+const int NETWORKSETTINGS_PRE_102 = 1;
+const int NETWORKSETTINGS_PRE_109 = 2;
+const int NETWORKSETTINGS_PRE_FAS114 = 3;
+const int NETWORKSETTINGS_CURRENT = 4;
 
 class WSettings {
 public:
-	WSettings(WLog* log) {
+	WSettings(WLog* log, bool compatMode) {
 		this->log = log;
+		this->addingNetworkSettings = true;
+		this->_settingsNeedsUpdate=true;
 		EEPROM.begin(EEPROM_SIZE);
 		uint8_t epromStored = EEPROM.read(0);
-		this->_existsSettingsCompat = (epromStored >= STORED_FLAG_OLDLOW && epromStored <= STORED_FLAG_OLDHIGH);
-		this->_existsSettings = (epromStored == STORED_FLAG || this->_existsSettingsCompat);
+		this->log->trace(F("settings: old byte 0: 0x%02x"), epromStored);
+		this->_existsSettingsNetwork = false;
+		this->_existsSettingsApplication = false;		
+		this->_networkSettingsVersion=NETWORKSETTINGS_UNKNOWN;
+		if (epromStored==FLAG_OPTIONS_NETWORK){
+			// klaus >=1.09 and fas >=1.14-fas
+			this->_existsSettingsNetwork = true;
+			this->_networkSettingsVersion=NETWORKSETTINGS_CURRENT;
+			uint8_t epromStoredApplication = EEPROM.read(1);
+			this->log->trace(F("settings: old byte 1: 0x%02x"), epromStoredApplication);
+			if (epromStoredApplication == FLAG_OPTIONS_APPLICATION){
+				this->_existsSettingsApplication = true;
+				this->_settingsNeedsUpdate=false;
+			}			
+		} else if (compatMode){
+			startAddressReadOffset=1;
+			if (epromStored == STORED_FLAG_OLD){
+				this->_existsSettingsNetwork = true;
+				this->_existsSettingsApplication = true; // we support our old config
+				this->_networkSettingsVersion=NETWORKSETTINGS_PRE_FAS114;
+			} else if (epromStored >= STORED_FLAG_OLDLOW && epromStored <= STORED_FLAG_OLDHIGH){
+				this->_existsSettingsNetwork = true;
+				if (epromStored < 0x63) this->_networkSettingsVersion=NETWORKSETTINGS_PRE_102;
+				else this->_networkSettingsVersion=NETWORKSETTINGS_PRE_109;
+			}
+		}
+
+		this->log->trace(F("WSettings done, networkSettingsVersion: %d"), this->_networkSettingsVersion);
 		EEPROM.end();
 	}
 
@@ -50,7 +88,8 @@ public:
 			settingItem = settingItem->next;
 		}
 		//1. Byte - settingsStored flag
-		EEPROM.write(0, STORED_FLAG);
+		EEPROM.write(0, FLAG_OPTIONS_NETWORK);
+		EEPROM.write(1, FLAG_OPTIONS_APPLICATION);
 		EEPROM.commit();
 		EEPROM.end();
 	}
@@ -59,12 +98,23 @@ public:
 		return (getSetting(id) != nullptr);
 	}
 
-	bool existsSettings() {
-		return this->_existsSettings;
+	bool existsSettingsNetwork() {
+		return this->_existsSettingsNetwork;
 	}
-	
-	bool existsSettingsCompat() {
-		return this->_existsSettingsCompat;
+	bool existsSettingsApplication() {
+		return this->_existsSettingsApplication;
+	}
+
+	bool settingsNeedsUpdate() {
+		return this->_settingsNeedsUpdate;
+	}
+
+	unsigned int getNetworkSettingsVersion(){
+		return this->_networkSettingsVersion;
+	}
+
+	int getCurrentSettingsAddress(){
+		return (this->lastSetting != nullptr ?  this->lastSetting->address : 0);
 	}
 
 	WProperty* getSetting(String id) {
@@ -93,44 +143,48 @@ public:
 	void add(WProperty* property) {
 		if (!exists(property)) {
 			WSettingItem* settingItem = addSetting(property);
-			if (existsSettings() && (!existsSettingsCompat() || settingItem->address <= ADDRESS_COMPAT_MAXSTARTADDRESS)) {
-				if (settingItem->address + property->getLength() > EEPROM_SIZE){
+				if (((settingItem->networkSetting) && (this->existsSettingsNetwork())) ||
+				((!settingItem->networkSetting) && (this->existsSettingsApplication()))) {
+
+				log->trace(F("Loading setting: Adrress=%d, Id='%s', size=%d, MEM: %d"),
+					settingItem->address + startAddressReadOffset, property->getId(), property->getLength(), EEPROM_SIZE);
+				if (settingItem->address + startAddressReadOffset + property->getLength() > EEPROM_SIZE){
 					log->error(F("Cannot add EPROM property. Size too small, Adrress=%d, Id='%s', size=%d, MEM: %d"),
-					settingItem->address, property->getId(), property->getLength(), EEPROM_SIZE);
+					settingItem->address + startAddressReadOffset, property->getId(), property->getLength(), EEPROM_SIZE);
 					return;
 				}
 				EEPROM.begin(EEPROM_SIZE);
 				switch (property->getType()) {
 				case BOOLEAN:
-					property->setBoolean(EEPROM.read(settingItem->address) == 0xFF);
+					property->setBoolean(EEPROM.read(settingItem->address + startAddressReadOffset) == 0xFF);
 					break;
 				case DOUBLE:
 					double d;
-					EEPROM.get(settingItem->address, d);
+					EEPROM.get(settingItem->address + startAddressReadOffset, d);
 					property->setDouble(d);
 					break;
 				case INTEGER: {
 					byte low, high;
-					low = EEPROM.read(settingItem->address);
-					high = EEPROM.read(settingItem->address + 1);
+					low = EEPROM.read(settingItem->address + startAddressReadOffset);
+					high = EEPROM.read(settingItem->address + startAddressReadOffset + 1);
 					int value = (low + ((high << 8)&0xFF00));
 					property->setInteger(value);
 					break;
 				}				
 				case LONG: {
-					long four = EEPROM.read(settingItem->address);
-					long three = EEPROM.read(settingItem->address + 1);
+					long four = EEPROM.read(settingItem->address + startAddressReadOffset);
+					long three = EEPROM.read(settingItem->address + startAddressReadOffset + 1);
 					long two = EEPROM.read(settingItem->address + 2);
-					long one = EEPROM.read(settingItem->address + 3);
+					long one = EEPROM.read(settingItem->address + startAddressReadOffset + startAddressReadOffset + 3);
 					long value = ((four << 0) & 0xFF) + ((three << 8) & 0xFFFF) + ((two << 16) & 0xFFFFFF) + ((one << 24) & 0xFFFFFFFF);
 					property->setLong(value);
 					break;
 				}
 				case BYTE:
-					property->setByte(EEPROM.read(settingItem->address));
+					property->setByte(EEPROM.read(settingItem->address + startAddressReadOffset));
 					break;
 				case STRING:
-					const char* rs = readString(settingItem->address, property->getLength());
+					const char* rs = readString(settingItem->address + startAddressReadOffset, property->getLength());
 					property->setString(rs);
 					delete rs;
 					break;
@@ -254,23 +308,39 @@ public:
 	}
 
 	WProperty* setString(const char* id, byte length, const char* value) {
+		Serial.printf("setString %s/%s\n", id, value);
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
+			Serial.printf("setString NULL\n");
 			setting = new WStringProperty(id, id, length);
 			setting->setString(value);
 			add(setting);
+			Serial.printf("setString after add(): %s\n", setting->c_str());
 		} else  {
+			Serial.printf("setString Exists\n");
 			setting->setString(value);
 		}
 		return setting;
 	}
 
+
+
+	void copyValueFrom(const char* id, WSettings* settings2) {
+		WProperty * oldProp;
+		if (settings2 == nullptr) return;
+		oldProp=settings2->getSetting(id);
+		if (oldProp==nullptr) return;
+		WProperty* setting = getSetting(id);
+	}
+
+	bool addingNetworkSettings;
 protected:
 	WSettingItem* addSetting(WProperty* setting) {
 		WSettingItem* settingItem = new WSettingItem();
 		settingItem->value = setting;
+		settingItem->networkSetting = this->addingNetworkSettings;
 		if (this->lastSetting == nullptr) {
-			settingItem->address = 1;
+			settingItem->address = 0;
 			this->firstSetting = settingItem;
 			this->lastSetting = settingItem;
 		} else {
@@ -283,25 +353,25 @@ protected:
 
 	void save(WSettingItem* settingItem) {
 		WProperty* setting = settingItem->value;
-		if (settingItem->address + setting->getLength() > EEPROM_SIZE){
+		if (settingItem->address  + startAddressSaveOffset + setting->getLength() > EEPROM_SIZE){
 			log->error(F("Cannot save to EPROM. Size too small, Adrress=%d, Id='%s', size=%d, MEM: %d"),
-				settingItem->address, setting->getId(), setting->getLength(), EEPROM_SIZE);
+				settingItem->address + startAddressSaveOffset, setting->getId(), setting->getLength(), EEPROM_SIZE);
 			return;
 		}
 		switch (setting->getType()){
 		case BOOLEAN:
 			//log->notice(F("Save boolean to EEPROM: id='%s'; value=%d"), setting->getId(), setting->getBoolean());
-			EEPROM.write(settingItem->address, (setting->getBoolean() ? 0xFF : 0x00));
+			EEPROM.write(settingItem->address + startAddressSaveOffset, (setting->getBoolean() ? 0xFF : 0x00));
 			break;
 		case BYTE:
-			EEPROM.write(settingItem->address, setting->getByte());
+			EEPROM.write(settingItem->address + startAddressSaveOffset, setting->getByte());
 			break;
 		case INTEGER:
 			byte low, high;
 			low = (setting->getInteger() & 0xFF);
 			high = ((setting->getInteger()>>8) & 0xFF);
-			EEPROM.write(settingItem->address, low);
-			EEPROM.write(settingItem->address + 1, high);
+			EEPROM.write(settingItem->address + startAddressSaveOffset, low);
+			EEPROM.write(settingItem->address + startAddressSaveOffset + 1, high);
 			break;
 		case LONG:
 			byte l1, l2, l3, l4;
@@ -309,16 +379,16 @@ protected:
 			l3 = ((setting->getLong() >> 8) & 0xFF);
 			l2 = ((setting->getLong() >> 16) & 0xFF);
 			l1 = ((setting->getLong() >> 24) & 0xFF);
-			EEPROM.write(settingItem->address, l4);
-			EEPROM.write(settingItem->address + 1, l3);
-			EEPROM.write(settingItem->address + 2, l2);
-			EEPROM.write(settingItem->address + 3, l1);
+			EEPROM.write(settingItem->address + startAddressSaveOffset, l4);
+			EEPROM.write(settingItem->address + startAddressSaveOffset + 1, l3);
+			EEPROM.write(settingItem->address + startAddressSaveOffset + 2, l2);
+			EEPROM.write(settingItem->address + startAddressSaveOffset + 3, l1);
 			break;
 		case DOUBLE:
-			EEPROM.put(settingItem->address, setting->getDouble());
+			EEPROM.put(settingItem->address + startAddressSaveOffset, setting->getDouble());
 			break;
 		case STRING:
-			writeString(settingItem->address, setting->getLength(), setting->c_str());
+			writeString(settingItem->address + startAddressSaveOffset, setting->getLength(), setting->c_str());
 			break;
 		}
 
@@ -326,8 +396,9 @@ protected:
 
 private:
 	WLog* log;
-	bool _existsSettings;
-	bool _existsSettingsCompat;
+	bool _existsSettingsNetwork, _existsSettingsApplication;
+	bool _settingsNeedsUpdate;
+	unsigned int _networkSettingsVersion;
 	WSettingItem* firstSetting = nullptr;
 	WSettingItem* lastSetting = nullptr;
 

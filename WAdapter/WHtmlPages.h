@@ -74,9 +74,18 @@ button{
 )=====";
 
 const static char HTTP_SCRIPT[]             PROGMEM = R"=====(<script>
+	function eb(s) {
+		return document.getElementById(s);
+	}
+	function qs(s) {
+		return document.querySelector(s);
+	}
+	function sp(i) {
+		eb(i).type = (eb(i).type === 'text' ? 'password' : 'text');
+	}
 	function c(l){
-		document.getElementById('s').value=l.innerText||l.textContent;
-		document.getElementById('p').focus();
+		eb('s').value=l.innerText||l.textContent;
+		eb('p').focus();
 	}
 </script>
 )=====";
@@ -119,8 +128,8 @@ const static char HTTP_PAGE_CONFIGURATION_MQTT_END[]    PROGMEM = R"=====(
 	</div>
 	<script>
 		function hideMqttGroup() {
-			var cb = document.getElementById('mqttEnabled'); 
-  			var x = document.getElementById('mqttGroup');
+			var cb = eb('mqttEnabled'); 
+  			var x = eb('mqttGroup');
   			if (cb.checked) {
 	    		x.style.display = 'block';
   			} else {
@@ -185,8 +194,8 @@ const static char HTTP_TEXT_FIELD[]    PROGMEM = R"=====(
 
 const static char HTTP_PASSWORD_FIELD[]    PROGMEM = R"=====(
 	<div>
-		%s<br>
-		<input type='password' name='%s' maxlength=%s value='%s'>
+		<label>%s <small><input type="checkbox" onclick="sp('%s')"> (show password)</small></label><br>
+		<input type='password' name='%s' id='%s' maxlength=%s value='%s'>
 	</div>
 )=====";
 
