@@ -308,16 +308,12 @@ public:
 	}
 
 	WProperty* setString(const char* id, byte length, const char* value) {
-		Serial.printf("setString %s/%s\n", id, value);
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			Serial.printf("setString NULL\n");
 			setting = new WStringProperty(id, id, length);
 			setting->setString(value);
 			add(setting);
-			Serial.printf("setString after add(): %s\n", setting->c_str());
 		} else  {
-			Serial.printf("setString Exists\n");
 			setting->setString(value);
 		}
 		return setting;
