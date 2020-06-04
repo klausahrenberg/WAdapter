@@ -197,10 +197,15 @@ true ||
 		if (wifiModeDesired!=wifiModeRunning){
 			if (wifiModeRunning == wnWifiMode::WIFIMODE_FALLBACK || wifiModeRunning == wnWifiMode::WIFIMODE_AP){
 				wlog->warning(F("WiFi: deactivating softApMode"));
+#ifndef MINIMAL
+				this->disconnectMqtt();
+				this->lastMqttConnect = 0;
+#endif
 				WiFi.softAPdisconnect();
 				lastWifiConnect=0;
 				apStartedAt=0;
 				deleteDnsApServer();
+
 			}
 			if (wifiModeRunning == wnWifiMode::WIFIMODE_STATION){
 				WiFi.disconnect();
@@ -257,13 +262,8 @@ true ||
 		if (!isSoftAP()){
 #ifndef MINIMAL
 			//MQTT connection
-			if ((isWifiConnected()) && (isSupportingMqtt())
-					&& (!mqttClient->connected())
-					&& ((lastMqttConnect == 0) || (now - lastMqttConnect > 300000))
-					&& (strcmp(getMqttServer(), "") != 0)
-					&& (strcmp(getMqttPort(), "") != 0)) {
-				mqttReconnect();
-				lastMqttConnect = now;
+			if ((lastMqttConnect == 0) || (now - lastMqttConnect > 300000)){
+				if (mqttReconnect()) lastMqttConnect = now;
 			}
 			if ((!isUpdateRunning()) && (this->isMqttConnected())) {
 				mqttClient->loop();
@@ -809,9 +809,9 @@ private:
 										// set to unchanged, because we're sending update now immediately
 										property->setUnChanged();
 									}
+									// answer just with changed value
+									publishMqtt((stat_topic+topic).c_str(), property->toString().c_str(), device->isMqttRetain());
 								}
-								// answer just with changed value
-								publishMqtt((stat_topic+topic).c_str(), property->toString().c_str(), device->isMqttRetain());
 							}			
 							wlog->notice(F("Sending device State to %sproperties for device %s"), stat_topic.c_str(), device->getName());				
 							mqttSendDeviceState(stat_topic+"properties", device);
@@ -826,7 +826,10 @@ private:
 	}
 
 	bool mqttReconnect() {
-		if (this->isSupportingMqtt()) {
+		if (this->isSupportingMqtt() && this->isWifiConnected()
+			&& (!mqttClient->connected())
+			&& (strcmp(getMqttServer(), "") != 0)
+			&& (strcmp(getMqttPort(), "") != 0)) {
 			wlog->notice(F("Connect to MQTT server: %s; user: '%s'; password: '%s'; clientName: '%s'"),
 					   getMqttServer(), getMqttUser(), getMqttPassword(), getClientName(true).c_str());
 			// Attempt to connect
@@ -871,6 +874,8 @@ private:
 				notify(false);
 				return false;
 			}
+		} else {
+			return false;
 		}
 	}
 #endif
@@ -1002,7 +1007,7 @@ private:
 			page->printAndReplace(FPSTR(HTTP_PAGE_CONFIGURATION_STYLE), (this->isSupportingMqtt() ? "block" : "none"));
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Hostname/Idx:", "i", "16", getIdx());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Wifi ssid (only 2.4G):", "s", "32", getSsid());
-			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "Wifi password:", "p", "p", "p", "32", FORM_PW_NOCHANGE);
+			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "Wifi password:", "p", "p", "p", "32", (strlen(getPassword()) ?  FORM_PW_NOCHANGE : ""));
 			page->printf(FPSTR(HTTP_PAGE_CONFIGURATION_OPTION), "apfb", (this->isSupportingApFallback() ? HTTP_CHECKED : ""),
 			"", HTTP_PAGE_CONFIIGURATION_OPTION_APFALLBACK);
 			page->webserverSendAndFlush(webServer);
@@ -1013,7 +1018,7 @@ private:
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Server:", "ms", "32", getMqttServer());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Port:", "mo", "4", getMqttPort());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT User:", "mu", "16", getMqttUser());
-			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "MQTT Password:", "mp", "mp", "mp", "32", FORM_PW_NOCHANGE);
+			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "MQTT Password:", "mp", "mp", "mp", "32", (strlen(getMqttPassword()) ?  FORM_PW_NOCHANGE : ""));
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic, e.g.'home/room':", "mt", "32", getMqttTopic());
 
 			page->printf(FPSTR(HTTP_PAGE_CONFIGURATION_OPTION), "mqhass", (this->isSupportingMqttHASS() ? HTTP_CHECKED : ""),
@@ -1358,20 +1363,20 @@ private:
 
 		
 		this->idx = settings->setString("idx", 16,
-			(settingsOld && settingsOld->getString("idx") ? settingsOld->getString("idx") : this->getClientName(true).c_str()));
-		this->ssid = settings->setString("ssid", 32, (settingsOld && settingsOld->getString("ssid") ? settingsOld->getString("ssid") : ""));
-		settings->setString("password", 32, (settingsOld && settingsOld->getString("password") ? settingsOld->getString("password") : ""));
-			this->netBits1 = settings->setByte("netbits1", (settingsOld && settingsOld->getByte("netbits1") ? settingsOld->getByte("netbits1") : (NETBITS1_MQTT | NETBITS1_HASS)));
-		settings->setString("mqttServer", 32, (settingsOld && settingsOld->getString("mqttServer") ? settingsOld->getString("mqttServer") : ""));
-		settings->setString("mqttPort", 4, (settingsOld && settingsOld->getString("mqttPort") ? settingsOld->getString("mqttPort") : "1883"));
-		settings->setString("mqttUser", 16, (settingsOld && settingsOld->getString("mqttUser") ? settingsOld->getString("mqttUser") : ""));
-		settings->setString("mqttPassword", 32, (settingsOld && settingsOld->getString("mqttPassword") ? settingsOld->getString("mqttPassword") : ""));
-		this->mqttBaseTopic = settings->setString("mqttTopic", 32, (settingsOld && settingsOld->getString("mqttTopic") ? settingsOld->getString("mqttTopic") : getIdx()));
-		this->mqttStateTopic = settings->setString("mqttStateTopic", 16, (settingsOld && settingsOld->getString("mqttStateTopic") ? settingsOld->getString("mqttStateTopic") : DEFAULT_TOPIC_STATE)); // unused
-		this->mqttSetTopic = settings->setString("mqttSetTopic", 16, (settingsOld && settingsOld->getString("mqttSetTopic") ? settingsOld->getString("mqttSetTopic") : DEFAULT_TOPIC_SET)); // unused
+			(settingsOld && settingsOld->existsSetting("idx") ? settingsOld->getString("idx") : this->getClientName(true).c_str()));
+		this->ssid = settings->setString("ssid", 32, (settingsOld && settingsOld->existsSetting("ssid") ? settingsOld->getString("ssid") : ""));
+		settings->setString("password", 32, (settingsOld && settingsOld->existsSetting("password") ? settingsOld->getString("password") : ""));
+		this->netBits1 = settings->setByte("netbits1", (settingsOld && settingsOld->getByte("netbits1") ? settingsOld->getByte("netbits1") : (NETBITS1_MQTT | NETBITS1_HASS)));
+		settings->setString("mqttServer", 32, (settingsOld && settingsOld->existsSetting("mqttServer") ? settingsOld->getString("mqttServer") : ""));
+		settings->setString("mqttPort", 4, (settingsOld && settingsOld->existsSetting("mqttPort") ? settingsOld->getString("mqttPort") : "1883"));
+		settings->setString("mqttUser", 16, (settingsOld && settingsOld->existsSetting("mqttUser") ? settingsOld->getString("mqttUser") : ""));
+		settings->setString("mqttPassword", 32, (settingsOld && settingsOld->existsSetting("mqttPassword") ? settingsOld->getString("mqttPassword") : ""));
+		this->mqttBaseTopic = settings->setString("mqttTopic", 32, (settingsOld && settingsOld->existsSetting("mqttTopic") ? settingsOld->getString("mqttTopic") : getIdx()));
+		this->mqttStateTopic = settings->setString("mqttStateTopic", 16, (settingsOld && settingsOld->existsSetting("mqttStateTopic") ? settingsOld->getString("mqttStateTopic") : DEFAULT_TOPIC_STATE)); // unused
+		this->mqttSetTopic = settings->setString("mqttSetTopic", 16, (settingsOld && settingsOld->existsSetting("mqttSetTopic") ? settingsOld->getString("mqttSetTopic") : DEFAULT_TOPIC_SET)); // unused
 
 		// Split mqtt setting into bits - so we keep settings storage compatibility
-		if (this->netBits1->getByte() == 0xFF) this->netBits1->setByte(NETBITS1_MQTT); // compatibility
+		if (this->netBits1->getByte() == 0xFF) this->netBits1->setByte(NETBITS1_MQTT | NETBITS1_HASS); // compatibility
 		this->supportingMqtt = new WProperty("supportingMqtt", "supportingMqtt", BOOLEAN);
 		this->supportingMqtt->setBoolean(this->netBits1->getByte() & NETBITS1_MQTT);
 		this->supportingMqtt->setReadOnly(true);
