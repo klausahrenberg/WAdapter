@@ -9,7 +9,6 @@ const byte STORED_FLAG_OLDLOW = 0x59; //1.00 ..
 const byte STORED_FLAG_OLDHIGH = 0x63; //1.02
 const byte STORED_FLAG_OLD = 0xF0; //FAS
 const byte FLAG_OPTIONS_NETWORK = 0x64; //1.09
-const byte FLAG_OPTIONS_APPLICATION = 0xF0;
 const int EEPROM_SIZE = 512;
 unsigned int startAddressReadOffset = 2;
 unsigned int startAddressSaveOffset = 2;
@@ -30,8 +29,9 @@ const int NETWORKSETTINGS_CURRENT = 4;
 
 class WSettings {
 public:
-	WSettings(WLog* log, bool compatMode) {
+	WSettings(WLog* log, byte appSettingsFlag, bool compatMode) {
 		this->log = log;
+		this->appSettingsFlag = appSettingsFlag;
 		this->addingNetworkSettings = true;
 		this->_settingsNeedsUpdate=true;
 		EEPROM.begin(EEPROM_SIZE);
@@ -46,7 +46,7 @@ public:
 			this->_networkSettingsVersion=NETWORKSETTINGS_CURRENT;
 			uint8_t epromStoredApplication = EEPROM.read(1);
 			this->log->trace(F("settings: old byte 1: 0x%02x"), epromStoredApplication);
-			if (epromStoredApplication == FLAG_OPTIONS_APPLICATION){
+			if (epromStoredApplication == this->appSettingsFlag){
 				this->_existsSettingsApplication = true;
 				this->_settingsNeedsUpdate=false;
 			}			
@@ -89,7 +89,7 @@ public:
 		}
 		//1. Byte - settingsStored flag
 		EEPROM.write(0, FLAG_OPTIONS_NETWORK);
-		EEPROM.write(1, FLAG_OPTIONS_APPLICATION);
+		EEPROM.write(1, this->appSettingsFlag);
 		EEPROM.commit();
 		EEPROM.end();
 	}
@@ -392,6 +392,7 @@ protected:
 
 private:
 	WLog* log;
+	byte appSettingsFlag;
 	bool _existsSettingsNetwork, _existsSettingsApplication;
 	bool _settingsNeedsUpdate;
 	unsigned int _networkSettingsVersion;

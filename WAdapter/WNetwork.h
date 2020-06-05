@@ -76,7 +76,7 @@ public:
 	typedef std::function<void(void)> THandlerFunction;
 	typedef std::function<bool(void)> THandlerReturnFunction;
 	WNetwork(bool debug, String applicationName, String firmwareVersion,
-			int statusLedPin) {
+			int statusLedPin, byte appSettingsFlag) {
 
 		this->onConfigurationFinished = nullptr;
 		this->onNotify = nullptr;
@@ -122,10 +122,10 @@ public:
 		this->mqttClient = nullptr;
 #endif
 		//this->webSocket = nullptr;
-		settings = new WSettings(wlog, false);
+		settings = new WSettings(wlog, appSettingsFlag, false);
 		if (settings->getNetworkSettingsVersion()!=NETWORKSETTINGS_CURRENT){
 			wlog->trace(F("loading oldSettings (network: %d)"), settings->getNetworkSettingsVersion());
-			settingsOld = new WSettings(wlog, true);
+			settingsOld = new WSettings(wlog, appSettingsFlag, true);
 		} else {
 			settingsOld = nullptr;
 		}
@@ -168,7 +168,7 @@ public:
 
 	//returns true, if no configuration mode and no own ap is opened
 	bool loop(unsigned long now) {
-
+		
 #ifdef DEBUG
 		if (this->lastLoopLog == 0 || now  > this->lastLoopLog + 2000){
 			if (WiFi.status() != WL_CONNECTED) wlog->trace(F("WiFi: loop, wifiStatus: %d, modeRunning: %d, modeDesired: %d, now: %d"),
@@ -230,7 +230,7 @@ true ||
 
 			
 			if (wifiModeDesired == wnWifiMode::WIFIMODE_STATION){
-				wlog->trace(F("Starting AP Mode"));
+				wlog->trace(F("Starting Station Mode"));
 				wifiModeRunning = wifiModeDesired;
 				lastWifiConnect = 0;
 			}
@@ -826,7 +826,7 @@ private:
 	}
 
 	bool mqttReconnect() {
-		if (this->isSupportingMqtt() && this->isWifiConnected()
+		if (this->isSupportingMqtt() && this->isWifiConnected() && this->mqttClient != nullptr
 			&& (!mqttClient->connected())
 			&& (strcmp(getMqttServer(), "") != 0)
 			&& (strcmp(getMqttPort(), "") != 0)) {
