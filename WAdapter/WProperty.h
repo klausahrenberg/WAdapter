@@ -584,6 +584,10 @@ public:
 		return this->mqttSendChangedValues;
 	}
 
+	void setSilentChange(void) {
+		this->silentChange=true;
+	}
+
 protected:
 	const char* atType;
 
@@ -599,6 +603,7 @@ protected:
 		this->changed = true;
 		this->requested = false;
 		this->valueRequesting = false;
+		this->silentChange = false;
 		this->notifying = false;
 		this->readOnly = false;
 		this->atType = "";
@@ -667,12 +672,13 @@ private:
 	bool changed;
 	bool requested;
 	bool valueRequesting;
+	bool silentChange;
 	bool notifying;
 
 	WProperty* firstEnum = nullptr;
 
 	void notify() {
-		if (!valueRequesting) {
+		if (!valueRequesting && !silentChange) {
 			notifying = true;
 			if (onChange) {
 				onChange(this);
@@ -685,6 +691,7 @@ private:
 			}
 			notifying = false;
 		}
+		if (silentChange) silentChange=false;
 	}
 
 	void requestValue() {

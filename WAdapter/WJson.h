@@ -277,7 +277,9 @@ public:
 	WJson& boolean(bool value) {
 		if (!separatorAlreadyCalled)
 			ifSeparator();
+		stream->print(QUOTE);
 		stream->print(value ? "true" : "false");
+		stream->print(QUOTE);
 		return *this;
 	}
 
