@@ -170,6 +170,7 @@ public:
 			valueB.asBoolean = newValue;
 			this->setValue(valueB);
 		}
+		afterSet();
 	}
 
 	void toggleBoolean() {
@@ -199,6 +200,7 @@ public:
 			valueB.asDouble = newValue;
 			this->setValue(valueB);
 		}
+		afterSet();
 	}
 
 	bool equalsDouble(double number) {
@@ -220,6 +222,7 @@ public:
 			valueB.asInteger = newValue;
 			this->setValue(valueB);
 		}
+		afterSet();
 	}
 
 	long getLong() {
@@ -237,6 +240,7 @@ public:
 			valueB.asLong = newValue;
 			this->setValue(valueB);
 		}
+		afterSet();
 	}
 
 	unsigned long getUnsignedLong() {
@@ -254,6 +258,7 @@ public:
 			valueB.asUnsignedLong = newValue;
 			this->setValue(valueB);
 		}
+		afterSet();
 	}
 
 	bool equalsInteger(int number) {
@@ -287,6 +292,7 @@ public:
 			valueB.asByte = newValue;
 			this->setValue(valueB);
 		}
+		afterSet();
 	}
 
 	bool equalsByte(byte number) {
@@ -324,6 +330,7 @@ public:
 			valueChanged();
 			notify();
 		}
+		afterSet();
 	}
 
 	bool isReadOnly() {
@@ -693,6 +700,12 @@ private:
 		}
 		if (silentChange) silentChange=false;
 	}
+
+
+	void afterSet() {
+		if (silentChange) silentChange=false;
+	}
+
 
 	void requestValue() {
 		if ((!notifying) && (onValueRequest)) {
