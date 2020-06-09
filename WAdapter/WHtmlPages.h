@@ -13,6 +13,7 @@ const char* HTTP_FALSE = "false";
 const static char HTTP_HEAD_BEGIN[]         PROGMEM = R"=====(<!DOCTYPE html>
 <html lang='en'>
 	<head>
+		<meta charset="utf-8" />
 		<meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'/>
 		<title>%s</title>
 )=====";
