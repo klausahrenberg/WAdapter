@@ -608,7 +608,7 @@ private:
 							WProperty* property = device->getPropertyById(topic.c_str());
 							if (property != nullptr) {
 								if (property->isVisible(MQTT)) {
-									wlog->notice(F("Send state of property: "), property->getId());
+									wlog->notice(F("Send state of property '%s'"), property->getId());
 									WStringStream* response = getResponseStream();
 									WJson json(response);
 									property->toJsonValue(&json, true);
@@ -632,6 +632,7 @@ private:
 							} else {
 								wlog->notice(F("One or more properties updated for device %s"), device->getId());
 							}
+							delete parser;
 						}	else {
 							//Try to find property and set single value
 							WProperty* property = device->getPropertyById(topic.c_str());
