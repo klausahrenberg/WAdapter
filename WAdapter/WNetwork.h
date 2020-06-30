@@ -436,12 +436,17 @@ true ||
 			}
 			WPage *subpage = device->firstPage;
 			while (subpage != nullptr) {
-				did.concat("_");
-				did.concat(subpage->getId());
-				deviceConfiguration.concat("_");
-				deviceConfiguration.concat(subpage->getId());
-				webServer->on(did, HTTP_GET, std::bind(&WNetwork::handleHttpDevicePage, this, device, subpage));
-				webServer->on(deviceConfiguration.c_str(), HTTP_GET, std::bind(&WNetwork::handleHttpDevicePageSubmitted, this, device, subpage));
+				String didSub("");
+				didSub.concat(did);
+				didSub.concat("_");
+				didSub.concat(subpage->getId());
+
+				String deviceConfigurationSub("");
+				deviceConfigurationSub.concat(deviceConfiguration);
+				deviceConfigurationSub.concat("_");
+				deviceConfigurationSub.concat(subpage->getId());
+				webServer->on(didSub, HTTP_GET, std::bind(&WNetwork::handleHttpDevicePage, this, device, subpage));
+				webServer->on(deviceConfigurationSub.c_str(), HTTP_GET, std::bind(&WNetwork::handleHttpDevicePageSubmitted, this, device, subpage));
 				subpage = subpage->next;
 			}
 			device = device->next;
