@@ -6,8 +6,10 @@
 #define MODE_BUTTON 0
 #define MODE_BUTTON_LONG_PRESS 1
 #define MODE_SWITCH 2
+#define SWITCH_PRESSED_PEGEL LOW
 
 const long SWITCH_SENSITIVENESS = 10;
+
 
 class WSwitch: public WPin {
 public:
@@ -22,7 +24,7 @@ public:
 		switchChangeDuration = 1000;
 		if (this->isInitialized()) {
 			state = digitalRead(this->getPin());
-			if (state == LOW) {
+			if (state == SWITCH_PRESSED_PEGEL) {
 				_pressed = true;
 			}
 		}
@@ -31,7 +33,7 @@ public:
 	void loop(unsigned long now) {
 		if (this->isInitialized()) {
 			bool currentState = digitalRead(this->getPin());
-			if (currentState == LOW) { // buttons has been pressed
+			if (currentState == SWITCH_PRESSED_PEGEL) { // buttons has been pressed
 				// starting timer. used for switch sensitiveness
 				if (startTime == 0) {
 					startTime = now;
@@ -58,7 +60,7 @@ public:
 						}
 					}
 				}
-			} else if (currentState == HIGH && startTime > 0) {
+			} else if ((currentState == (!SWITCH_PRESSED_PEGEL)) && (startTime > 0)) {
 				if ((_pressed) && (!_pressedLong) &&
 					((this->mode == MODE_BUTTON_LONG_PRESS) || ((this->mode == MODE_SWITCH) && (now - startTime >= switchChangeDuration)))) {
 					//log("Switch pressed short. pin:" + String(this->getPin()));

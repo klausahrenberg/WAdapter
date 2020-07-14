@@ -685,8 +685,10 @@ protected:
 	const char* atType;
 
 	void initialize(const char* id, const char* title, WPropertyType type, byte length, const char* atType) {
-		this->id = id;
-		this->title = title;
+		this->id = new char[strlen(id) + 1];
+		strcpy(this->id, id);
+		this->title = new char[strlen(title) + 1];
+		strcpy(this->title, title);
 		this->type = type;
 		this->visibility = ALL;
 		this->supportingWebthing = true;
@@ -751,8 +753,8 @@ protected:
 	}
 
 private:
-	const char* id;
-	const char* title;
+	char* id;
+	char* title;
 	WPropertyType type;
 	WPropertyVisibility visibility;
 	bool supportingMqtt;
