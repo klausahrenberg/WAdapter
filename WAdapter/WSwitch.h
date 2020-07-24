@@ -6,9 +6,9 @@
 #define MODE_BUTTON 0
 #define MODE_BUTTON_LONG_PRESS 1
 #define MODE_SWITCH 2
-#define SWITCH_PRESSED_PEGEL LOW
+#define SWITCH_PRESSED_PEGEL HIGH
 
-const long SWITCH_SENSITIVENESS = 10;
+const long SWITCH_SENSITIVENESS = 20;
 
 
 class WSwitch: public WPin {
