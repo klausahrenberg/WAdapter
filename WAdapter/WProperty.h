@@ -16,6 +16,7 @@ const char* TYPE_THERMOSTAT_MODE_PROPERTY = "ThermostatModeProperty";
 const char* TYPE_TEMPERATURE_PROPERTY = "TemperatureProperty";
 
 const char* UNIT_CELSIUS = "degree celsius";
+const char* UNIT_PERCENT = "percent";
 
 enum WPropertyType {
 	BOOLEAN, DOUBLE, SHORT, INTEGER, UNSIGNED_LONG, BYTE, STRING, BYTE_ARRAY

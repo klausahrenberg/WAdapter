@@ -14,7 +14,7 @@ public:
 	}
 
 	bool isOn() {
-		return (digitalRead(this->relayPin) == (highIsOn ? HIGH : LOW));
+		return (digitalRead(this->getPin()) == (highIsOn ? HIGH : LOW));
 	}
 
 	void loop(unsigned long now) {
@@ -26,7 +26,6 @@ public:
 protected:
 
 private:
-	int relayPin;
 	bool highIsOn;
 };
 

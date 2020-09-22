@@ -4,13 +4,14 @@
 #include "WProperty.h"
 
 const int NO_PIN = -1;
+const int NO_MODE = -1;
 
 class WPin {
 public:
 	WPin(int pin, int mode) {
 		this->pin = pin;
 		this->property = nullptr;
-		if (this->isInitialized() && ((mode == INPUT) || (mode == OUTPUT) || (mode == INPUT_PULLUP))) {
+		if ((pin != NO_PIN) && ((mode == INPUT) || (mode == OUTPUT) || (mode == INPUT_PULLUP))) {
 			pinMode(this->pin, mode);
 		}
 	}

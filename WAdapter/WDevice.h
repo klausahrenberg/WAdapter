@@ -1,7 +1,7 @@
 #ifndef W_DEVICE_H
 #define W_DEVICE_H
 
-#include "ESP8266WebServer.h"
+#include <ESPAsyncWebServer.h>
 #include "WProperty.h"
 #include "WLevelProperty.h"
 #include "WLevelIntProperty.h"
@@ -134,7 +134,7 @@ public:
     	}
     }
 
-    virtual void bindWebServerCalls(ESP8266WebServer* webServer) {
+    virtual void bindWebServerCalls(AsyncWebServer* webServer) {
     }
 
     virtual void handleUnknownMqttCallback(bool getState, String completeTopic, String partialTopic, char *payload, unsigned int length) {
