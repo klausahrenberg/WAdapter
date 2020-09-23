@@ -196,8 +196,8 @@ public:
 		//Restart required?
 		if (!restartFlag.equals("")) {
 			this->updateRunning = false;
-			stopWebServer();
 			delay(1000);
+			stopWebServer();
 			ESP.restart();
 			delay(2000);
 		} else if (deepSleepFlag != nullptr) {
@@ -818,21 +818,21 @@ private:
 			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
 			page->printAndReplace(FPSTR(HTTP_CONFIG_PAGE_BEGIN), "network");
-			page->printAndReplace(FPSTR(HTTP_TOGGLE_GROUP_STYLE), "ga", (this->isSupportingMqtt() ? HTTP_BLOCK : HTTP_NONE), "gb", HTTP_NONE);
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Idx:", "i", "16", getIdx());
+			page->printAndReplace(FPSTR(HTTP_TOGGLE_GROUP_STYLE), "ga", HTTP_NONE, "gb", HTTP_NONE);
+			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Identifier (idx):", "i", "16", getIdx());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Wifi ssid (only 2.4G):", "s", "32", getSsid());
 			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "Wifi password:", "p", "32", getPassword());
 			//mqtt
-			page->printAndReplace(FPSTR(HTTP_CHECKBOX_OPTION), "sa", "sa", (this->isSupportingMqtt() ? HTTP_CHECKED : ""), "tg()", "Support MQTT");
-			page->printAndReplace(FPSTR(HTTP_DIV_ID_BEGIN), "ga");
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Server:", "ms", "32", getMqttServer());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Port:", "mo", "4", getMqttPort());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT User:", "mu", "16", getMqttUser());
 			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "MQTT Password:", "mp", "32", getMqttPassword());
+			//advanced mqtt options
+			page->printAndReplace(FPSTR(HTTP_CHECKBOX_OPTION), "sa", "sa", "", "tg()", "Advanced MQTT options");
+			page->printAndReplace(FPSTR(HTTP_DIV_ID_BEGIN), "ga");
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Topic:", "mt", "32", getMqttBaseTopic());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic for state requests:", "mtg", "16", getMqttStateTopic());
 			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic for setting values:", "mts", "16", getMqttSetTopic());
-
 			page->print(FPSTR(HTTP_DIV_END));
 			page->printAndReplace(FPSTR(HTTP_TOGGLE_FUNCTION_SCRIPT), "tg()", "sa", "ga", "gb");
 			page->print(FPSTR(HTTP_CONFIG_SAVE_BUTTON));
@@ -843,45 +843,45 @@ private:
 	}
 
 	void handleHttpSaveConfiguration(AsyncWebServerRequest *request) {
-		if (isWebServerRunning()) {
-			settings->saveOnPropertyChanges = false;
-			this->idx->setString(request->arg("i").c_str());
-			this->ssid->setString(request->arg("s").c_str());
-			settings->setString("password", request->arg("p").c_str());
-			this->supportingMqtt->setBoolean(request->arg("sa") == HTTP_TRUE);
-			settings->setString("mqttServer", request->arg("ms").c_str());
-			String mqtt_port = request->arg("mo");
-			settings->setString("mqttPort", (mqtt_port != "" ? mqtt_port.c_str() : "1883"));
-			settings->setString("mqttUser", request->arg("mu").c_str());
-			settings->setString("mqttPassword", request->arg("mp").c_str());
-			this->mqttBaseTopic->setString(request->arg("mt").c_str());
-			String subTopic = request->arg("mtg");
-			if (subTopic.startsWith(SLASH)) subTopic.substring(1);
-			if (subTopic.endsWith(SLASH)) subTopic.substring(0, subTopic.length() - 1);
-			if (subTopic.equals("")) subTopic = DEFAULT_TOPIC_STATE;
-			this->mqttStateTopic->setString(subTopic.c_str());
-			subTopic = request->arg("mts");
-			if (subTopic.startsWith(SLASH)) subTopic.substring(1);
-			if (subTopic.endsWith(SLASH)) subTopic.substring(0, subTopic.length() - 1);
-			if (subTopic.equals("")) subTopic = DEFAULT_TOPIC_SET;
-			this->mqttSetTopic->setString(subTopic.c_str());
-			settings->save();
-			delay(300);
-			this->restart(request, "Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker.");
-		}
+		settings->saveOnPropertyChanges = false;
+
+		String mbt = request->arg("mt");
+		bool equalsOldIdx = this->idx->equalsString(mbt.c_str());
+		String itx = request->arg("i");
+
+		this->idx->setString(itx.c_str());
+		this->ssid->setString(request->arg("s").c_str());
+		settings->setString("password", request->arg("p").c_str());
+		this->supportingMqtt->setBoolean(true);//request->arg("sa") == HTTP_TRUE);
+		settings->setString("mqttServer", request->arg("ms").c_str());
+		String mqtt_port = request->arg("mo");
+		settings->setString("mqttPort", (mqtt_port != "" ? mqtt_port.c_str() : "1883"));
+		settings->setString("mqttUser", request->arg("mu").c_str());
+		settings->setString("mqttPassword", request->arg("mp").c_str());
+		//advanced mqtt options
+		this->mqttBaseTopic->setString(equalsOldIdx ? itx.c_str() : mbt.c_str());
+		String subTopic = request->arg("mtg");
+		if (subTopic.startsWith(SLASH)) subTopic.substring(1);
+		if (subTopic.endsWith(SLASH)) subTopic.substring(0, subTopic.length() - 1);
+		if (subTopic.equals("")) subTopic = DEFAULT_TOPIC_STATE;
+		this->mqttStateTopic->setString(subTopic.c_str());
+		subTopic = request->arg("mts");
+		if (subTopic.startsWith(SLASH)) subTopic.substring(1);
+		if (subTopic.endsWith(SLASH)) subTopic.substring(0, subTopic.length() - 1);
+		if (subTopic.equals("")) subTopic = DEFAULT_TOPIC_SET;
+		this->mqttSetTopic->setString(subTopic.c_str());
+		settings->save();
+		this->restart(request, "Settings saved. Subscribe to topic 'devices/#' at your broker to get device information.");
 	}
 
 	void handleHttpSubmittedCustomPage(AsyncWebServerRequest *request, WPage *&customPage) {
-		if (isWebServerRunning()) {
-			wlog->notice(F("Save custom page: %s"), customPage->getId());
-			settings->saveOnPropertyChanges = false;
-			WStringStream* page = new WStringStream(1024);
-			customPage->submittedPage(request, page);
-			settings->save();
-			delay(300);
-			this->restart(request, (strlen(page->c_str()) == 0 ? "Settings saved." : page->c_str()));
-			delete page;
-		}
+		wlog->notice(F("Save custom page: %s"), customPage->getId());
+		settings->saveOnPropertyChanges = false;
+		WStringStream* page = new WStringStream(1024);
+		customPage->submittedPage(request, page);
+		settings->save();
+		this->restart(request, (strlen(page->c_str()) == 0 ? "Settings saved." : page->c_str()));
+		delete page;
 	}
 
 	void handleHttpInfo(AsyncWebServerRequest *request) {
@@ -1112,7 +1112,7 @@ private:
 		this->ssid = settings->setString("ssid", 32, "");
 		settings->setString("password", 32, "");
 		this->supportingWebThing = true;
-		this->supportingMqtt = settings->setBoolean("supportingMqtt", false);
+		this->supportingMqtt = settings->setBoolean("supportingMqtt", true);
 		settings->setString("mqttServer", 32, "");
 		settings->setString("mqttPort", 4, "1883");
 		settings->setString("mqttUser", 16, "");
