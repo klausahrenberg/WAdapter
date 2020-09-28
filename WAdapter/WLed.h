@@ -3,6 +3,14 @@
 
 #include "WPin.h"
 
+#ifdef ESP8266
+const byte LED_ON = LOW;
+const byte LED_OFF = HIGH;
+#elif ESP32
+const byte LED_ON = HIGH;
+const byte LED_OFF = LOW;
+#endif
+
 class WLed: public WPin {
 public:
 	WLed(int ledPin)
@@ -10,7 +18,7 @@ public:
 		this->blinkMillis = 0;
 		this->ledOn = false;
 		if (this->isInitialized()) {
-			digitalWrite(this->getPin(), HIGH);
+			digitalWrite(this->getPin(), LED_OFF);
 		}
 	}
 
@@ -58,14 +66,14 @@ public:
 				if ((lastBlinkOn == 0) || (now - lastBlinkOn > this->blinkMillis)) {
 					blinkOn = !blinkOn;
 					lastBlinkOn = now;
-					digitalWrite(this->getPin(), blinkOn ? LOW : HIGH);
+					digitalWrite(this->getPin(), blinkOn ? LED_ON : LED_OFF);
 				}
 			} else {
-				digitalWrite(this->getPin(), LOW);
+				digitalWrite(this->getPin(), LED_ON);
 			}
 		} else {
 			//switchoff
-			digitalWrite(this->getPin(), HIGH);
+			digitalWrite(this->getPin(), LED_OFF);
 		}
 	}
 

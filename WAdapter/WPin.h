@@ -11,7 +11,7 @@ public:
 	WPin(int pin, int mode) {
 		this->pin = pin;
 		this->property = nullptr;
-		if ((pin != NO_PIN) && ((mode == INPUT) || (mode == OUTPUT) || (mode == INPUT_PULLUP))) {
+		if ((this->pin != NO_PIN) && ((mode == INPUT) || (mode == OUTPUT) || (mode == INPUT_PULLUP))) {
 			pinMode(this->pin, mode);
 		}
 	}

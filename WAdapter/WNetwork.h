@@ -164,6 +164,7 @@ public:
 			mqttReconnect();
 			lastMqttConnect = now;
 		}
+		if (!isUpdateRunning()) {
 		if ((!isUpdateRunning()) && (this->isMqttConnected())) {
 			mqttClient->loop();
 		}
@@ -193,6 +194,7 @@ public:
 			MDNS.update();
 		}
 		#endif
+		}
 		//Restart required?
 		if (!restartFlag.equals("")) {
 			this->updateRunning = false;
@@ -738,6 +740,7 @@ private:
 	void notify(bool sendState) {
 		if (statusLed != nullptr) {
 			if (isWifiConnected()) {
+				//off
 				statusLed->setOn(false);
 			} else if (isSoftAP()) {
 				statusLed->setOn(true, 0);
