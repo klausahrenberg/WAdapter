@@ -3,8 +3,6 @@
 
 #include <Arduino.h>
 #include <ESPAsyncWebServer.h>
-#include "WStringStream.h"
-
 
 class WPage {
 public:
@@ -24,12 +22,12 @@ public:
 	}
 
 
-  typedef std::function<void(AsyncWebServerRequest*, WStringStream*)> TCommandPage;
-  virtual void printPage(AsyncWebServerRequest* request, WStringStream* page) {
+  typedef std::function<void(AsyncWebServerRequest*, Print*)> TCommandPage;
+  virtual void printPage(AsyncWebServerRequest* request, Print* page) {
       if (onPrintPage) onPrintPage(request, page);
   }
 
-  virtual void submittedPage(AsyncWebServerRequest* request, WStringStream* page) {
+  virtual void submittedPage(AsyncWebServerRequest* request, Print* page) {
       if (onSubmittedPage) onSubmittedPage(request, page);
   }
 

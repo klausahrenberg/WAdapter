@@ -796,52 +796,48 @@ private:
 		}
 	}
 
-	void handleHttpCustomPage(AsyncWebServerRequest *request, WPage *&customPage) {
+	void handleHttpCustomPage(AsyncWebServerRequest *request, WPage *customPage) {
 		if (isWebServerRunning()) {
-			wlog->notice(F("Custom page called: %s"), customPage->getId());
-			WStringStream* page = new WStringStream(SIZE_WEB_PAGE);
-			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), customPage->getTitle());
-			page->print(FPSTR(HTTP_STYLE));
-			page->print(FPSTR(HTTP_HEAD_END));
-			printHttpCaption(page);
-			customPage->printPage(request, page);
-			page->print(FPSTR(HTTP_BODY_END));
-			request->send(200, TEXT_HTML, page->c_str());
-			delete page;
+			AsyncResponseStream *response = request->beginResponseStream(TEXT_HTML);
+			response->printf(HTTP_HEAD_BEGIN, customPage->getTitle());
+			response->print(FPSTR(HTTP_STYLE));
+			response->print(FPSTR(HTTP_HEAD_END));
+			printHttpCaption(response);
+			customPage->printPage(request, response);
+			response->print(FPSTR(HTTP_BODY_END));
+			request->send(response);
 		}
-
 	}
 
 	void handleHttpNetworkConfiguration(AsyncWebServerRequest *request) {
 		if (isWebServerRunning()) {
 			wlog->notice(F("Network config page"));
-			WStringStream* page = new WStringStream(SIZE_WEB_PAGE);
-			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Network Configuration");
+			AsyncResponseStream *page = request->beginResponseStream(TEXT_HTML);
+			page->printf(HTTP_HEAD_BEGIN, "Network Configuration");
 			page->print(FPSTR(HTTP_STYLE));
 			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
-			page->printAndReplace(FPSTR(HTTP_CONFIG_PAGE_BEGIN), "network");
-			page->printAndReplace(FPSTR(HTTP_TOGGLE_GROUP_STYLE), "ga", HTTP_NONE, "gb", HTTP_NONE);
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Identifier (idx):", "i", "16", getIdx());
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Wifi ssid (only 2.4G):", "s", "32", getSsid());
-			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "Wifi password:", "p", "32", getPassword());
+			page->printf(HTTP_CONFIG_PAGE_BEGIN, "network");
+			page->printf(HTTP_TOGGLE_GROUP_STYLE, "ga", HTTP_NONE, "gb", HTTP_NONE);
+			page->printf(HTTP_TEXT_FIELD, "Identifier (idx):", "i", "16", getIdx());
+			page->printf(HTTP_TEXT_FIELD, "Wifi ssid (only 2.4G):", "s", "32", getSsid());
+			page->printf(HTTP_PASSWORD_FIELD, "Wifi password:", "p", "32", getPassword());
 			//mqtt
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Server:", "ms", "32", getMqttServer());
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Port:", "mo", "4", getMqttPort());
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT User:", "mu", "16", getMqttUser());
-			page->printAndReplace(FPSTR(HTTP_PASSWORD_FIELD), "MQTT Password:", "mp", "32", getMqttPassword());
+			page->printf(HTTP_TEXT_FIELD, "MQTT Server:", "ms", "32", getMqttServer());
+			page->printf(HTTP_TEXT_FIELD, "MQTT Port:", "mo", "4", getMqttPort());
+			page->printf(HTTP_TEXT_FIELD, "MQTT User:", "mu", "16", getMqttUser());
+			page->printf(HTTP_PASSWORD_FIELD, "MQTT Password:", "mp", "32", getMqttPassword());
 			//advanced mqtt options
-			page->printAndReplace(FPSTR(HTTP_CHECKBOX_OPTION), "sa", "sa", "", "tg()", "Advanced MQTT options");
-			page->printAndReplace(FPSTR(HTTP_DIV_ID_BEGIN), "ga");
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "MQTT Topic:", "mt", "32", getMqttBaseTopic());
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic for state requests:", "mtg", "16", getMqttStateTopic());
-			page->printAndReplace(FPSTR(HTTP_TEXT_FIELD), "Topic for setting values:", "mts", "16", getMqttSetTopic());
+			page->printf(HTTP_CHECKBOX_OPTION, "sa", "sa", "", "tg()", "Advanced MQTT options");
+			page->printf(HTTP_DIV_ID_BEGIN, "ga");
+			page->printf(HTTP_TEXT_FIELD, "MQTT Topic:", "mt", "32", getMqttBaseTopic());
+			page->printf(HTTP_TEXT_FIELD, "Topic for state requests:", "mtg", "16", getMqttStateTopic());
+			page->printf(HTTP_TEXT_FIELD, "Topic for setting values:", "mts", "16", getMqttSetTopic());
 			page->print(FPSTR(HTTP_DIV_END));
-			page->printAndReplace(FPSTR(HTTP_TOGGLE_FUNCTION_SCRIPT), "tg()", "sa", "ga", "gb");
+			page->printf(HTTP_TOGGLE_FUNCTION_SCRIPT, "tg()", "sa", "ga", "gb");
 			page->print(FPSTR(HTTP_CONFIG_SAVE_BUTTON));
 			page->print(FPSTR(HTTP_BODY_END));
-			request->send(200, TEXT_HTML, page->c_str());
-			delete page;
+			request->send(page);
 		}
 	}
 
@@ -877,7 +873,7 @@ private:
 		this->restart(request, "Settings saved. Subscribe to topic 'devices/#' at your broker to get device information.");
 	}
 
-	void handleHttpSubmittedCustomPage(AsyncWebServerRequest *request, WPage *&customPage) {
+	void handleHttpSubmittedCustomPage(AsyncWebServerRequest *request, WPage *customPage) {
 		wlog->notice(F("Save custom page: %s"), customPage->getId());
 		settings->saveOnPropertyChanges = false;
 		WStringStream* page = new WStringStream(1024);
@@ -889,62 +885,61 @@ private:
 
 	void handleHttpInfo(AsyncWebServerRequest *request) {
 		if (isWebServerRunning()) {
-			WStringStream* page = new WStringStream(SIZE_WEB_PAGE);
-			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Info");
+			AsyncResponseStream *page = request->beginResponseStream(TEXT_HTML);
+			page->printf(HTTP_HEAD_BEGIN, "Info");
 			page->print(FPSTR(HTTP_STYLE));
 			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
-			page->print("<table>");
-			page->print("<tr><th>Chip:</th><td>");
+			page->print(F("<table>"));
+			page->print(F("<tr><th>Chip:</th><td>"));
 			#ifdef ESP8266
-			page->print("ESP 8266");
+			page->print(F("ESP 8266"));
 			#elif ESP32
-			page->print("ESP 32");
+			page->print(F("ESP 32"));
 			#endif
-			page->print("</td></tr>");
-			page->print("<tr><th>Chip ID:</th><td>");
+			page->print(F("</td></tr>"));
+			page->print(F("<tr><th>Chip ID:</th><td>"));
 			page->print(getChipId());
-			page->print("</td></tr>");
-			page->print("<tr><th>IDE Flash Size:</th><td>");
+			page->print(F("</td></tr>"));
+			page->print(F("<tr><th>IDE Flash Size:</th><td>"));
 			page->print(ESP.getFlashChipSize());
-			page->print("</td></tr>");
+			page->print(F("</td></tr>"));
 			#ifdef ESP8266
-			page->print("<tr><th>Real Flash Size:</th><td>");
+			page->print(F("<tr><th>Real Flash Size:</th><td>"));
 			page->print(ESP.getFlashChipRealSize());
-			page->print("</td></tr>");
+			page->print(F("</td></tr>"));
 			#endif
-			page->print("<tr><th>IP address:</th><td>");
+			page->print(F("<tr><th>IP address:</th><td>"));
 			page->print(this->getDeviceIp().toString());
-			page->print("</td></tr>");
-			page->print("<tr><th>MAC address:</th><td>");
+			page->print(F("</td></tr>"));
+			page->print(F("<tr><th>MAC address:</th><td>"));
 			page->print(WiFi.macAddress());
-			page->print("</td></tr>");
+			page->print(F("</td></tr>"));
 
-			page->print("<tr><th>Current sketch size:</th><td>");
+			page->print(F("<tr><th>Current sketch size:</th><td>"));
 			page->print(ESP.getSketchSize());
-			page->print("</td></tr>");
-			page->print("<tr><th>Available sketch size:</th><td>");
+			page->print(F("</td></tr>"));
+			page->print(F("<tr><th>Available sketch size:</th><td>"));
 			page->print(ESP.getFreeSketchSpace());
-			page->print("</td></tr>");
+			page->print(F("</td></tr>"));
 
-			page->print("<tr><th>Free heap size:</th><td>");
+			page->print(F("<tr><th>Free heap size:</th><td>"));
 			page->print(ESP.getFreeHeap());
-			page->print("</td></tr>");
+			page->print(F("</td></tr>"));
 			#ifdef ESP8266
-			page->print("<tr><th>Largest free heap block:</th><td>");
+			page->print(F("<tr><th>Largest free heap block:</th><td>"));
 			page->print(ESP.getMaxFreeBlockSize());
-			page->print("</td></tr>");
-			page->print("<tr><th>Heap fragmentation:</th><td>");
+			page->print(F("</td></tr>"));
+			page->print(F("<tr><th>Heap fragmentation:</th><td>"));
 			page->print(ESP.getHeapFragmentation());
-			page->print(" %</td></tr>");
+			page->print(F(" %</td></tr>"));
 			#endif
-			page->print("<tr><th>Running since:</th><td>");
+			page->print(F("<tr><th>Running since:</th><td>"));
 			page->print(((millis() - this->startupTime)/1000/60));
-			page->print(" minutes</td></tr>");
-			page->print("</table>");
+			page->print(F(" minutes</td></tr>"));
+			page->print(F("</table>"));
 			page->print(FPSTR(HTTP_BODY_END));
-			request->send(200, TEXT_HTML, page->c_str());
-			delete page;
+			request->send(page);
 		}
 	}
 
@@ -955,7 +950,7 @@ private:
 		}
 	}
 
-	void printHttpCaption(WStringStream* page) {
+	void printHttpCaption(Print* page) {
 		page->print("<h2>");
 		page->print(applicationName);
 		page->print("</h2><h3>Revision ");
@@ -993,15 +988,14 @@ private:
 
 	void handleHttpFirmwareUpdate(AsyncWebServerRequest *request) {
 		if (isWebServerRunning()) {
-			WStringStream* page = new WStringStream(SIZE_WEB_PAGE);
-			page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Firmware update");
+			AsyncResponseStream *page = request->beginResponseStream(TEXT_HTML);
+			page->printf(HTTP_HEAD_BEGIN, "Firmware update");
 			page->print(FPSTR(HTTP_STYLE));
 			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
 			page->print(FPSTR(HTTP_FORM_FIRMWARE));
 			page->print(FPSTR(HTTP_BODY_END));
-			request->send(200, TEXT_HTML, page->c_str());
-			delete page;
+			request->send(page);
 		}
 	}
 
@@ -1092,15 +1086,14 @@ private:
 	void restart(AsyncWebServerRequest *request, const char* reasonMessage) {
 		this->restartFlag = reasonMessage;
 		request->client()->setNoDelay(true);
-		WStringStream* page = new WStringStream(SIZE_WEB_PAGE);
-		page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), reasonMessage);
+		AsyncResponseStream *page = request->beginResponseStream(TEXT_HTML);
+		page->printf(HTTP_HEAD_BEGIN, reasonMessage);
 		page->print(FPSTR(HTTP_STYLE));
 		page->print(FPSTR(HTTP_HEAD_END));
 		printHttpCaption(page);
-		page->printAndReplace(FPSTR(HTTP_SAVED), reasonMessage);
+		page->printf(HTTP_SAVED, reasonMessage);
 		page->print(FPSTR(HTTP_BODY_END));
-		request->send(200, TEXT_HTML, page->c_str());
-		delete page;
+		request->send(page);
 	}
 
 	bool loadSettings() {
@@ -1156,7 +1149,7 @@ private:
 	void sendDevicesStructure(AsyncWebServerRequest *request) {
 		if (!isUpdateRunning()) {
 			wlog->notice(F("Send description for all devices... "));
-			WStringStream* response = new WStringStream(SIZE_WEB_PAGE);
+			AsyncResponseStream *response = request->beginResponseStream(APPLICATION_JSON);
 			WJson json(response);
 			json.beginArray();
 			WDevice *device = this->firstDevice;
@@ -1167,26 +1160,24 @@ private:
 				device = device->next;
 			}
 			json.endArray();
-			request->send(200, APPLICATION_JSON, response->c_str());
-			delete response;
+			request->send(response);
 		}
 	}
 
 	void sendDeviceStructure(AsyncWebServerRequest *request, WDevice *&device) {
 		if (!isUpdateRunning()) {
 			wlog->notice(F("Send description for device: %s"), device->getId());
-			WStringStream* response = new WStringStream(SIZE_WEB_PAGE);
+			AsyncResponseStream *response = request->beginResponseStream(APPLICATION_JSON);
 			WJson json(response);
 			device->toJsonStructure(&json, "", WEBTHING);
-			request->send(200, APPLICATION_JSON, response->c_str());
-			delete response;
+			request->send(response);
 		}
 	}
 
 	void sendDeviceValues(AsyncWebServerRequest *request, WDevice *&device) {
 		if (!isUpdateRunning()) {
 			wlog->notice(F("Send all properties for device: "), device->getId());
-			WStringStream* response = new WStringStream(SIZE_WEB_PAGE);
+			AsyncResponseStream *response = request->beginResponseStream(APPLICATION_JSON);
 			WJson json(response);
 			json.beginObject();
 			if (device->isMainDevice()) {
@@ -1196,22 +1187,20 @@ private:
 			}
 			device->toJsonValues(&json, WEBTHING);
 			json.endObject();
-			request->send(200, APPLICATION_JSON, response->c_str());
-			delete response;
+			request->send(response);
 		}
 	}
 
 	void getPropertyValue(AsyncWebServerRequest *request, WProperty *property) {
 		if (!isUpdateRunning()) {
-			WStringStream* response = new WStringStream(SIZE_WEB_PAGE);
+			AsyncResponseStream *response = request->beginResponseStream(APPLICATION_JSON);
 			WJson json(response);
 			json.beginObject();
 			property->toJsonValue(&json);
 			json.endObject();
 			property->setRequested(true);
-			wlog->notice(F("getPropertyValue %s"), response->c_str());
-			request->send(200, APPLICATION_JSON, response->c_str());
-			delete response;
+			//wlog->notice(F("getPropertyValue %s"), response->c_str());
+			request->send(response);
 
 			if (deepSleepSeconds > 0) {
 				WDevice *device = firstDevice;
@@ -1249,13 +1238,12 @@ private:
 			if (property != nullptr) {
 				//response new value
 				wlog->notice(F("Set property value: %s (web request) %s"), property->getId(), body_data);
-				WStringStream* response = new WStringStream(SIZE_WEB_PAGE);
+				AsyncResponseStream *response = request->beginResponseStream(APPLICATION_JSON);
 				WJson json(response);
 				json.beginObject();
 				property->toJsonValue(&json);
 				json.endObject();
-				request->send(200, APPLICATION_JSON, response->c_str());
-				delete response;
+				request->send(response);
 			} else {
 				// unable to parse json
 				wlog->notice(F("unable to parse json: %s"), body_data);
@@ -1268,13 +1256,13 @@ private:
 
 	void sendErrorMsg(AsyncWebServerRequest *request, int status, const char *msg) {
 		if (!isUpdateRunning()) {
-			WStringStream* response = getResponseStream();
+			AsyncResponseStream *response = request->beginResponseStream(APPLICATION_JSON);
 			WJson json(response);
 			json.beginObject();
 			json.propertyString("error", msg);
 			json.propertyInteger("status", status);
 			json.endObject();
-			request->send(200, APPLICATION_JSON, response->c_str());
+			request->send(response);
 		}
 	}
 
