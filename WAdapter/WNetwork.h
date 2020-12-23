@@ -26,7 +26,6 @@
 #include "WPage.h"
 
 #define SIZE_JSON_PACKET 1280
-#define SIZE_WEB_PAGE 5120
 #define NO_LED -1
 #define ESP_MAX_PUT_BODY_SIZE 512
 const char* CONFIG_PASSWORD = "12345678";
@@ -501,7 +500,7 @@ public:
 
 	template<class T, typename ... Args> void logLevel(int level, T msg, Args ...args) {
 		wlog->printLevel(level, msg, args...);
-		if ((isMqttConnected()) && ((level == LOG_LEVEL_ERROR) || (debugging))) {
+		/*if ((isMqttConnected()) && ((level == LOG_LEVEL_ERROR) || (debugging))) {
 			WStringStream* response = getResponseStream();
 			WJson json(response);
 			json.beginObject();
@@ -513,7 +512,7 @@ public:
 			response->print(QUOTE);
 			json.endObject();
 			publishMqtt(mqttBaseTopic->c_str(), response);
-		}
+		}*/
 	}
 
 	bool isDebugging() {
@@ -763,26 +762,25 @@ private:
 	void handleHttpRootRequest(AsyncWebServerRequest *request) {
 		if (isWebServerRunning()) {
 			if (restartFlag.equals("")) {
-				WStringStream* page = new WStringStream(SIZE_WEB_PAGE);
-				page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), applicationName.c_str());
+				AsyncResponseStream *page = request->beginResponseStream(TEXT_HTML);
+				page->printf(HTTP_HEAD_BEGIN, applicationName.c_str());
 				page->print(FPSTR(HTTP_STYLE));
 				page->print(FPSTR(HTTP_HEAD_END));
 				printHttpCaption(page);
-				page->printAndReplace(FPSTR(HTTP_BUTTON), "wifi", "get", "Configure network");
+				page->printf(HTTP_BUTTON, "wifi", "get", "Configure network");
 				WPage *customPage = firstPage;
 				while (customPage != nullptr) {
-					page->printAndReplace(FPSTR(HTTP_BUTTON), customPage->getId(), "get", customPage->getTitle());
+					page->printf(HTTP_BUTTON, customPage->getId(), "get", customPage->getTitle());
 					customPage = customPage->next;
 				}
-				page->printAndReplace(FPSTR(HTTP_BUTTON), "firmware", "get", "Update firmware");
-				page->printAndReplace(FPSTR(HTTP_BUTTON), "info", "get", "Info");
-				page->printAndReplace(FPSTR(HTTP_BUTTON), "reset", "post", "Reboot");
+				page->printf(HTTP_BUTTON, "firmware", "get", "Update firmware");
+				page->printf(HTTP_BUTTON, "info", "get", "Info");
+				page->printf(HTTP_BUTTON, "reset", "post", "Reboot");
 				page->print(FPSTR(HTTP_BODY_END));
-				request->send(200, TEXT_HTML, page->c_str());
-				delete page;
+				request->send(page);
 			} else {
-				WStringStream* page = new WStringStream(SIZE_WEB_PAGE);
-				page->printAndReplace(FPSTR(HTTP_HEAD_BEGIN), "Info");
+				AsyncResponseStream *page = request->beginResponseStream(TEXT_HTML);
+				page->printf(HTTP_HEAD_BEGIN, "Info");
 				page->print(FPSTR(HTTP_STYLE));
 				page->print("<meta http-equiv=\"refresh\" content=\"10\">");
 				page->print(FPSTR(HTTP_HEAD_END));
@@ -790,8 +788,7 @@ private:
 				page->print("<br><br>");
 				page->print("Module will reset in a few seconds...");
 				page->print(FPSTR(HTTP_BODY_END));
-				request->send(200, TEXT_HTML, page->c_str());
-				delete page;
+				request->send(page);
 			}
 		}
 	}
@@ -1155,6 +1152,7 @@ private:
 			WDevice *device = this->firstDevice;
 			while (device != nullptr) {
 				if (device->isVisible(WEBTHING)) {
+					wlog->notice(F("Send description for device %s "), device->getId());
 					device->toJsonStructure(&json, "", WEBTHING);
 				}
 				device = device->next;
