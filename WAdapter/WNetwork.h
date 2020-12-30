@@ -53,10 +53,11 @@ public:
 		WiFi.encryptionType(ENC_TYPE_CCMP);
 		WiFi.setOutputPower(20.5);
 		WiFi.setPhyMode(WiFiPhyMode::WIFI_PHY_MODE_11N);
+		#endif
 		WiFi.setAutoConnect(false);
 		WiFi.setAutoReconnect(true);
 		WiFi.persistent(false);
-		#endif
+
 		this->applicationName = applicationName;
 		this->firmwareVersion = firmwareVersion;
 		this->startWebServerAutomaticly = startWebServerAutomaticly;
@@ -134,6 +135,7 @@ public:
 					WiFi.disconnect();
 					WiFi.hostname(this->hostname);
 					#elif ESP32
+					WiFi.mode(WIFI_STA);
 					WiFi.setHostname(this->hostname);
 					#endif
 					WiFi.begin(getSsid(), getPassword());
@@ -500,7 +502,7 @@ public:
 
 	template<class T, typename ... Args> void logLevel(int level, T msg, Args ...args) {
 		wlog->printLevel(level, msg, args...);
-		/*if ((isMqttConnected()) && ((level == LOG_LEVEL_ERROR) || (debugging))) {
+		if ((isMqttConnected()) && ((level == LOG_LEVEL_ERROR) || (debugging))) {
 			WStringStream* response = getResponseStream();
 			WJson json(response);
 			json.beginObject();
@@ -512,7 +514,7 @@ public:
 			response->print(QUOTE);
 			json.endObject();
 			publishMqtt(mqttBaseTopic->c_str(), response);
-		}*/
+		}
 	}
 
 	bool isDebugging() {
