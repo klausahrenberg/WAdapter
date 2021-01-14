@@ -95,7 +95,7 @@ private:
 	}
 
 	WProperty* processKeyValue(const char* key, const char* value) {
-		WProperty* result = nullptr;	
+		WProperty* result = nullptr;
 		if (device != nullptr) {
 			result = device->getPropertyById(key);
 			if (result != nullptr) {
@@ -297,15 +297,15 @@ private:
 			startString();
 		} else if (isDigit(c)) {
 			startNumber(c);
-		} else if (c == 't') {
+		} else if ((c == 't') || (c == 'T')) {
 			state = STATE_IN_TRUE;
 			buffer[bufferPos] = c;
 			increaseBufferPointer();
-		} else if (c == 'f') {
+		} else if ((c == 'f') || (c == 'F')) {
 			state = STATE_IN_FALSE;
 			buffer[bufferPos] = c;
 			increaseBufferPointer();
-		} else if (c == 'n') {
+		} else if ((c == 'n') || (c == 'N')) {
 			state = STATE_IN_NULL;
 			buffer[bufferPos] = c;
 			increaseBufferPointer();
@@ -529,9 +529,6 @@ private:
 		String value = String(buffer);
 		if (value.equals("null")) {
 			//myListener->value("null");
-		} else {
-			// throw new ParsingError($this->_line_number, $this->_char_number,
-			// "Expected 'true'. Got: ".$true);
 		}
 		bufferPos = 0;
 		state = STATE_AFTER_VALUE;

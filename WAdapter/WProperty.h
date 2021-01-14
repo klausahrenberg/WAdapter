@@ -182,6 +182,7 @@ public:
 		if ((!isReadOnly()) && (value != nullptr)) {
 			switch (getType()) {
 			case BOOLEAN: {
+				value.toLowerCase();
 				setBoolean(value.equals("true"));
 				return true;
 			}
@@ -652,6 +653,15 @@ public:
 			i++;
 		}
 		return (en != nullptr ? en->getValue().string : nullptr);
+	}
+
+	void clearEnums() {
+		WProperty* nextEnum = nullptr;
+		while (firstEnum != nullptr) {
+			nextEnum = firstEnum->next;
+			delete firstEnum;
+			firstEnum = nextEnum;
+		}
 	}
 
 	void addEnum(WProperty* propEnum) {
