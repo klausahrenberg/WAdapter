@@ -121,12 +121,6 @@ public:
 	}
 
     virtual void loop(unsigned long now) {
-    	if (statusLed != nullptr) {
-    		statusLed->loop(now);
-    	}
-    	/*if (webSocket != nullptr) {
-    		webSocket->loop();
-    	}*/
     	WPin* pin = this->firstPin;
     	while (pin != nullptr) {
     		pin->loop(now);
@@ -139,10 +133,6 @@ public:
 
     virtual void handleUnknownMqttCallback(bool getState, String completeTopic, String partialTopic, char *payload, unsigned int length) {
 
-    }
-
-    virtual WLed* getStatusLed() {
-    	return this->statusLed;
     }
 
     virtual bool isDeviceStateComplete() {
@@ -199,7 +189,6 @@ public:
 	unsigned long stateNotifyInterval;
 protected:
   WNetwork* network;
-  WLed* statusLed = nullptr;
   bool mainDevice;
   WPropertyVisibility visibility;
 

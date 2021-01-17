@@ -93,13 +93,20 @@ public:
 			WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info) {onGotIP();}, WiFiEvent_t::SYSTEM_EVENT_STA_GOT_IP);
     	WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info) {onDisconnected();}, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
 		#endif
+		statusLed = nullptr;
+		setStatusLedPin(statusLedPin);
+		wlog->notice(F("firmware: %s"), firmwareVersion.c_str());
+	}
+
+	void setStatusLedPin(int statusLedPin) {
+		if (statusLed != nullptr) {
+			delete statusLed;
+		}
+		statusLed = nullptr;
 		if (statusLedPin != NO_LED) {
 			statusLed = new WLed(statusLedPin);
 			statusLed->setOn(true, 500);
-		} else {
-			statusLed = nullptr;
 		}
-		wlog->notice(F("firmware: %s"), firmwareVersion.c_str());
 	}
 
 	void onGotIP() {
@@ -449,12 +456,6 @@ public:
 	}
 
 	void addDevice(WDevice *device) {
-		if (statusLed == nullptr) {
-			statusLed = device->getStatusLed();
-			if (statusLed != nullptr) {
-				statusLed->setOn(true, 500);
-			}
-		}
 		if (this->lastDevice == nullptr) {
 			this->firstDevice = device;
 			this->lastDevice = device;
