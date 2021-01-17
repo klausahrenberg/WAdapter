@@ -96,12 +96,6 @@ public:
 	~WProperty() {
 		delete this->id;
 		delete this->title;
-		if (this->unit) {
-			delete this->unit;
-		}
-		if (this->atType) {
-			delete this->atType;
-		}
 		if(this->value.string) {
 		    delete[] this->value.string;
 		}
@@ -658,7 +652,7 @@ public:
 	void clearEnums() {
 		WProperty* nextEnum = nullptr;
 		while (firstEnum != nullptr) {
-			nextEnum = firstEnum->next;
+			WProperty* nextEnum = firstEnum->next;
 			delete firstEnum;
 			firstEnum = nextEnum;
 		}
