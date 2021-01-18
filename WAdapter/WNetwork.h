@@ -28,6 +28,8 @@
 #define SIZE_JSON_PACKET 1280
 #define NO_LED -1
 #define ESP_MAX_PUT_BODY_SIZE 512
+#define WIFI_RECONNECTION 50000
+#define WIFI_RECONNECTION_TRYS 3
 const char* CONFIG_PASSWORD = "12345678";
 const char* APPLICATION_JSON = "application/json";
 const char* TEXT_HTML = "text/html";
@@ -45,8 +47,7 @@ class WNetwork {
 public:
 	typedef std::function<void()> THandlerFunction;
 
-	WNetwork(bool debugging, String applicationName, String firmwareVersion,
-			bool startWebServerAutomaticly, int statusLedPin, byte appSettingsFlag) {
+	WNetwork(bool debugging, String applicationName, String firmwareVersion, int statusLedPin, byte appSettingsFlag) {
 		WiFi.disconnect();
 		WiFi.mode(WIFI_STA);
 		#ifdef ESP8266
@@ -60,7 +61,6 @@ public:
 
 		this->applicationName = applicationName;
 		this->firmwareVersion = firmwareVersion;
-		this->startWebServerAutomaticly = startWebServerAutomaticly;
 		this->webServer = nullptr;
 		this->dnsApServer = nullptr;
 		this->debugging = debugging;
@@ -94,11 +94,12 @@ public:
     	WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info) {onDisconnected();}, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
 		#endif
 		statusLed = nullptr;
-		setStatusLedPin(statusLedPin);
+		setStatusLedPin(statusLedPin, false);
 		wlog->notice(F("firmware: %s"), firmwareVersion.c_str());
 	}
 
-	void setStatusLedPin(int statusLedPin) {
+	void setStatusLedPin(int statusLedPin, bool statusLedOnIfConnected) {
+		this->statusLedOnIfConnected = statusLedOnIfConnected;
 		if (statusLed != nullptr) {
 			delete statusLed;
 		}
@@ -107,6 +108,7 @@ public:
 			statusLed = new WLed(statusLedPin);
 			statusLed->setOn(true, 500);
 		}
+		this->updateLedState();
 	}
 
 	void onGotIP() {
@@ -115,28 +117,42 @@ public:
 		if ((this->isSupportingWebThing()) && (isWifiConnected())) {
 			this->startWebServer();
 		}
+		wifiConnectTrys = 0;
 		this->notify(false);
 	}
 
 	void onDisconnected() {
-		wlog->notice("Station disconnected");
-		this->disconnectMqtt();
-		this->lastMqttConnect = 0;
-		this->notify(false);
+		if (!isSoftAP()) {
+			wlog->notice("Station disconnected");
+			this->disconnectMqtt();
+			this->lastMqttConnect = 0;
+			this->stopWebServer();
+			this->notify(false);
+		}
 	}
 
 	//returns true, if no configuration mode and no own ap is opened
 	bool loop(unsigned long now) {
 		bool result = true;
 		bool waitForWifiConnection = (deepSleepSeconds > 0);
-		if ((!settingsFound) && (startWebServerAutomaticly)) {
-			this->startWebServer();
-		}
 		if (!isWebServerRunning()) {
-			if (getSsid() != "") {
-				//WiFi connection
-				if ((WiFi.status() != WL_CONNECTED)	&& ((lastWifiConnect == 0) || (now - lastWifiConnect > 300000))) {
-					wlog->notice("Connecting to '%s'", getSsid());
+			if (WiFi.status() != WL_CONNECTED) {
+
+				if ((!settingsFound) ||
+			      (getSsid() == "") ||
+					  (wifiConnectTrys == WIFI_RECONNECTION_TRYS)) {
+					//Create own AP
+					String apSsid = getClientName(false);
+					wlog->notice(F("Start AccessPoint for configuration. SSID '%s'; password '%s'"), apSsid.c_str(), CONFIG_PASSWORD);
+					dnsApServer = new DNSServer();
+					WiFi.setAutoReconnect(false);
+					WiFi.softAP(apSsid.c_str(), CONFIG_PASSWORD);
+					dnsApServer->setErrorReplyCode(DNSReplyCode::NoError);
+					dnsApServer->start(53, "*", WiFi.softAPIP());
+					this->startWebServer();
+				} else if ((wifiConnectTrys < 3) && ((lastWifiConnect == 0) || (now - lastWifiConnect > WIFI_RECONNECTION))) {
+					wifiConnectTrys++;
+					wlog->notice("Connecting to '%s': %d. try", getSsid(), wifiConnectTrys);
 					#ifdef ESP8266
 					//Workaround: if disconnect is not called, WIFI connection fails after first startup
 					WiFi.disconnect();
@@ -152,10 +168,14 @@ public:
 							break;
 						}
 					}
-					//WiFi.waitForConnectResult();
+					if (wifiConnectTrys == 1) {
+						lastWifiConnectFirstTry = now;
+					}
 					lastWifiConnect = now;
 				}
+
 			}
+
 		} else {
 			if (isSoftAP()) {
 				dnsApServer->processNextRequest();
@@ -281,18 +301,7 @@ public:
 	// Creates a web server. If Wifi is not connected, then an own AP will be created
 	void startWebServer() {
 		if (!isWebServerRunning()) {
-			String apSsid = getClientName(false);
 			webServer = new AsyncWebServer(80);
-			if (WiFi.status() != WL_CONNECTED) {
-				//Create own AP
-				wlog->notice(F("Start AccessPoint for configuration. SSID '%s'; password '%s'"), apSsid.c_str(), CONFIG_PASSWORD);
-				dnsApServer = new DNSServer();
-				WiFi.softAP(apSsid.c_str(), CONFIG_PASSWORD);
-				dnsApServer->setErrorReplyCode(DNSReplyCode::NoError);
-				dnsApServer->start(53, "*", WiFi.softAPIP());
-			} else {
-				wlog->notice(F("Start web server for configuration. IP %s"), this->getDeviceIp().toString().c_str());
-			}
 			webServer->onNotFound(std::bind(&WNetwork::handleUnknown, this,  std::placeholders::_1));
 			if ((WiFi.status() != WL_CONNECTED) || (!this->isSupportingWebThing())) {
 				//webServer->on("/", HTTP_GET,   std::bind(&WebThingAdapter::handleThings, this, std::placeholders::_1));
@@ -503,7 +512,7 @@ public:
 
 	template<class T, typename ... Args> void logLevel(int level, T msg, Args ...args) {
 		wlog->printLevel(level, msg, args...);
-		if ((isMqttConnected()) && ((level == LOG_LEVEL_ERROR) || (debugging))) {
+		if ((isMqttConnected()) && ((level == LOG_LEVEL_ERROR) || (level == LOG_LEVEL_NOTICE) || (debugging))) {
 			WStringStream* response = getResponseStream();
 			WJson json(response);
 			json.beginObject();
@@ -530,7 +539,7 @@ private:
 	WPage* lastPage = nullptr;
 	THandlerFunction onNotify;
 	THandlerFunction onConfigurationFinished;
-	bool debugging, updateRunning, startWebServerAutomaticly;
+	bool debugging, updateRunning;
 	String restartFlag;
 	DNSServer *dnsApServer;
 	AsyncWebServer *webServer;
@@ -547,9 +556,11 @@ private:
 	WProperty *mqttSetTopic;
 	WProperty *mqttStateTopic;
 	PubSubClient *mqttClient;
-	long lastMqttConnect, lastWifiConnect;
+	unsigned long lastMqttConnect, lastWifiConnect, lastWifiConnectFirstTry;
+	byte wifiConnectTrys;
 	WStringStream* responseStream = nullptr;
 	WLed *statusLed;
+	bool statusLedOnIfConnected;
 	WSettings *settings;
 	bool settingsFound;
 	WDevice *deepSleepFlag;
@@ -730,26 +741,28 @@ private:
 				return true;
 			} else {
 				wlog->notice(F("Connection to MQTT server failed, rc=%d"), mqttClient->state());
-				if (startWebServerAutomaticly) {
-					this->startWebServer();
-				}
+				this->startWebServer();
 				notify(false);
 				return false;
 			}
 		}
 	}
 
-	void notify(bool sendState) {
+	void updateLedState() {
 		if (statusLed != nullptr) {
 			if (isWifiConnected()) {
 				//off
-				statusLed->setOn(false);
+				statusLed->setOn(this->statusLedOnIfConnected, 0);
 			} else if (isSoftAP()) {
-				statusLed->setOn(true, 0);
+				statusLed->setOn(!this->statusLedOnIfConnected, 0);
 			} else {
 				statusLed->setOn(true, 500);
 			}
 		}
+	}
+
+	void notify(bool sendState) {
+		this->updateLedState();
 		if (sendState) {
 			WDevice *device = this->firstDevice;
 			while (device != nullptr) {
