@@ -23,45 +23,51 @@ const static char HTTP_STYLE[]              PROGMEM = R"=====(
 body{
 	text-align: center;
 	font-family: arial, sans-serif;
-}
-
-#bodyDiv{
-  display:inline-block;
-  min-width:300px;
-  text-align:left;
+	background-color: #474e5d;
 }
 
 div{
-	background-color:white;
   color:black;
 	border:1.0rem
-	border-color:black;
   border-radius:0.3rem;
 	background-size: 1em;
 	padding:5px;
-	text-align:left;
 }
 
-input[type='text'] {
+.ip {
   width: 100%;
+	-webkit-box-sizing: border-box; /* Safari/Chrome, other WebKit */
+  -moz-box-sizing: border-box;    /* Firefox, other Gecko */
+  box-sizing: border-box;         /* Opera/IE 8+ */
 }
 
-input[type='password'] {
-  width: 100%;
-}
-
-select{
-	width:100%;
-}
-
-button{
+button, .cbtn {
 	border:0;
 	border-radius:0.3rem;
-	background-color:#1fa3ec;
-	color:#fff;
+	background-color:#0070AF;
+	color:white;
 	line-height:2.4rem;
 	font-size:1.2rem;
 	width:100%;
+	opacity: 0.85;
+}
+
+button:hover{
+	opacity: 1.0;
+}
+
+.mc {
+	display:inline-block;
+	background-color: #fefefe;
+	padding: 10px;
+  text-align: center;
+	border-radius:0.3rem;
+	min-width:300px;
+	text-align:left;
+}
+
+.cbtn{
+	background-color:#FF3030;
 }
 
 .settingstable th, .settingstable td {
@@ -78,7 +84,7 @@ button{
 const static char HTTP_HEAD_END[]           PROGMEM = R"=====(
 	</head>
 	<body>
-		<div id='bodyDiv'>
+		<div class='mc'>
 )=====";
 
 const static char HTTP_BODY_END[]           PROGMEM = R"=====(
@@ -93,6 +99,21 @@ const static char HTTP_BUTTON[]    PROGMEM = R"=====(
     	<button>%s</button>
     </form>
   </div>
+)=====";
+
+const static char HTTP_BUTTON_ALERT[]    PROGMEM = R"=====(
+	<div>
+  	<form action='/%s' method='%s'>
+    	<button class='cbtn'>%s</button>
+    </form>
+  </div>
+)=====";
+
+const static char HTTP_CONFIG_SAVE_BUTTON[]         PROGMEM = R"=====(
+		<div>
+			<button type='submit'>Save configuration</button>
+		</div>
+</form>
 )=====";
 
 const static char HTTP_DIV_BEGIN[]    PROGMEM = R"=====(
@@ -149,16 +170,16 @@ const static char HTTP_SAVED[]              PROGMEM = R"=====(
 const static char HTTP_FORM_FIRMWARE[] PROGMEM = R"=====(
 <form method='POST' action='' enctype='multipart/form-data'>
 	<div>
-    	<input type='file' accept='.bin' name='update'>
-    </div>
-    <div>
-		<button type='submit'>Update firmware</button>
-    </div>
+  	<input type='file' accept='.bin' name='update'>
+  </div>
+  <div>
+		<button type='submit' class='cbtn'>Update firmware</button>
+  </div>
 </form>
 )=====";
 
 const static char HTTP_CONFIG_PAGE_BEGIN[]         PROGMEM = R"=====(
-<form method='get' action='submit%s'>
+<form method='get' class='mc' action='submit%s'>
 )=====";
 
 const static char HTTP_INPUT_FIELD[]    PROGMEM = R"=====(
@@ -168,14 +189,14 @@ const static char HTTP_INPUT_FIELD[]    PROGMEM = R"=====(
 const static char HTTP_TEXT_FIELD[]    PROGMEM = R"=====(
 	<div>
 		%s<br>
-		<input type='text' name='%s' maxlength='%s' value='%s'>
+		<input type='text' class='ip' name='%s' maxlength='%s' value='%s'>
 	</div>
 )=====";
 
 const static char HTTP_PASSWORD_FIELD[]    PROGMEM = R"=====(
 	<div>
 		%s<br>
-		<input type='password' name='%s' length=%s value='%s'>
+		<input type='password' class='ip' name='%s' length=%s value='%s'>
 	</div>
 )=====";
 
@@ -204,21 +225,14 @@ const static char HTTP_RADIO_OPTION[]    PROGMEM = R"=====(
 const static char HTTP_COMBOBOX_BEGIN[]         PROGMEM = R"=====(
         <div>
 			%s<br>
-        	<select name='%s'>
+        	<select class='ip' name='%s'>
 )=====";
 const static char HTTP_COMBOBOX_ITEM[]         PROGMEM = R"=====(
-				<option value='%s' %s>%s</option>
+				<option class='ip' value='%s' %s>%s</option>
 )=====";
 const static char HTTP_COMBOBOX_END[]         PROGMEM = R"=====(
 			</select>
         </div>
-)=====";
-
-const static char HTTP_CONFIG_SAVE_BUTTON[]         PROGMEM = R"=====(
-		<div>
-			<button type='submit'>Save configuration</button>
-		</div>
-</form>
 )=====";
 
 #endif

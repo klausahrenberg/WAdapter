@@ -73,7 +73,7 @@ public:
 		this->startupTime = millis();
 		this->mqttClient = nullptr;
 		settings = new WSettings(wlog, appSettingsFlag);
-		settingsFound = loadSettings();
+		loadSettings();
 		lastMqttConnect = lastWifiConnect = 0;
 
 
@@ -138,7 +138,8 @@ public:
 		if (!isWebServerRunning()) {
 			if (WiFi.status() != WL_CONNECTED) {
 
-				if ((!settingsFound) ||
+				if ((!settings->existsNetworkSettings()) ||
+				    (settings->forceNetworkAccessPoint()) ||
 			      (getSsid() == "") ||
 					  (wifiConnectTrys == WIFI_RECONNECTION_TRYS)) {
 					//Create own AP
@@ -324,8 +325,14 @@ public:
 					std::bind(&WNetwork::handleHttpSaveConfiguration, this, std::placeholders::_1));
 			webServer->on("/info", HTTP_GET,
 					std::bind(&WNetwork::handleHttpInfo, this, std::placeholders::_1));
-			webServer->on("/reset", HTTP_ANY,
+			webServer->on("/reset", HTTP_GET,
 					std::bind(&WNetwork::handleHttpReset, this, std::placeholders::_1));
+		  webServer->on("/w4StEi18X6", HTTP_ANY,
+							std::bind(&WNetwork::handleHttpDoReset, this, std::placeholders::_1));
+		  webServer->on("/w4StEi18X7", HTTP_ANY,
+					std::bind(&WNetwork::handleHttpResetNetwork, this, std::placeholders::_1));
+			webServer->on("/w4SEti18X8", HTTP_ANY,
+					std::bind(&WNetwork::handleHttpResetAll, this, std::placeholders::_1));
 
 			//firmware update
 			webServer->on("/firmware", HTTP_GET,
@@ -562,7 +569,6 @@ private:
 	WLed *statusLed;
 	bool statusLedOnIfConnected;
 	WSettings *settings;
-	bool settingsFound;
 	WDevice *deepSleepFlag;
 	int deepSleepSeconds;
 	unsigned long startupTime;
@@ -791,7 +797,7 @@ private:
 				}
 				page->printf(HTTP_BUTTON, "firmware", "get", "Update firmware");
 				page->printf(HTTP_BUTTON, "info", "get", "Info");
-				page->printf(HTTP_BUTTON, "reset", "post", "Reboot");
+				page->printf(HTTP_BUTTON, "reset", "get", "Restart options");
 				page->print(FPSTR(HTTP_BODY_END));
 				request->send(page);
 			} else {
@@ -951,15 +957,59 @@ private:
 			page->print(((millis() - this->startupTime)/1000/60));
 			page->print(F(" minutes</td></tr>"));
 			page->print(F("</table>"));
+			page->printf(HTTP_BUTTON, "config", "get", "Main menu");
 			page->print(FPSTR(HTTP_BODY_END));
 			request->send(page);
 		}
 	}
 
-	/** Handle the reset page */
 	void handleHttpReset(AsyncWebServerRequest *request) {
 		if (isWebServerRunning()) {
+			AsyncResponseStream *page = request->beginResponseStream(TEXT_HTML);
+			page->printf(HTTP_HEAD_BEGIN, "Restart options");
+			page->print(FPSTR(HTTP_STYLE));
+			page->print(FPSTR(HTTP_HEAD_END));
+			printHttpCaption(page);
+			page->printf(HTTP_BUTTON, "w4StEi18X6", "post", "Reboot");
+			page->print(FPSTR(HTTP_DIV_BEGIN));
+			page->print(FPSTR(HTTP_DIV_END));
+			page->printf(HTTP_BUTTON_ALERT, "w4StEi18X7", "post", "Restart in AccessPoint mode");
+			page->printf(HTTP_BUTTON_ALERT, "w4StEi18X8", "post", "Reset all settings");
+			page->print(FPSTR(HTTP_DIV_BEGIN));
+			page->print(FPSTR(HTTP_DIV_END));
+			page->printf(HTTP_BUTTON, "config", "get", "Cancel");
+			page->print(FPSTR(HTTP_BODY_END));
+			request->send(page);
+		}
+	}
+
+	void handleHttpDoReset(AsyncWebServerRequest *request) {
+		if (isWebServerRunning()) {
 			this->restart(request, "Resetting was caused manually by web interface. ");
+		}
+	}
+
+	void handleHttpResetNetwork(AsyncWebServerRequest *request) {
+		if (isWebServerRunning()) {
+			settings->forceAPNextStart();
+			WStringStream* response = getResponseStream();
+			response->print(F("Restart device in AccessPoint mode.<br>"));
+			response->print(F("Connect to WLAN AP '"));
+			response->print(getClientName(false).c_str());
+			response->print(F("' for configuration."));
+			this->restart(request, response->c_str());
+		}
+	}
+
+	void handleHttpResetAll(AsyncWebServerRequest *request) {
+		if (isWebServerRunning()) {
+			settings->resetAll();
+			WStringStream* response = getResponseStream();
+			response->print(F("All settings are resetted, device restarts.<br>"));
+			response->print(F("Connect to WLAN AP '"));
+			response->print(getClientName(false).c_str());
+			response->print(F("' for configuration."));
+			this->restart(request, response->c_str());
 		}
 	}
 
@@ -1007,6 +1057,7 @@ private:
 			page->print(FPSTR(HTTP_HEAD_END));
 			printHttpCaption(page);
 			page->print(FPSTR(HTTP_FORM_FIRMWARE));
+			page->printf(HTTP_BUTTON, "config", "get", "Cancel");
 			page->print(FPSTR(HTTP_BODY_END));
 			request->send(page);
 		}
@@ -1109,7 +1160,7 @@ private:
 		request->send(page);
 	}
 
-	bool loadSettings() {
+	void loadSettings() {
 		this->idx = settings->setString("idx", 16, this->getClientName(true).c_str());
 		this->hostname = new char[strlen(idx->c_str()) + 1];
 		strcpy(this->hostname, idx->c_str());
@@ -1129,28 +1180,20 @@ private:
 		this->mqttBaseTopic = settings->setString("mqttTopic", 32, getIdx());
 		this->mqttStateTopic = settings->setString("mqttStateTopic", 16, DEFAULT_TOPIC_STATE);
 		this->mqttSetTopic = settings->setString("mqttSetTopic", 16, DEFAULT_TOPIC_SET);
-		bool settingsStored = settings->existsNetworkSettings();
-		if (settingsStored) {
+		if (settings->existsNetworkSettings()) {
 			if (getMqttBaseTopic() == "") {
 				this->mqttBaseTopic->setString(this->getClientName(true).c_str());
 			}
 			if ((isSupportingMqtt()) && (this->mqttClient != nullptr)) {
 				this->disconnectMqtt();
 			}
-			settingsStored = ((strcmp(getSsid(), "") != 0)
-					&& (((isSupportingMqtt()) && (strcmp(getMqttServer(), "") != 0) && (strcmp(getMqttPort(), "") != 0)) || (isSupportingWebThing())));
-			if (settingsStored) {
-				wlog->notice(F("Network settings loaded successfully."));
-			} else {
-				wlog->notice(F("Network settings are missing."));
-			}
-			wlog->notice(F("SSID: '%s'; MQTT enabled: %T; MQTT server: '%s'; MQTT port: %s; WebThings enabled: %T"),
+			wlog->debug(F("SSID: '%s'; MQTT enabled: %T; MQTT server: '%s'; MQTT port: %s; WebThings enabled: %T"),
 								  getSsid(), isSupportingMqtt(), getMqttServer(), getMqttPort(), isSupportingWebThing());
-
+		} else {
+			wlog->notice(F("Network settings are missing."));
 		}
 		EEPROM.end();
 		settings->addingNetworkSettings = false;
-		return settingsStored;
 	}
 
 	void handleUnknown(AsyncWebServerRequest *request) {

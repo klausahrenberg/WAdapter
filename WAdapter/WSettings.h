@@ -6,6 +6,7 @@
 #include "WProperty.h"
 
 const byte FLAG_OPTIONS_NETWORK = 0x64;
+const byte FLAG_OPTIONS_NETWORK_FORCE_AP = 0x65;
 const int EEPROM_SIZE = 512;
 
 class WSettingItem {
@@ -24,7 +25,9 @@ public:
 		this->addingNetworkSettings = true;
 		this->saveOnPropertyChanges = true;
 		EEPROM.begin(EEPROM_SIZE);
-		this->existsSettingsNetwork = (EEPROM.read(0) == FLAG_OPTIONS_NETWORK);
+		Serial.print("network byte: ");
+		this->networkByte = EEPROM.read(0);
+		Serial.println(this->networkByte);
 		this->existsSettingsApplication = (EEPROM.read(1) == this->appSettingsFlag);
 		EEPROM.end();
 	}
@@ -43,15 +46,17 @@ public:
 	}
 
 	void save() {
+		this->saveEEPROM(FLAG_OPTIONS_NETWORK);
+	}
+
+	void forceAPNextStart() {
+		this->saveEEPROM(FLAG_OPTIONS_NETWORK_FORCE_AP);
+	}
+
+	void resetAll() {
 		EEPROM.begin(EEPROM_SIZE);
-		WSettingItem* settingItem = firstSetting;
-		while (settingItem != nullptr) {
-			save(settingItem);
-			settingItem = settingItem->next;
-		}
-		//1. Byte - settingsStored flag
-		EEPROM.write(0, FLAG_OPTIONS_NETWORK);
-		EEPROM.write(1, this->appSettingsFlag);
+		EEPROM.write(0, 0x00);
+		EEPROM.write(1, 0x00);
 		EEPROM.commit();
 		EEPROM.end();
 	}
@@ -61,7 +66,11 @@ public:
 	}
 
 	bool existsNetworkSettings() {
-		return this->existsSettingsNetwork;
+		return ((this->networkByte == FLAG_OPTIONS_NETWORK) || (forceNetworkAccessPoint()));
+	}
+
+	bool forceNetworkAccessPoint() {
+		return (this->networkByte == FLAG_OPTIONS_NETWORK_FORCE_AP);
 	}
 
 	WProperty* getSetting(String id) {
@@ -90,7 +99,7 @@ public:
 	void add(WProperty* property) {
 		if (!exists(property)) {
 			WSettingItem* settingItem = addSetting(property);
-			if (((settingItem->networkSetting) && (this->existsSettingsNetwork)) ||
+			if (((settingItem->networkSetting) && (this->existsNetworkSettings())) ||
 			    ((!settingItem->networkSetting) && (this->existsSettingsApplication))) {
 				EEPROM.begin(EEPROM_SIZE);
 				switch (property->getType()) {
@@ -357,7 +366,8 @@ protected:
 
 private:
 	WLog* log;
-	bool existsSettingsNetwork, existsSettingsApplication;
+	bool existsSettingsApplication;
+	int networkByte;
 	byte appSettingsFlag;
 	WSettingItem* firstSetting = nullptr;
 	WSettingItem* lastSetting = nullptr;
@@ -391,6 +401,21 @@ private:
 			EEPROM.write(address + size, '\0');
 		}
 	}
+
+	void saveEEPROM(int networkSettingsFlag) {
+		EEPROM.begin(EEPROM_SIZE);
+		WSettingItem* settingItem = firstSetting;
+		while (settingItem != nullptr) {
+			save(settingItem);
+			settingItem = settingItem->next;
+		}
+		//1. Byte - settingsStored flag
+		EEPROM.write(0, networkSettingsFlag);
+		EEPROM.write(1, this->appSettingsFlag);
+		EEPROM.commit();
+		EEPROM.end();
+	}
+
 
 };
 
