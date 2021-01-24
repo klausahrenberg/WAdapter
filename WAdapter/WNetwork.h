@@ -228,6 +228,9 @@ public:
 		if (!restartFlag.equals("")) {
 			this->updateRunning = false;
 			delay(1000);
+			if (onConfigurationFinished) {
+				onConfigurationFinished();
+			}
 			stopWebServer();
 			ESP.restart();
 			delay(2000);
@@ -372,9 +375,6 @@ public:
 			delay(100);
 			webServer->end();
 			webServer = nullptr;
-			if (onConfigurationFinished) {
-				onConfigurationFinished();
-			}
 			this->notify(true);
 		}
 	}
