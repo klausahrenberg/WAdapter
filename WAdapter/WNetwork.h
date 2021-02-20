@@ -593,6 +593,7 @@ private:
 				if (device->isMainDevice()) {
 					json.propertyString("idx", getIdx());
 					json.propertyString("ip", getDeviceIp().toString().c_str());
+					json.propertyBoolean("alive", true);
 					json.propertyString("firmware", firmwareVersion.c_str());
 				}
 				device->toJsonValues(&json, MQTT);
@@ -715,9 +716,33 @@ private:
 					   getMqttServer(), getMqttUser(), getMqttPassword(), getClientName(true).c_str());
 			// Attempt to connect
 			this->mqttClient->setServer(getMqttServer(), String(getMqttPort()).toInt());
+			//Create last will message
+			String lastWillTopic = String(getMqttBaseTopic());
+			lastWillTopic.concat(SLASH);
+			WStringStream* lastWillMessage = getResponseStream();
+			WJson json(lastWillMessage);
+			WDevice *device = this->firstDevice;
+			while (device != nullptr) {
+				if (device->isMainDevice()) {
+					lastWillTopic.concat(device->getId());
+					lastWillTopic.concat(SLASH);
+					lastWillTopic.concat(getMqttStateTopic());
+					json.beginObject();
+					json.propertyString("idx", getIdx());
+					json.propertyString("ip", getDeviceIp().toString().c_str());
+					json.propertyBoolean("alive", false);
+					json.endObject();
+				}
+				device = device->next;
+			}
+
 			if (mqttClient->connect(getClientName(true).c_str(),
 					getMqttUser(), //(mqttUser != "" ? mqttUser.c_str() : NULL),
-					getMqttPassword())) { //(mqttPassword != "" ? mqttPassword.c_str() : NULL))) {
+					getMqttPassword(),
+				  lastWillTopic.c_str(),
+				  0,
+				  true,
+				  lastWillMessage->c_str())) { //(mqttPassword != "" ? mqttPassword.c_str() : NULL))) {
 				wlog->notice(F("Connected to MQTT server."));
 				if (this->deepSleepSeconds == 0) {
 					//Send device structure and status
@@ -731,7 +756,6 @@ private:
 						WJson json(response);
 						json.beginObject();
 						json.propertyString("url", "http://", getDeviceIp().toString().c_str(), "/things/", device->getId());
-						json.propertyString("ip", getDeviceIp().toString().c_str());
 						json.propertyString("stateTopic", getMqttBaseTopic(), SLASH, device->getId(), SLASH, getMqttStateTopic());
 						json.propertyString("setTopic", getMqttBaseTopic(), SLASH, device->getId(), SLASH, getMqttSetTopic());
 						json.endObject();
@@ -1014,12 +1038,14 @@ private:
 	}
 
 	void printHttpCaption(Print* page) {
-		page->print("<h2>");
+		page->print(F("<h2>"));
 		page->print(applicationName);
-		page->print("</h2><h3>Revision ");
+		page->print(F("</h2><h3>Idx: "));
+		page->print(getIdx());
+		page->print(F("</h3><h3>Rev: "));
 		page->print(firmwareVersion);
 		page->print(debugging ? " (debug)" : "");
-		page->print("</h3>");
+		page->print(F("</h3>"));
 	}
 
 	String getClientName(bool lowerCase) {

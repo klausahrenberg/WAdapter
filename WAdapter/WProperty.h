@@ -377,6 +377,10 @@ public:
 			return false;
 		}
 		bool changed = ((this->valueNull) || (strcmp(value.string, newValue) != 0));
+		if ((changed) && (newValue != nullptr) && (this->hasEnum())) {
+			//proceed only at valid enums
+			changed = (getEnumIndex(this, newValue) != 0xFF);
+		}
 		if (changed) {
 			if (newValue != nullptr) {
 				int l = strlen(newValue);
@@ -616,7 +620,7 @@ public:
 	}
 
 	static byte getEnumIndex(WProperty* property, const char* enumString) {
-		if ((property->getType() != STRING) || (property->isNull())) {
+		if ((property->getType() != STRING) || (!property->hasEnum())) {
 			return 0xFF;
 		}
 		byte result = 0xFF;
