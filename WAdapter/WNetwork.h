@@ -47,7 +47,7 @@ class WNetwork {
 public:
 	typedef std::function<void()> THandlerFunction;
 
-	WNetwork(bool debugging, String applicationName, String firmwareVersion, int statusLedPin, byte appSettingsFlag) {
+	WNetwork(bool debugging, String applicationName, String firmwareVersion, int statusLedPin, byte appSettingsFlag, Print* debuggingOutput = &Serial) {
 		WiFi.disconnect();
 		WiFi.mode(WIFI_STA);
 		#ifdef ESP8266
@@ -65,7 +65,7 @@ public:
 		this->dnsApServer = nullptr;
 		this->debugging = debugging;
 		this->wlog = new WLog();
-		this->setDebuggingOutput(&Serial);
+		this->setDebuggingOutput(debuggingOutput);
 		this->updateRunning = false;
 		this->restartFlag = "";
 		this->deepSleepFlag = nullptr;
@@ -269,6 +269,7 @@ public:
 	}
 
 	void setDebuggingOutput(Print* output) {
+		this->debuggingOutput = output;
 		this->wlog->setOutput(output, (debugging ? LOG_LEVEL_NOTICE : LOG_LEVEL_SILENT), true, true);
 	}
 
@@ -544,7 +545,7 @@ public:
 			response->print(QUOTE);
 			this->wlog->setOutput(response, level, false, false);
 			this->wlog->printLevel(level, msg, args...);
-			this->setDebuggingOutput(&Serial);
+			this->setDebuggingOutput(this->debuggingOutput);
 			response->print(QUOTE);
 			json.endObject();
 			publishMqtt(mqttBaseTopic->c_str(), response);
@@ -591,6 +592,7 @@ private:
 	unsigned long startupTime;
 	char body_data[ESP_MAX_PUT_BODY_SIZE];
   bool b_has_body_data = false;
+	Print* debuggingOutput;
 
 	void handleDeviceStateChange(WDevice *device, bool complete) {
 		wlog->notice(F("Device state changed -> send device state..."));

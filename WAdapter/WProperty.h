@@ -92,10 +92,10 @@ public:
 	~WProperty() {
 		delete this->id;
 		delete this->title;
-		if(this->value.string) {
-		    delete[] this->value.string;
+		if ((type == STRING) && (this->value.string)) {
+		  delete[] this->value.string;
 		}
-		if(this->value.asByteArray) {
+		if ((type == BYTE_ARRAY) && (this->value.asByteArray)) {
 			delete[] this->value.asByteArray;
 		}
 	}
@@ -804,6 +804,7 @@ protected:
 		this->onChange = nullptr;
 		this->deviceNotification = nullptr;
 		this->next = nullptr;
+		this->firstEnum = nullptr;
 	}
 
 	void setValue(WPropertyValue newValue) {
@@ -841,7 +842,7 @@ private:
 	bool valueRequesting;
 	bool notifying;
 
-	WProperty* firstEnum = nullptr;
+	WProperty* firstEnum;
 
 	void notify() {
 		if (!valueRequesting) {
