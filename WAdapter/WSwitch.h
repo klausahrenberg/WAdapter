@@ -8,7 +8,8 @@
 #define MODE_SWITCH 2
 #define SWITCH_PRESSED_PEGEL HIGH
 
-const long SWITCH_SENSITIVENESS = 20;
+const unsigned long SWITCH_SENSITIVENESS = 200;
+const unsigned long SWICTH_LONG_PRESS_DURATION = 5000;
 
 
 class WSwitch: public WPin {
@@ -17,23 +18,90 @@ public:
 	WSwitch(int switchPin, byte mode)
 	: WPin(switchPin, INPUT) {
 		startTime = 0;
-		_pressed = false;
-		_pressedLong = false;
+		longPressStartTime =0;
+		//_pressed = false;
+		//_pressedLong = false;
 		triggerProperty = nullptr;
 		this->mode = mode;
-		longPressDuration = 5000;
-		switchChangeDuration = 1000;
+		//longPressDuration = 5000;
+		//switchChangeDuration = 1000;
 		if (this->isInitialized()) {
 			state = digitalRead(this->getPin());
-			if (state == SWITCH_PRESSED_PEGEL) {
+			lastState = state;
+			/*if (state == SWITCH_PRESSED_PEGEL) {
 				_pressed = true;
-			}
+			}*/
 		}
 
 	}
 	void loop(unsigned long now) {
 		if (this->isInitialized()) {
-			bool currentState = digitalRead(this->getPin());
+			//1. Eliminate flickering input
+			bool stateChanged = false;
+			bool newState = digitalRead(this->getPin());
+			bool expectedPegel = !state;
+
+			if ((newState != lastState) && (startTime == 0)) {
+				startTime = now;
+			} else if ((newState == state) && (startTime > 0)) {
+				startTime = now;
+			} else if ((newState != state) && (now - startTime >= SWITCH_SENSITIVENESS)) {
+				stateChanged = true;
+			}
+
+			lastState = newState;
+			/*if (newState != lastState) {
+				if (startTime > 0) {
+					if (newState != state) {
+						stateChanged = (now - startTime >= SWITCH_SENSITIVENESS);
+					} else {
+						//flickering signal, reset start time
+						startTime = now;
+					}
+				} else {
+					startTime = now;
+				}
+				lastState = newState;
+			} else if (startTime > 0) {
+				stateChanged = ((newState != state) && (now - startTime >= SWITCH_SENSITIVENESS));
+			}*/
+			//2. If state really changed, now switch logic
+			if (stateChanged) {
+				state = !state;
+				startTime = 0;
+				if (state == expectedPegel) {
+					if (this->mode != MODE_SWITCH) {
+						//Button handling
+						if (this->mode == MODE_BUTTON) {
+							//Button
+							handleButtonOrSwitchPressed();
+						}
+						longPressStartTime = now;
+					} else {
+						//Switch handling
+						handleButtonOrSwitchPressed();
+					}
+				} else {
+					if (this->mode == MODE_SWITCH) {
+						//Switch handling
+						handleButtonOrSwitchPressed();
+					}	else if (this->mode == MODE_BUTTON_LONG_PRESS) {
+						if (now - longPressStartTime >= SWICTH_LONG_PRESS_DURATION) {
+							handleLongButtonPressed();
+						} else {
+							handleButtonOrSwitchPressed();
+						}
+					}
+					//Button handling
+					longPressStartTime = 0;
+				}
+			} else {
+				setTriggerValue(false);
+			}
+
+
+
+			/*bool currentState = digitalRead(this->getPin());
 			if (triggerProperty != nullptr) {
 				triggerProperty->setBoolean(false);
 			}
@@ -82,12 +150,31 @@ public:
 				startTime = 0;
 				_pressedLong = false;
 				_pressed = false;
-			}
+			}*/
 		}
+	}
+
+	void handleButtonOrSwitchPressed() {
+
+		setTriggerValue(true);
+		if (getProperty() != nullptr) {
+			getProperty()->setBoolean(!getProperty()->getBoolean());
+		}
+		if (onPressed) {
+			onPressed();
+		}
+	}
+
+	void handleLongButtonPressed() {
+
 	}
 
 	void setOnPressed(THandlerFunction onPressed) {
 		this->onPressed = onPressed;
+	}
+
+	void setOnLongPressed(THandlerFunction onLongPressed) {
+		this->onLongPressed = onLongPressed;
 	}
 
 	void setTriggerProperty(WProperty* triggerProperty) {
@@ -96,21 +183,27 @@ public:
 		}
 	}
 
+	bool hasTriggerProperty() {
+		return (this->triggerProperty != nullptr);
+	}
+
 private:
 	THandlerFunction onPressed;
+	THandlerFunction onLongPressed;
 	byte mode;
-	int longPressDuration, switchChangeDuration;
-	bool state;
-	unsigned long startTime;
-	bool _pressed;
-	bool _pressedLong;
+	//int longPressDuration, switchChangeDuration;
+	bool state, lastState;
+	unsigned long startTime, longPressStartTime;
+	//bool _pressed;
+	//bool _pressedLong;
 	WProperty* triggerProperty;
 
-	void notify() {
-		if (onPressed) {
-			onPressed();
+	void setTriggerValue(bool triggered) {
+		if (triggerProperty != nullptr) {
+			triggerProperty->setBoolean(triggered);
 		}
- 	}
+	}
+
 };
 
 #endif

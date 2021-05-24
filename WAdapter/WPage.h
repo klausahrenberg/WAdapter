@@ -7,13 +7,15 @@
 class WPage {
 public:
 
-    WPage* next;
-    WPage(const char* id, const char* title) {
-        this->next = nullptr;
-        this->id = id;
-        this->title = title;
-        this->onPrintPage = nullptr;
-        this->onSubmittedPage = nullptr;
+  WPage* next;
+  WPage(const char* id, const char* title) {
+    this->next = nullptr;
+    this->id = id;
+    this->title = title;
+    this->showInMainMenu = true;
+    this->onPrintPage = nullptr;
+    this->onSubmittedPage = nullptr;
+    this->targetAfterSubmitting = nullptr;
 	}
 
 	~WPage() {
@@ -29,6 +31,10 @@ public:
 
   virtual void submittedPage(AsyncWebServerRequest* request, Print* page) {
       if (onSubmittedPage) onSubmittedPage(request, page);
+  }
+
+  bool hasSubmittedPage() {
+    if (onSubmittedPage) return true; else return false;
   }
 
     void setPrintPage(TCommandPage onPrintPage) {
@@ -47,11 +53,29 @@ public:
 		return title;
 	}
 
+  bool isShowInMainMenu() {
+    return showInMainMenu;
+  }
+
+  void setShowInMainMenu(bool showInMainMenu) {
+    this->showInMainMenu = showInMainMenu;
+  }
+
+  WPage* getTargetAfterSubmitting() {
+    return this->targetAfterSubmitting;
+  }
+
+  void setTargetAfterSubmitting(WPage* targetAfterSubmitting) {
+    this->targetAfterSubmitting = targetAfterSubmitting;
+  }
+
 protected:
 
 private:
 	const char* id;
 	const char* title;
+  WPage* targetAfterSubmitting;
+  bool showInMainMenu;
   TCommandPage onPrintPage;
   TCommandPage onSubmittedPage;
 };

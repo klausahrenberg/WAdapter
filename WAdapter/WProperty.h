@@ -43,8 +43,8 @@ public:
 		return new WProperty(id, title, INTEGER, "");
 	}
 
-	static WProperty* createStringProperty(const char* id, const char* title, byte length) {
-		return new WProperty(id, title, STRING, length, "");
+	static WProperty* createStringProperty(const char* id, const char* title) {
+		return new WProperty(id, title, STRING, "");
 	}
 
 	static WProperty* createByteProperty(const char* id, const char* title) {
@@ -86,11 +86,7 @@ public:
 	typedef std::function<void(WProperty* property)> TOnPropertyChange;
 
 	WProperty(const char* id, const char* title, WPropertyType type, const char* atType) {
-		initialize(id, title, type, (type == STRING ? 32 : 0), atType);
-	}
-
-	WProperty(const char* id, const char* title, WPropertyType type, byte length, const char* atType) {
-		initialize(id, title, type, length, atType);
+		initialize(id, title, type, atType);
 	}
 
 	~WProperty() {
@@ -116,10 +112,6 @@ public:
 		this->deviceNotification = deviceNotification;
 	}
 
-	void setSettingsNotification(TOnPropertyChange settingsNotification) {
-		this->settingsNotification = settingsNotification;
-	}
-
 	const char* getId() {
 		return id;
 	}
@@ -133,7 +125,32 @@ public:
 	}
 
 	byte getLength() {
-		return length;
+		switch (type) {
+		case STRING:
+			return (this->valueNull ? 0 : strlen(value.string));
+			/*this->length = length;
+			value.string = new char[length + 1];
+			value.string[0] = '\0';
+			break;*/
+		case DOUBLE:
+			return sizeof(double);
+		case SHORT:
+			return sizeof(short);
+		case INTEGER:
+			return sizeof(int);
+		case UNSIGNED_LONG:
+			return sizeof(unsigned long);
+		case BYTE:
+		case BOOLEAN:
+			return 1;
+		case BYTE_ARRAY:
+			return (this->valueNull ? 0 : sizeof(value.asByteArray));
+			/*this->length = length;
+			value.asByteArray = new byte[length];
+			for (byte i = 0; i < length; i++) {
+				value.asByteArray[i] = 0;
+			}*/
+		}
 	}
 
 	void setType(WPropertyType type) {
@@ -364,8 +381,40 @@ public:
 		return value.string;
 	}
 
+	byte* getByteArray() {
+		return value.asByteArray;
+	}
+
+	bool setByteArray(const byte* newValue) {
+		if (type != BYTE_ARRAY) {
+			return false;
+		}
+		byte newLength = sizeof(newValue);
+		bool changed = ((this->valueNull) || (newLength != (sizeof(value.asByteArray))));
+		if ((!this->valueNull) && (newLength != (sizeof(value.asByteArray)))) {
+			free(value.asByteArray);
+			value.asByteArray = (byte *) malloc(newLength);
+		}
+		value.asByteArray = (byte *) malloc(sizeof(newValue));
+		for (int i = 0; i < newLength; i++) {
+			changed = ((changed) || (value.asByteArray[i] != newValue[i]));
+			value.asByteArray[i] = newValue[i];
+		}
+		if (changed) {
+			this->valueNull = false;
+			this->changed = true;
+			valueChanged();
+			notify();
+		}
+		return changed;
+	}
+
 	byte getByteArrayValue(byte index) {
 		return value.asByteArray[index];
+	}
+
+	bool getByteArrayBitValue(byte byteIndex, byte bitIndex) {
+		return bitRead(getByteArrayValue(byteIndex), bitIndex);
 	}
 
 	WPropertyValue getValue() {
@@ -382,16 +431,19 @@ public:
 			changed = (getEnumIndex(this, newValue) != 0xFF);
 		}
 		if (changed) {
+			if (!this->valueNull) {
+				free(value.string);
+			}
+
 			if (newValue != nullptr) {
 				int l = strlen(newValue);
-				if (l > length) {
-					l = length;
-				}
+				value.string = (char *) malloc(l + 1);
 				strncpy(value.string, newValue, l);
 				value.string[l] = '\0';
 				this->valueNull = false;
 			} else {
-				value.string[0] = '\0';
+				value.string = nullptr;
+				//value.string[0] = '\0';
 				this->valueNull = true;
 			}
 			this->changed = true;
@@ -414,6 +466,19 @@ public:
 			notify();
 		}
 		return changed;
+	}
+
+	bool setByteArrayBitValue(byte byteIndex, byte bitIndex, bool bitValue) {
+		if (type != BYTE_ARRAY) {
+			return false;
+		}
+		byte v = getByteArrayValue(byteIndex);
+		if (bitValue) {
+			bitSet(v, bitIndex);
+		} else {
+			bitClear(v, bitIndex);
+		}
+		return setByteArrayValue(byteIndex, v);
 	}
 
 	bool isReadOnly() {
@@ -466,7 +531,8 @@ public:
 			json->propertyString(memberName, c_str());
 			break;
 		case BYTE_ARRAY:
-			//niy
+			//tbi
+			json->propertyByteArray(memberName, getLength(), value.asByteArray);
 			break;
 		}
 	}
@@ -489,6 +555,9 @@ public:
 		case BYTE:
 			json->propertyString("type", "number");
 			break;
+		case BYTE_ARRAY:
+				json->propertyString("type", "object");
+				break;
 		default:
 			json->propertyString("type", "string");
 			break;
@@ -556,7 +625,7 @@ public:
 		if (type != BOOLEAN) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", this->type, 0, "");
+		WProperty* valueE = new WProperty("", "", this->type, "");
 		valueE->setBoolean(enumBoolean);
 		this->addEnum(valueE);
 	}
@@ -565,7 +634,7 @@ public:
 		if (type != DOUBLE) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", this->type, 0, "");
+		WProperty* valueE = new WProperty("", "", this->type, "");
 		valueE->setDouble(enumNumber);
 		this->addEnum(valueE);
 	}
@@ -574,7 +643,7 @@ public:
 		if (type != INTEGER) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", this->type, 0, "");
+		WProperty* valueE = new WProperty("", "", this->type, "");
 		valueE->setInteger(enumNumber);
 		this->addEnum(valueE);
 	}
@@ -583,7 +652,7 @@ public:
 		if (type != SHORT) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", this->type, 0, "");
+		WProperty* valueE = new WProperty("", "", this->type, "");
 		valueE->setShort(enumNumber);
 		this->addEnum(valueE);
 	}
@@ -592,7 +661,7 @@ public:
 		if (type != UNSIGNED_LONG) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", this->type, 0, "");
+		WProperty* valueE = new WProperty("", "", this->type, "");
 		valueE->setUnsignedLong(enumNumber);
 		this->addEnum(valueE);
 	}
@@ -601,7 +670,7 @@ public:
 		if (type != BYTE) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", this->type, 0, "");
+		WProperty* valueE = new WProperty("", "", this->type, "");
 		valueE->setByte(enumByte);
 		this->addEnum(valueE);
 	}
@@ -610,7 +679,7 @@ public:
 		if (type != STRING) {
 			return;
 		}
-		WProperty* valueE = new WProperty("", "", this->type, this->length, "");
+		WProperty* valueE = new WProperty("", "", this->type, "");
 		valueE->setString(enumString);
 		this->addEnum(valueE);
 	}
@@ -686,14 +755,36 @@ public:
 		this->visibility = visibility;
 	}
 
+	void setVisibilityMqtt(bool value) {
+		if ((value) && (visibility != MQTT) && (visibility != ALL)) {
+			setVisibility(visibility == WEBTHING ? ALL : MQTT);
+		} else if ((!value) && (visibility != NONE) && (visibility != WEBTHING)) {
+			setVisibility(visibility == ALL ? WEBTHING : NONE);
+		}
+	}
+
+	void setVisibilityWebthing(bool value) {
+		if ((value) && (visibility != WEBTHING) && (visibility != ALL)) {
+			setVisibility(visibility == MQTT ? ALL : WEBTHING);
+		} else if ((!value) && (visibility != NONE) && (visibility != MQTT)) {
+			setVisibility(visibility == ALL ? MQTT : NONE);
+		}
+	}
+
 	bool isVisible(WPropertyVisibility visibility) {
 		return ((this->visibility == ALL) || (this->visibility == visibility));
+	}
+
+	void setId(const char* id) {
+		delete this->id;
+		this->id = new char[strlen(id) + 1];
+		strcpy(this->id, id);
 	}
 
 protected:
 	const char* atType;
 
-	void initialize(const char* id, const char* title, WPropertyType type, byte length, const char* atType) {
+	void initialize(const char* id, const char* title, WPropertyType type, const char* atType) {
 		this->id = new char[strlen(id) + 1];
 		strcpy(this->id, id);
 		this->title = new char[strlen(title) + 1];
@@ -712,38 +803,7 @@ protected:
 		this->multipleOf = 0.0;
 		this->onChange = nullptr;
 		this->deviceNotification = nullptr;
-		this->settingsNotification = nullptr;
 		this->next = nullptr;
-		switch (type) {
-		case STRING:
-			this->length = length;
-			value.string = new char[length + 1];
-			value.string[0] = '\0';
-			break;
-		case DOUBLE:
-			this->length = sizeof(double);
-			break;
-		case SHORT:
-			this->length = sizeof(short);
-			break;
-		case INTEGER:
-			this->length = sizeof(int);
-			break;
-		case UNSIGNED_LONG:
-			this->length = sizeof(unsigned long);
-			break;
-		case BYTE:
-		case BOOLEAN:
-			this->length = 1;
-			break;
-		case BYTE_ARRAY:
-			this->length = length;
-			value.asByteArray = new byte[length];
-			for (byte i = 0; i < length; i++) {
-				value.asByteArray[i] = 0;
-			}
-			break;
-		}
 	}
 
 	void setValue(WPropertyValue newValue) {
@@ -768,14 +828,12 @@ private:
 	WPropertyVisibility visibility;
 	bool supportingMqtt;
 	bool supportingWebthing;
-	byte length;
 	bool readOnly;
 	const char* unit;
 	double multipleOf;
 	TOnPropertyChange onChange;
 	TOnPropertyChange onValueRequest;
 	TOnPropertyChange deviceNotification;
-	TOnPropertyChange settingsNotification;
 	WPropertyValue value = {false};
 	bool valueNull;
 	bool changed;
@@ -793,9 +851,6 @@ private:
 			}
 			if (deviceNotification) {
 				deviceNotification(this);
-			}
-			if (settingsNotification) {
-				settingsNotification(this);
 			}
 			notifying = false;
 		}

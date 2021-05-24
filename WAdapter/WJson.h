@@ -45,7 +45,6 @@ public:
 	WJson& separator() {
 		stream->print(COMMA);
 		return *this;
-
 	}
 
 	WJson& endObject() {
@@ -112,6 +111,15 @@ public:
 		separatorAlreadyCalled = true;
 		memberName(name);
 		numberByte(value);
+		separatorAlreadyCalled = false;
+		return *this;
+	}
+
+	WJson& propertyByteArray(const char* name, byte length, byte* value) {
+		ifSeparator();
+		separatorAlreadyCalled = true;
+		memberName(name);
+		numberByteArray(length, value);
 		separatorAlreadyCalled = false;
 		return *this;
 	}
@@ -258,6 +266,18 @@ public:
 		if (!separatorAlreadyCalled)
 			ifSeparator();
 		stream->print(number, DEC);
+		return *this;
+	}
+
+	WJson& numberByteArray(byte length, byte* value) {
+		if (!separatorAlreadyCalled)
+			ifSeparator();
+		stream->print(BBEGIN);
+		for (byte i = 0; i < length; i++) {
+			if (i != 0) stream->print(COMMA);
+			stream->print(value[i], DEC);
+		}
+		stream->print(BEND);
 		return *this;
 	}
 

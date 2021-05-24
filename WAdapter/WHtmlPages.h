@@ -10,6 +10,19 @@ const char* HTTP_BLOCK = "block";
 const char* HTTP_TRUE = "true";
 const char* HTTP_FALSE = "false";
 
+const static char HTTP_TR[] PROGMEM = R"=====(<tr>)=====";
+void tr(Print* page) { page->print(FPSTR(HTTP_TR)); }
+const static char HTTP_TRE[] PROGMEM = R"=====(</tr>)=====";
+void trEnd(Print* page) { page->print(FPSTR(HTTP_TRE)); }
+const static char HTTP_TH[] PROGMEM = R"=====(<th>)=====";
+void th(Print* page) { page->print(FPSTR(HTTP_TH)); }
+const static char HTTP_THE[] PROGMEM = R"=====(</th>)=====";
+void thEnd(Print* page) { page->print(FPSTR(HTTP_THE)); }
+const static char HTTP_TD[] PROGMEM = R"=====(<td>)=====";
+void td(Print* page) { page->print(FPSTR(HTTP_TD)); }
+const static char HTTP_TDE[] PROGMEM = R"=====(</td>)=====";
+void tdEnd(Print* page) { page->print(FPSTR(HTTP_TDE)); }
+
 const static char HTTP_HEAD_BEGIN[]         PROGMEM = R"=====(
 <!DOCTYPE html>
 <html lang='en'>
@@ -70,11 +83,17 @@ button:hover{
 	background-color:#FF3030;
 }
 
-.settingstable th, .settingstable td {
+.st, .tt {
+	margin-left: auto;
+  margin-right: auto;
+}
+
+.st th, .st td {
 	border: 1px solid lightgray;
   border-collapse: collapse;
 }
-.settingstable input[type='text']{
+
+.st input[type='text']{
 	width: 40px;
 }
 
@@ -107,6 +126,13 @@ const static char HTTP_BUTTON_ALERT[]    PROGMEM = R"=====(
     	<button class='cbtn'>%s</button>
     </form>
   </div>
+)=====";
+
+const static char HTTP_BUTTON_SUBMIT[]         PROGMEM = R"=====(
+		<div>
+			<button type='submit'>%s</button>
+		</div>
+</form>
 )=====";
 
 const static char HTTP_CONFIG_SAVE_BUTTON[]         PROGMEM = R"=====(

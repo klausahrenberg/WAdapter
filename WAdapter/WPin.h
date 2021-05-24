@@ -27,6 +27,10 @@ public:
 		}
 	}
 
+	bool hasProperty() {
+		return (this->property != nullptr);
+	}
+
 	virtual void loop(unsigned long now) {
 	}
 

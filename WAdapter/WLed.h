@@ -17,8 +17,9 @@ public:
 		: WPin(ledPin, OUTPUT) {
 		this->blinkMillis = 0;
 		this->ledOn = false;
+		this->inverted = false;
 		if (this->isInitialized()) {
-			digitalWrite(this->getPin(), LED_OFF);
+			digitalWrite(this->getPin(), getOffLevel());
 		}
 	}
 
@@ -66,20 +67,40 @@ public:
 				if ((lastBlinkOn == 0) || (now - lastBlinkOn > this->blinkMillis)) {
 					blinkOn = !blinkOn;
 					lastBlinkOn = now;
-					digitalWrite(this->getPin(), blinkOn ? LED_ON : LED_OFF);
+					digitalWrite(this->getPin(), blinkOn ? getOnLevel() : getOffLevel());
 				}
 			} else {
-				digitalWrite(this->getPin(), LED_ON);
+				digitalWrite(this->getPin(), getOnLevel());
 			}
 		} else {
 			//switchoff
-			digitalWrite(this->getPin(), LED_OFF);
+			digitalWrite(this->getPin(), getOffLevel());
 		}
+		/*if ((this->isInitialized()) && (getProperty() != nullptr)) {
+			digitalWrite(this->getPin(), getProperty()->getBoolean() ? LED_ON : LED_OFF);
+		}*/
+	}
+
+	bool isInverted() {
+		return inverted;
+	}
+
+	void setInverted(bool inverted) {
+		this->inverted = inverted;
 	}
 
 protected:
+
+	byte getOnLevel() {
+		return (!inverted ? LED_ON : LED_OFF);
+	}
+
+	byte getOffLevel() {
+		return !getOnLevel();
+	}
+
 private:
-	bool ledOn, blinkOn;
+	bool ledOn, blinkOn, inverted;
 	unsigned long blinkMillis, lastBlinkOn;
 };
 
