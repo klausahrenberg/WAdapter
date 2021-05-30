@@ -9,6 +9,7 @@
 #define SWITCH_PRESSED_PEGEL HIGH
 
 const unsigned long SWITCH_SENSITIVENESS = 200;
+const unsigned long BUTTON_SENSITIVENESS = 20;
 const unsigned long SWICTH_LONG_PRESS_DURATION = 5000;
 
 
@@ -18,53 +19,32 @@ public:
 	WSwitch(int switchPin, byte mode)
 	: WPin(switchPin, INPUT) {
 		startTime = 0;
-		longPressStartTime =0;
-		//_pressed = false;
-		//_pressedLong = false;
+		longPressStartTime = 0;
+		inverted = false;
 		triggerProperty = nullptr;
 		this->mode = mode;
-		//longPressDuration = 5000;
-		//switchChangeDuration = 1000;
 		if (this->isInitialized()) {
 			state = digitalRead(this->getPin());
 			lastState = state;
-			/*if (state == SWITCH_PRESSED_PEGEL) {
-				_pressed = true;
-			}*/
 		}
-
 	}
 	void loop(unsigned long now) {
 		if (this->isInitialized()) {
 			//1. Eliminate flickering input
 			bool stateChanged = false;
 			bool newState = digitalRead(this->getPin());
-			bool expectedPegel = !state;
+			bool expectedPegel = (this->mode == MODE_SWITCH ? !state : getOnLevel());
+			unsigned long sensitiveness = (this->mode == MODE_SWITCH ? SWITCH_SENSITIVENESS : BUTTON_SENSITIVENESS);
 
 			if ((newState != lastState) && (startTime == 0)) {
 				startTime = now;
 			} else if ((newState == state) && (startTime > 0)) {
 				startTime = now;
-			} else if ((newState != state) && (now - startTime >= SWITCH_SENSITIVENESS)) {
+			} else if ((newState != state) && (now - startTime >= sensitiveness)) {
 				stateChanged = true;
 			}
 
 			lastState = newState;
-			/*if (newState != lastState) {
-				if (startTime > 0) {
-					if (newState != state) {
-						stateChanged = (now - startTime >= SWITCH_SENSITIVENESS);
-					} else {
-						//flickering signal, reset start time
-						startTime = now;
-					}
-				} else {
-					startTime = now;
-				}
-				lastState = newState;
-			} else if (startTime > 0) {
-				stateChanged = ((newState != state) && (now - startTime >= SWITCH_SENSITIVENESS));
-			}*/
 			//2. If state really changed, now switch logic
 			if (stateChanged) {
 				state = !state;
@@ -85,19 +65,23 @@ public:
 					if (this->mode == MODE_SWITCH) {
 						//Switch handling
 						handleButtonOrSwitchPressed();
-					}	else if (this->mode == MODE_BUTTON_LONG_PRESS) {
-						if (now - longPressStartTime >= SWICTH_LONG_PRESS_DURATION) {
-							handleLongButtonPressed();
-						} else {
-							handleButtonOrSwitchPressed();
-						}
+					}	else if ((this->mode == MODE_BUTTON_LONG_PRESS) && (longPressStartTime >0) && (now - longPressStartTime < SWICTH_LONG_PRESS_DURATION)) {
+						//Long press button was released before long press time
+						handleButtonOrSwitchPressed();
+						longPressStartTime = 0;
 					}
-					//Button handling
-					longPressStartTime = 0;
 				}
 			} else {
+				//3. If state not changed, reset trigger and handle long press buttons
 				setTriggerValue(false);
+				//Long press time is up
+				if ((this->mode == MODE_BUTTON_LONG_PRESS) && (longPressStartTime >0) && (now - longPressStartTime >= SWICTH_LONG_PRESS_DURATION)) {
+					handleLongButtonPressed();
+					longPressStartTime = 0;
+				}
 			}
+
+
 
 
 
@@ -110,7 +94,7 @@ public:
 				if (startTime == 0) {
 					startTime = now;
 				}
-				if (now - startTime >= SWITCH_SENSITIVENESS) {
+				if (now - startTime >= sensitiveness) {
 					// switch pressed, sensitiveness taken into account
 					if (!_pressed) {
 						// This is set only once when switch is pressed
@@ -187,15 +171,30 @@ public:
 		return (this->triggerProperty != nullptr);
 	}
 
+	bool isInverted() {
+		return inverted;
+	}
+
+	void setInverted(bool inverted) {
+		this->inverted = inverted;
+	}
+
+protected:
+
+	byte getOnLevel() {
+		return (!inverted ? SWITCH_PRESSED_PEGEL : !SWITCH_PRESSED_PEGEL);
+	}
+
+	byte getOffLevel() {
+		return !getOnLevel();
+	}
+
 private:
 	THandlerFunction onPressed;
 	THandlerFunction onLongPressed;
 	byte mode;
-	//int longPressDuration, switchChangeDuration;
-	bool state, lastState;
+	bool state, lastState, inverted;
 	unsigned long startTime, longPressStartTime;
-	//bool _pressed;
-	//bool _pressedLong;
 	WProperty* triggerProperty;
 
 	void setTriggerValue(bool triggered) {

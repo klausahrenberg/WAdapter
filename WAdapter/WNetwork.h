@@ -75,6 +75,8 @@ public:
 		settings = new WSettings(wlog, appSettingsFlag);
 		loadSettings();
 		lastMqttConnect = lastWifiConnect = 0;
+		this->initialMqttSent = false;
+		this->lastWillEnabled = true;
 
 
 		if (this->isSupportingMqtt()) {
@@ -445,6 +447,18 @@ public:
 		return this->supportingMqtt->getBoolean();
 	}
 
+	bool isInitialMqttSent() {
+		return this->initialMqttSent;
+	}
+
+	bool isLastWillEnabled() {
+		return this->lastWillEnabled;
+	}
+
+	void setLastWillEnabled(bool lastWillEnabled) {
+		this->lastWillEnabled = lastWillEnabled;
+	}
+
 	const char* getIdx() {
 		return this->idx->c_str();
 	}
@@ -593,6 +607,8 @@ private:
 	char body_data[ESP_MAX_PUT_BODY_SIZE];
   bool b_has_body_data = false;
 	Print* debuggingOutput;
+	bool initialMqttSent;
+	bool lastWillEnabled;
 
 	void handleDeviceStateChange(WDevice *device, bool complete) {
 		wlog->notice(F("Device state changed -> send device state..."));
@@ -612,13 +628,16 @@ private:
 				if (device->isMainDevice()) {
 					json.propertyString("idx", getIdx());
 					json.propertyString("ip", getDeviceIp().toString().c_str());
-					json.propertyBoolean("alive", true);
+					if (this->isLastWillEnabled()) {
+						json.propertyBoolean("alive", true);
+					}
 					json.propertyString("firmware", firmwareVersion.c_str());
 				}
 				device->toJsonValues(&json, MQTT);
 				json.endObject();
 
 				mqttClient->publish(topic.c_str(), (const uint8_t*) response->c_str(), response->length(), true);
+				initialMqttSent = true;
 			} else {
 				//Send every changed property only
 				WProperty* property = device->firstProperty;
@@ -633,6 +652,9 @@ private:
 						property->setUnChanged();
 					}
 					property = property->next;
+				}
+				if (complete) {
+					initialMqttSent = true;
 				}
 			}
 
@@ -735,33 +757,41 @@ private:
 					   getMqttServer(), getMqttUser(), getMqttPassword(), getClientName(true).c_str());
 			// Attempt to connect
 			this->mqttClient->setServer(getMqttServer(), String(getMqttPort()).toInt());
+			bool connected = false;
 			//Create last will message
-			String lastWillTopic = String(getMqttBaseTopic());
-			lastWillTopic.concat(SLASH);
-			WStringStream* lastWillMessage = getResponseStream();
-			WJson json(lastWillMessage);
-			WDevice *device = this->firstDevice;
-			while (device != nullptr) {
-				if (device->isMainDevice()) {
-					lastWillTopic.concat(device->getId());
-					lastWillTopic.concat(SLASH);
-					lastWillTopic.concat(getMqttStateTopic());
-					json.beginObject();
-					json.propertyString("idx", getIdx());
-					json.propertyString("ip", getDeviceIp().toString().c_str());
-					json.propertyBoolean("alive", false);
-					json.endObject();
+			if (this->isLastWillEnabled()) {
+				String lastWillTopic = String(getMqttBaseTopic());
+				lastWillTopic.concat(SLASH);
+				WStringStream* lastWillMessage = getResponseStream();
+				WJson json(lastWillMessage);
+				WDevice *device = this->firstDevice;
+				while (device != nullptr) {
+					if (device->isMainDevice()) {
+						lastWillTopic.concat(device->getId());
+						lastWillTopic.concat(SLASH);
+						lastWillTopic.concat(getMqttStateTopic());
+						json.beginObject();
+						json.propertyString("idx", getIdx());
+						json.propertyString("ip", getDeviceIp().toString().c_str());
+						json.propertyBoolean("alive", false);
+						json.endObject();
+					}
+					device = device->next;
 				}
-				device = device->next;
+				connected = (mqttClient->connect(getClientName(true).c_str(),
+						getMqttUser(), //(mqttUser != "" ? mqttUser.c_str() : NULL),
+						getMqttPassword(),
+					  lastWillTopic.c_str(),
+					  0,
+					  true,
+					  lastWillMessage->c_str()));
+			} else {
+				connected = (mqttClient->connect(getClientName(true).c_str(),
+					getMqttUser(), //(mqttUser != "" ? mqttUser.c_str() : NULL),
+					getMqttPassword()));
 			}
 
-			if (mqttClient->connect(getClientName(true).c_str(),
-					getMqttUser(), //(mqttUser != "" ? mqttUser.c_str() : NULL),
-					getMqttPassword(),
-				  lastWillTopic.c_str(),
-				  0,
-				  true,
-				  lastWillMessage->c_str())) { //(mqttPassword != "" ? mqttPassword.c_str() : NULL))) {
+			if (connected) { //(mqttPassword != "" ? mqttPassword.c_str() : NULL))) {
 				wlog->notice(F("Connected to MQTT server."));
 				if (this->deepSleepSeconds == 0) {
 					//Send device structure and status
@@ -794,6 +824,7 @@ private:
 				notify(false);
 				return false;
 			}
+			initialMqttSent = false;
 		}
 	}
 
