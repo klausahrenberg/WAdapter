@@ -529,7 +529,10 @@ public:
 			json->propertyByte(memberName, getByte());
 			break;
 		case STRING:
-			json->propertyString(memberName, c_str());
+			if (!onlyValue) 
+			    json->propertyString(memberName, c_str());
+			else 
+			    json->onlyString(c_str());    
 			break;
 		case BYTE_ARRAY:
 			//tbi

@@ -240,6 +240,10 @@ public:
 		stream->print(QUOTE);
 		return *this;
 	}
+	WJson& onlyString(const char *text1) {
+		if (text1 != nullptr) stream->print(text1);
+		return *this;
+	}
 
 	WJson& numberInteger(int number) {
 		if(!separatorAlreadyCalled)
