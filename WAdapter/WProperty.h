@@ -151,6 +151,7 @@ public:
 				value.asByteArray[i] = 0;
 			}*/
 		}
+		return 0;
 	}
 
 	void setType(WPropertyType type) {
