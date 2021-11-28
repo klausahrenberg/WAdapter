@@ -816,6 +816,27 @@ private:
 				}
 				//Subscribe to device specific topic
 				mqttClient->subscribe(String(String(getMqttBaseTopic()) + "/#").c_str());
+				WDevice *device = this->firstDevice;
+				while (device != nullptr) {
+					if (device->isMainDevice()) {
+   					        String topic = String(getMqttBaseTopic());
+						topic.concat(SLASH);
+						topic.concat(device->getId());
+						topic.concat(SLASH);
+						topic.concat(getMqttStateTopic());
+						WStringStream* response = getResponseStream();
+						WJson json(response);
+				
+						json.beginObject();
+						json.propertyString("idx", getIdx());
+						json.propertyString("ip", getDeviceIp().toString().c_str());
+						json.propertyBoolean("alive", true);
+						json.endObject();
+						mqttClient->publish(topic.c_str(), response->c_str(), false);
+					}
+					device = device->next;
+				}
+				
 				notify(false);
 				return true;
 			} else {
@@ -826,6 +847,7 @@ private:
 			}
 			initialMqttSent = false;
 		}
+		return false;
 	}
 
 	void updateLedState() {
