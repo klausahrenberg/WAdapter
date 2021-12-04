@@ -77,6 +77,7 @@ public:
 		lastMqttConnect = lastWifiConnect = 0;
 		this->initialMqttSent = false;
 		this->lastWillEnabled = true;
+		this->wifiConnectTrys = 0;
 
 
 		if (this->isSupportingMqtt()) {
@@ -150,7 +151,6 @@ public:
 		bool waitForWifiConnection = (deepSleepSeconds > 0);
 		if (!isWebServerRunning()) {
 			if (WiFi.status() != WL_CONNECTED) {
-
 				if ((!settings->existsNetworkSettings()) ||
 				    (settings->forceNetworkAccessPoint()) ||
 			      (getSsid() == "") ||
@@ -826,7 +826,7 @@ private:
 						topic.concat(getMqttStateTopic());
 						WStringStream* response = getResponseStream();
 						WJson json(response);
-				
+
 						json.beginObject();
 						json.propertyString("idx", getIdx());
 						json.propertyString("ip", getDeviceIp().toString().c_str());
@@ -836,7 +836,7 @@ private:
 					}
 					device = device->next;
 				}
-				
+
 				notify(false);
 				return true;
 			} else {
