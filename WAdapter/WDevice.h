@@ -17,17 +17,19 @@ const char* DEVICE_TYPE_THERMOSTAT = "Thermostat";
 const char* DEVICE_TYPE_TEXT_DISPLAY = "TextDisplay";
 const char* DEVICE_TYPE_MULTI_LEVEL_SENSOR = "MultiLevelSensor";
 const char* DEVICE_TYPE_MULTI_LEVEL_SWITCH = "MultiLevelSwitch";
+const char* DEVICE_TYPE_RADIO = "Radio";
 
 class WNetwork;
 
 class WDevice {
 public:
 
-	WDevice(WNetwork* network, const char* id, const char* name, const char* type) {
+	WDevice(WNetwork* network, const char* id, const char* name, const char* type, const char* alternativeType = nullptr) {
 		this->network = network;
 		this->id = id;
 		this->name = name;
 		this->type = type;
+		this->alternativeType = alternativeType;
 		this->visibility = ALL;
 		this->lastStateNotify = 0;
 		this->stateNotifyInterval = 300000;
@@ -106,6 +108,9 @@ public:
 		//type
 		json->beginArray("@type");
 		json->string(getType());
+		if (alternativeType != nullptr) {
+			json->string(alternativeType);
+		}
 		json->endArray();
 		//properties
 		json->beginObject("properties");
@@ -179,7 +184,7 @@ public:
 	}
 
 	WDevice* next = nullptr;
-  //WebSocketsServer* webSocket;
+  AsyncWebSocket* webSocket = nullptr;
   WProperty* firstProperty = nullptr;
   WProperty* lastProperty = nullptr;
   WPin* firstPin = nullptr;
@@ -196,6 +201,7 @@ private:
 	const char* id;
 	const char* name;
 	const char* type;
+	const char* alternativeType;
 
 	void onPropertyChange() {
 		this->lastStateNotify = 0;

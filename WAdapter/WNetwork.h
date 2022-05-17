@@ -463,6 +463,10 @@ public:
 		return this->idx->c_str();
 	}
 
+	const char* getHostName() {
+		return this->hostname;
+	}
+
 	const char* getSsid() {
 		return this->ssid->c_str();
 	}
@@ -1450,8 +1454,26 @@ private:
 			webServer->on(propertiesBase.c_str(), HTTP_GET,	std::bind(&WNetwork::sendDeviceValues, this,  std::placeholders::_1, device));
 			webServer->on(deviceBase.c_str(), HTTP_GET,	std::bind(&WNetwork::sendDeviceStructure, this,  std::placeholders::_1, device));
 			device->bindWebServerCalls(webServer);
+
+			// Initiate the websocket instance
+	    AsyncWebSocket *ws = new AsyncWebSocket("/things/" + String(device->getId()));
+	    device->webSocket = ws;
+	    ws->onEvent(std::bind(
+	        &WNetwork::handleWS, this, std::placeholders::_1,
+	        std::placeholders::_2, std::placeholders::_3, std::placeholders::_4,
+	        std::placeholders::_5, std::placeholders::_6, device));
+	    this->webServer->addHandler(ws);
 		}
+
+
+
 	}
+
+	void handleWS(AsyncWebSocket *server, AsyncWebSocketClient *client,
+                AwsEventType type, void *arg, const uint8_t *rawData,
+                size_t len, WDevice *device) {
+	  wlog->notice(F("WebSocket: %s"), rawData);
+  }
 
 	WDevice* getDeviceById(const char* deviceId) {
 		WDevice *device = this->firstDevice;
