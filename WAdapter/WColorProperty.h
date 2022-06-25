@@ -2,6 +2,7 @@
 #define W_COLOR_PROPERTY_H
 
 #include "WProperty.h"
+#include "WStringStream.h"
 
 class WColorProperty: public WProperty {
 public:
