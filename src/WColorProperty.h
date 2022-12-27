@@ -28,9 +28,9 @@ public:
 		if ((this->red != red) || (this->green != green) || (this->blue != blue)) {
 			this->red = red;
 			this->green = green;
-			this->blue = blue;
-			setRGBString();
-		}
+			this->blue = blue;	
+			setRGBString();		
+		}		
 	}
 
 	void setRGBString() {
