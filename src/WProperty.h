@@ -14,6 +14,7 @@ const char* TYPE_OPEN_PROPERTY = "OpenProperty";
 const char* TYPE_TARGET_TEMPERATURE_PROPERTY = "TargetTemperatureProperty";
 const char* TYPE_THERMOSTAT_MODE_PROPERTY = "ThermostatModeProperty";
 const char* TYPE_TEMPERATURE_PROPERTY = "TemperatureProperty";
+const char* TYPE_PUSHED_PROPERTY = "PushedProperty";
 
 const char* UNIT_CELSIUS = "degree celsius";
 const char* UNIT_PERCENT = "percent";
@@ -81,6 +82,10 @@ public:
 
 	static WProperty* createOnOffProperty(const char* id, const char* title) {
 		return new WProperty(id, title, BOOLEAN, TYPE_ON_OFF_PROPERTY);
+	}
+
+	static WProperty* createPushedProperty(const char* id, const char* title) {
+		return new WProperty(id, title, BOOLEAN, TYPE_PUSHED_PROPERTY);
 	}
 
 	typedef std::function<void(WProperty* property)> TOnPropertyChange;

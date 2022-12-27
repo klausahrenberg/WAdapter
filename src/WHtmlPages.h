@@ -23,7 +23,7 @@ void td(Print* page) { page->print(FPSTR(HTTP_TD)); }
 const static char HTTP_TDE[] PROGMEM = R"=====(</td>)=====";
 void tdEnd(Print* page) { page->print(FPSTR(HTTP_TDE)); }
 
-const static char HTTP_HEAD_BEGIN[]         PROGMEM = R"=====(
+const static char HTTP_HEAD_BEGIN[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html lang='en'>
 	<head>
@@ -31,7 +31,7 @@ const static char HTTP_HEAD_BEGIN[]         PROGMEM = R"=====(
 		<title>%s</title>
 )=====";
 
-const static char HTTP_STYLE[]              PROGMEM = R"=====(
+const static char HTTP_STYLE[] PROGMEM = R"=====(
 <style>
 body{
 	text-align: center;
@@ -100,19 +100,19 @@ button:hover{
 </style>
 )=====";
 
-const static char HTTP_HEAD_END[]           PROGMEM = R"=====(
+const static char HTTP_HEAD_END[] PROGMEM = R"=====(
 	</head>
 	<body>
 		<div class='mc'>
 )=====";
 
-const static char HTTP_BODY_END[]           PROGMEM = R"=====(
+const static char HTTP_BODY_END[] PROGMEM = R"=====(
 		</div>
 	</body>
 </html>
 )=====";
 
-const static char HTTP_BUTTON[]    PROGMEM = R"=====(
+const static char HTTP_BUTTON[] PROGMEM = R"=====(
 	<div>
   	<form action='/%s' method='%s'>
     	<button>%s</button>
@@ -120,7 +120,7 @@ const static char HTTP_BUTTON[]    PROGMEM = R"=====(
   </div>
 )=====";
 
-const static char HTTP_BUTTON_ALERT[]    PROGMEM = R"=====(
+const static char HTTP_BUTTON_ALERT[] PROGMEM = R"=====(
 	<div>
   	<form action='/%s' method='%s'>
     	<button class='cbtn'>%s</button>
@@ -128,33 +128,33 @@ const static char HTTP_BUTTON_ALERT[]    PROGMEM = R"=====(
   </div>
 )=====";
 
-const static char HTTP_BUTTON_SUBMIT[]         PROGMEM = R"=====(
+const static char HTTP_BUTTON_SUBMIT[] PROGMEM = R"=====(
 		<div>
 			<button type='submit'>%s</button>
 		</div>
 </form>
 )=====";
 
-const static char HTTP_CONFIG_SAVE_BUTTON[]         PROGMEM = R"=====(
+const static char HTTP_CONFIG_SAVE_BUTTON[] PROGMEM = R"=====(
 		<div>
 			<button type='submit'>Save configuration</button>
 		</div>
 </form>
 )=====";
 
-const static char HTTP_DIV_BEGIN[]    PROGMEM = R"=====(
+const static char HTTP_DIV_BEGIN[] PROGMEM = R"=====(
 	<div>
 )=====";
 
-const static char HTTP_DIV_ID_BEGIN[]    PROGMEM = R"=====(
+const static char HTTP_DIV_ID_BEGIN[] PROGMEM = R"=====(
 	<div id='%s'>
 )=====";
 
-const static char HTTP_DIV_END[]    PROGMEM = R"=====(
+const static char HTTP_DIV_END[] PROGMEM = R"=====(
 	</div>
 )=====";
 
-const static char HTTP_TOGGLE_FUNCTION_SCRIPT[]    PROGMEM = R"=====(
+const static char HTTP_TOGGLE_FUNCTION_SCRIPT[] PROGMEM = R"=====(
 	<script>
 		function %s {
 			var sa = document.getElementById('%s');
@@ -168,7 +168,7 @@ const static char HTTP_TOGGLE_FUNCTION_SCRIPT[]    PROGMEM = R"=====(
 	</script>
 )=====";
 
-const static char HTTP_TOGGLE_GROUP_STYLE[]    PROGMEM = R"=====(
+const static char HTTP_TOGGLE_GROUP_STYLE[] PROGMEM = R"=====(
 <style>
 #%s {
   display:%s;
@@ -179,7 +179,7 @@ const static char HTTP_TOGGLE_GROUP_STYLE[]    PROGMEM = R"=====(
 </style>
 )=====";
 
-const static char HTTP_SAVED[]              PROGMEM = R"=====(
+const static char HTTP_SAVED[] PROGMEM = R"=====(
 <div>
 	%s
 </div>
@@ -204,29 +204,29 @@ const static char HTTP_FORM_FIRMWARE[] PROGMEM = R"=====(
 </form>
 )=====";
 
-const static char HTTP_CONFIG_PAGE_BEGIN[]         PROGMEM = R"=====(
+const static char HTTP_CONFIG_PAGE_BEGIN[] PROGMEM = R"=====(
 <form method='get' class='mc' action='submit%s'>
 )=====";
 
-const static char HTTP_INPUT_FIELD[]    PROGMEM = R"=====(
+const static char HTTP_INPUT_FIELD[] PROGMEM = R"=====(
 	<input type='text' name='%s' maxlength='%s' value='%s'>
 )=====";
 
-const static char HTTP_TEXT_FIELD[]    PROGMEM = R"=====(
+const static char HTTP_TEXT_FIELD[] PROGMEM = R"=====(
 	<div>
 		%s<br>
 		<input type='text' class='ip' name='%s' maxlength='%s' value='%s'>
 	</div>
 )=====";
 
-const static char HTTP_PASSWORD_FIELD[]    PROGMEM = R"=====(
+const static char HTTP_PASSWORD_FIELD[] PROGMEM = R"=====(
 	<div>
 		%s<br>
 		<input type='password' class='ip' name='%s' length=%s value='%s'>
 	</div>
 )=====";
 
-const static char HTTP_CHECKBOX[]         PROGMEM = R"=====(
+const static char HTTP_CHECKBOX[] PROGMEM = R"=====(
 		<div>
 			<label>
 				<input type='checkbox' name='%s' value='true' %s>%s
@@ -234,7 +234,7 @@ const static char HTTP_CHECKBOX[]         PROGMEM = R"=====(
 		</div>
 )=====";
 
-const static char HTTP_CHECKBOX_OPTION[]    PROGMEM = R"=====(
+const static char HTTP_CHECKBOX_OPTION[] PROGMEM = R"=====(
 	<div>
 		<label>
 			<input type='checkbox' id='%s' name='%s' value='true' %s onclick='%s'>%s
@@ -242,23 +242,37 @@ const static char HTTP_CHECKBOX_OPTION[]    PROGMEM = R"=====(
 	</div>
 )=====";
 
-const static char HTTP_RADIO_OPTION[]    PROGMEM = R"=====(
+const static char HTTP_RADIO_OPTION[] PROGMEM = R"=====(
 	<label>
 		<input type='radio' id='%s' name='%s' value='%s' %s onclick='%s'>%s
 	</label>
 )=====";
 
-const static char HTTP_COMBOBOX_BEGIN[]         PROGMEM = R"=====(
+const static char HTTP_COMBOBOX_BEGIN[] PROGMEM = R"=====(
         <div>
 			%s<br>
         	<select class='ip' name='%s'>
 )=====";
-const static char HTTP_COMBOBOX_ITEM[]         PROGMEM = R"=====(
+
+const static char HTTP_COMBOBOX_ITEM[] PROGMEM = R"=====(
 				<option class='ip' value='%s' %s>%s</option>
 )=====";
-const static char HTTP_COMBOBOX_END[]         PROGMEM = R"=====(
+const static char HTTP_COMBOBOX_END[] PROGMEM = R"=====(
 			</select>
         </div>
 )=====";
+
+class WHtml {
+ public:
+  static void comboBoxItem(Print* page, const char* title, const char* value, bool selected) {
+    page->printf(HTTP_COMBOBOX_ITEM, value, (selected ? HTTP_SELECTED : ""),
+                 title);
+  }
+
+  static void textField(Print* page, const char* fieldName, const char* title, byte maxLength, const char* value) {
+	page->printf(HTTP_TEXT_FIELD, title, fieldName, String(maxLength).c_str(), value);
+  }
+
+};
 
 #endif
