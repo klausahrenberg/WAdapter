@@ -1,7 +1,7 @@
 #ifndef W_SWITCH_H_
 #define W_SWITCH_H_
 
-#include "WPin.h"
+#include "WInput.h"
 
 #define MODE_BUTTON 0
 #define MODE_BUTTON_LONG_PRESS 1
@@ -13,11 +13,11 @@ const unsigned long BUTTON_SENSITIVENESS = 20;
 const unsigned long SWICTH_LONG_PRESS_DURATION = 5000;
 
 
-class WSwitch: public WPin {
+class WSwitch: public WInput {
 public:
 	typedef std::function<void()> THandlerFunction;
 	WSwitch(int switchPin, byte mode)
-	: WPin(switchPin, INPUT) {
+	: WInput(switchPin, INPUT) {
 		startTime = 0;
 		longPressStartTime = 0;
 		inverted = false;

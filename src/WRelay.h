@@ -1,48 +1,34 @@
 #ifndef W_RELAY_H
 #define W_RELAY_H
 
-#include "WPin.h"
+#include "WOutput.h"
 
-class WRelay: public WPin {
-public:
-	WRelay(int relayPin)
-	: WPin(relayPin, OUTPUT) {
-		this->inverted = false;
-		if (this->isInitialized()) {
-			digitalWrite(this->getPin(), getOffLevel());
-		}
-	}
+class WRelay : public WOutput {
+ public:
+  WRelay(int relayPin, bool inverted) : WOutput(relayPin) {
+    _inverted = inverted;
+    if (this->isInitialized()) {
+      digitalWrite(this->pin(), getOffLevel());
+    }
+  }
 
-	bool isOn() {
-		return (digitalRead(this->getPin()) == getOnLevel());
-	}
+  void onChanged() {
+    digitalWrite(this->pin(), isOn() ? getOnLevel() : getOffLevel());
+  };
 
-	void loop(unsigned long now) {
-		if ((this->isInitialized()) && (getProperty() != nullptr)) {
-			digitalWrite(this->getPin(), getProperty()->getBoolean() ? getOnLevel() : getOffLevel());
-		}
-	}
+  void loop(unsigned long now) {}
 
-	bool isInverted() {
-		return inverted;
-	}
+  bool inverted() { return _inverted; }
 
-	void setInverted(bool inverted) {
-		this->inverted = inverted;
-	}
+  //void setInverted(bool inverted) { this->inverted = inverted; }
 
-protected:
+ protected:
+  byte getOnLevel() { return (!_inverted ? HIGH : LOW); }
 
-	byte getOnLevel() {
-		return (!inverted ? HIGH : LOW);
-	}
+  byte getOffLevel() { return !getOnLevel(); }
 
-	byte getOffLevel() {
-		return !getOnLevel();
-	}
-
-private:
-	bool inverted;
+ private:
+  bool _inverted;
 };
 
 #endif

@@ -16,6 +16,7 @@
 #include <StreamString.h>
 
 #include "PubSubClient.h"
+#include "WList.h"
 #include "WDevice.h"
 #include "WHtmlPages.h"
 #include "WJsonParser.h"
@@ -66,6 +67,8 @@ class WNetwork {
     this->webServer = nullptr;
     this->dnsApServer = nullptr;
     this->debugging = debugging;
+    _devices = new WList<WDevice>();
+    _pages = new WList<WPage>();
     this->wlog = new WLog();
     this->setDebuggingOutput(debuggingOutput);
     this->updateRunning = false;
@@ -75,7 +78,7 @@ class WNetwork {
     this->startupTime = millis();
     this->mqttClient = nullptr;
     settings = new WSettings(wlog, appSettingsFlag);
-    loadSettings();
+    loadNetworkSettings();
     lastMqttConnect = lastWifiConnect = 0;
     this->initialMqttSent = false;
     this->lastWillEnabled = true;
@@ -233,8 +236,7 @@ class WNetwork {
       bool allStatesComplete = true;
       bool stateUpd = false;
       // Loop Devices
-      WDevice *device = firstDevice;
-      while (device != nullptr) {
+      _devices->forEach([this, now](WDevice* device) {      
         device->loop(now);
         if ((this->isMqttConnected()) && (this->isSupportingMqtt()) &&
             ((device->lastStateNotify == 0) ||
@@ -245,9 +247,8 @@ class WNetwork {
           wlog->notice(F("Notify interval is up -> Device state changed... %d"),
                        device->lastStateNotify);
           handleDeviceStateChange(device, (device->lastStateNotify != 0));
-        }
-        device = device->next;
-      }
+        }        
+      });
 // WebThingAdapter
 #ifdef ESP8266
       if ((!isUpdateRunning()) && (this->isSupportingWebThing()) &&
@@ -351,8 +352,7 @@ class WNetwork {
       webServer->on("/config", HTTP_GET,
                     std::bind(&WNetwork::handleHttpRootRequest, this,
                               std::placeholders::_1));
-      WPage *page = this->firstPage;
-      while (page != nullptr) {
+      _pages->forEach([this](WPage* page) {                              
         String did(SLASH);
         did.concat(page->getId());
         webServer->on(did.c_str(), HTTP_ANY,
@@ -364,9 +364,8 @@ class WNetwork {
           webServer->on(dis.c_str(), HTTP_ANY,
                         std::bind(&WNetwork::handleHttpSubmittedCustomPage,
                                   this, std::placeholders::_1, page));
-        }
-        page = page->next;
-      }
+        }        
+      });
       webServer->on("/wifi", HTTP_GET,
                     std::bind(&WNetwork::handleHttpNetworkConfiguration, this,
                               std::placeholders::_1));
@@ -416,11 +415,10 @@ class WNetwork {
         webServer->on(SLASH, HTTP_GET,
                       std::bind(&WNetwork::sendDevicesStructure, this,
                                 std::placeholders::_1));
-        WDevice *device = this->firstDevice;
-        while (device != nullptr) {
+        _devices->forEach([this](WDevice* device) {                
           bindWebServerCalls(device);
-          device = device->next;
-        }
+          //device = device->next;
+        });
       }
       // Start http server
       webServer->begin();
@@ -515,25 +513,12 @@ class WNetwork {
   const char *getMqttPassword() { return settings->getString("mqttPassword"); }
 
   void addDevice(WDevice *device) {
-    if (this->lastDevice == nullptr) {
-      this->firstDevice = device;
-      this->lastDevice = device;
-    } else {
-      this->lastDevice->next = device;
-      this->lastDevice = device;
-    }
-
+    _devices->add(device);
     bindWebServerCalls(device);
   }
 
-  void addCustomPage(WPage *Page) {
-    if (lastPage == nullptr) {
-      firstPage = Page;
-      lastPage = Page;
-    } else {
-      lastPage->next = Page;
-      lastPage = Page;
-    }
+  void addCustomPage(WPage* page) {
+    _pages->add(page);
   }
 
   AsyncWebServer *getWebServer() { return this->webServer; }
@@ -588,10 +573,8 @@ class WNetwork {
 
  private:
   WLog *wlog;
-  WDevice *firstDevice = nullptr;
-  WDevice *lastDevice = nullptr;
-  WPage *firstPage = nullptr;
-  WPage *lastPage = nullptr;
+  WList<WDevice>* _devices;
+  WList<WPage>* _pages;  
   THandlerFunction onNotify;
   THandlerFunction onConfigurationFinished;
   bool debugging, updateRunning;
@@ -660,8 +643,7 @@ class WNetwork {
         initialMqttSent = true;
       } else {
         // Send every changed property only
-        WProperty *property = device->firstProperty;
-        while (property != nullptr) {
+        device->properties()->forEach([this, complete, topic](WProperty* property) {        
           if ((complete) || (property->isChanged())) {
             if (property->isVisible(MQTT)) {
               WStringStream *response = getResponseStream();
@@ -673,8 +655,7 @@ class WNetwork {
             }
             property->setUnChanged();
           }
-          property = property->next;
-        }
+        });
         if (complete) {
           initialMqttSent = true;
         }
@@ -803,21 +784,18 @@ class WNetwork {
       if (this->isLastWillEnabled()) {
         String lastWillTopic = String(getMqttBaseTopic());
         lastWillTopic.concat(SLASH);
-        WStringStream *lastWillMessage = getResponseStream();
+        WStringStream* lastWillMessage = getResponseStream();
         WJson json(lastWillMessage);
-        WDevice *device = this->firstDevice;
-        while (device != nullptr) {
-          if (device->isMainDevice()) {
-            lastWillTopic.concat(device->getId());
-            lastWillTopic.concat(SLASH);
-            lastWillTopic.concat(getMqttStateTopic());
-            json.beginObject();
-            json.propertyString("idx", getIdx());
-            json.propertyString("ip", getDeviceIp().toString().c_str());
-            json.propertyBoolean("alive", false);
-            json.endObject();
-          }
-          device = device->next;
+        WDevice* device = _devices->getIf([this](WDevice* d){return (d->isMainDevice());});
+        if (device != nullptr) {
+          lastWillTopic.concat(device->getId());
+          lastWillTopic.concat(SLASH);
+          lastWillTopic.concat(getMqttStateTopic());
+          json.beginObject();
+          json.propertyString("idx", getIdx());
+          json.propertyString("ip", getDeviceIp().toString().c_str());
+          json.propertyBoolean("alive", false);
+          json.endObject();
         }
         connected = (mqttClient->connect(
             getClientName(true).c_str(),
@@ -836,9 +814,7 @@ class WNetwork {
         if (this->deepSleepSeconds == 0) {
           // Send device structure and status
           mqttClient->subscribe("devices/#");
-
-          WDevice *device = this->firstDevice;
-          while (device != nullptr) {
+          _devices->forEach([this](WDevice* device) {                     
             String topic("devices/");
             topic.concat(device->getId());
             WStringStream *response = getResponseStream();
@@ -853,16 +829,14 @@ class WNetwork {
                                 device->getId(), SLASH, getMqttSetTopic());
             json.endObject();
 
-            mqttClient->publish(topic.c_str(), response->c_str(), false);
-            device = device->next;
-          }
+            mqttClient->publish(topic.c_str(), response->c_str(), false);            
+          });
           mqttClient->unsubscribe("devices/#");
         }
         // Subscribe to device specific topic
         mqttClient->subscribe(
             String(String(getMqttBaseTopic()) + "/#").c_str());
-        WDevice *device = this->firstDevice;
-        while (device != nullptr) {
+        _devices->forEach([this](WDevice* device) {                       
           if (device->isMainDevice()) {
             String topic = String(getMqttBaseTopic());
             topic.concat(SLASH);
@@ -879,8 +853,7 @@ class WNetwork {
             json.endObject();
             mqttClient->publish(topic.c_str(), response->c_str(), false);
           }
-          device = device->next;
-        }
+        });
 
         notify(false);
         return true;
@@ -912,11 +885,9 @@ class WNetwork {
   void notify(bool sendState) {
     this->updateLedState();
     if (sendState) {
-      WDevice *device = this->firstDevice;
-      while (device != nullptr) {
-        handleDeviceStateChange(device, false);
-        device = device->next;
-      }
+      _devices->forEach([this](WDevice* device) {                 
+        handleDeviceStateChange(device, false);        
+      });
     }
     if (onNotify) {
       onNotify();
@@ -932,14 +903,12 @@ class WNetwork {
         page->print(FPSTR(HTTP_HEAD_END));
         printHttpCaption(page);
         page->printf(HTTP_BUTTON, "wifi", "get", "Configure network");
-        WPage *customPage = firstPage;
-        while (customPage != nullptr) {
+        _pages->forEach([this, page](WPage* customPage) {                   
           if (customPage->isShowInMainMenu()) {
             page->printf(HTTP_BUTTON, customPage->getId(), "get",
                          customPage->getTitle());
-          }
-          customPage = customPage->next;
-        }
+          }          
+        });
         page->printf(HTTP_BUTTON, "firmware", "get", "Update firmware");
         page->printf(HTTP_BUTTON, "info", "get", "Info");
         page->printf(HTTP_BUTTON, "reset", "get", "Restart options");
@@ -1333,8 +1302,8 @@ class WNetwork {
     }
   }
 
-  void loadSettings() {
-    this->idx = settings->setString("idx", this->getClientName(true).c_str());
+  void loadNetworkSettings() {
+    this->idx = settings->setNetworkString("idx", this->getClientName(true).c_str());
     this->hostname = new char[strlen(idx->c_str()) + 1];
     strcpy(this->hostname, idx->c_str());
     for (int i = 0; i < strlen(this->hostname); i++) {
@@ -1342,18 +1311,17 @@ class WNetwork {
         this->hostname[i] = '-';
       }
     }
-    this->ssid = settings->setString("ssid", "");
-    settings->setString("password", "");
+    this->ssid = settings->setNetworkString("ssid", "");
+    settings->setNetworkString("password", "");
     this->supportingWebThing = true;
-    this->supportingMqtt = settings->setBoolean("supportingMqtt", true);
-    settings->setString("mqttServer", "");
-    settings->setString("mqttPort", "1883");
-    settings->setString("mqttUser", "");
-    settings->setString("mqttPassword", "");
-    this->mqttBaseTopic = settings->setString("mqttTopic", getIdx());
-    this->mqttStateTopic =
-        settings->setString("mqttStateTopic", DEFAULT_TOPIC_STATE);
-    this->mqttSetTopic = settings->setString("mqttSetTopic", DEFAULT_TOPIC_SET);
+    this->supportingMqtt = settings->setNetworkBoolean("supportingMqtt", true);
+    settings->setNetworkString("mqttServer", "");
+    settings->setNetworkString("mqttPort", "1883");
+    settings->setNetworkString("mqttUser", "");
+    settings->setNetworkString("mqttPassword", "");
+    this->mqttBaseTopic = settings->setNetworkString("mqttTopic", getIdx());
+    this->mqttStateTopic = settings->setNetworkString("mqttStateTopic", DEFAULT_TOPIC_STATE);
+    this->mqttSetTopic = settings->setNetworkString("mqttSetTopic", DEFAULT_TOPIC_SET);
     if (settings->existsNetworkSettings()) {
       if (getMqttBaseTopic() == "") {
         this->mqttBaseTopic->setString(this->getClientName(true).c_str());
@@ -1367,8 +1335,7 @@ class WNetwork {
                   isSupportingWebThing());
     } else {
       wlog->notice(F("Network settings are missing."));
-    }
-    settings->addingNetworkSettings = false;
+    }    
   }
 
   void handleUnknown(AsyncWebServerRequest *request) {
@@ -1382,17 +1349,15 @@ class WNetwork {
       wlog->notice(F("Send description for all devices... "));
       AsyncResponseStream *response =
           request->beginResponseStream(APPLICATION_JSON);
-      WJson json(response);
-      json.beginArray();
-      WDevice *device = this->firstDevice;
-      while (device != nullptr) {
+      WJson* json = new WJson(response);
+      json->beginArray();
+      _devices->forEach([this, json](WDevice* device) {                 
         if (device->isVisible(WEBTHING)) {
           wlog->notice(F("Send description for device %s "), device->getId());
-          device->toJsonStructure(&json, "", WEBTHING);
-        }
-        device = device->next;
-      }
-      json.endArray();
+          device->toJsonStructure(json, "", WEBTHING);
+        }        
+      });
+      json->endArray();
       request->send(response);
     }
   }
@@ -1439,14 +1404,12 @@ class WNetwork {
       request->send(response);
 
       if (deepSleepSeconds > 0) {
-        WDevice *device = firstDevice;
-        while ((device != nullptr) && (deepSleepFlag == nullptr)) {
-          if ((!this->isSupportingWebThing()) ||
-              (device->areAllPropertiesRequested())) {
+        _devices->forEach([this](WDevice* device) {                   
+          if ((deepSleepFlag == nullptr) &&
+              ((!this->isSupportingWebThing()) || (device->areAllPropertiesRequested()))) {
             deepSleepFlag = device;
-          }
-          device = device->next;
-        }
+          }          
+        });
       }
     }
   }
@@ -1514,8 +1477,7 @@ class WNetwork {
       wlog->notice(F("Bind webServer calls for device %s"), device->getId());
       String deviceBase("/things/");
       deviceBase.concat(device->getId());
-      WProperty *property = device->firstProperty;
-      while (property != nullptr) {
+      device->properties()->forEach([this, device, deviceBase](WProperty* property) {      
         if (property->isVisible(WEBTHING)) {
           String propertyBase = deviceBase + "/properties/" + property->getId();
           webServer->on(propertyBase.c_str(), HTTP_GET,
@@ -1530,8 +1492,7 @@ class WNetwork {
                         std::placeholders::_2, std::placeholders::_3,
                         std::placeholders::_4, std::placeholders::_5));
         }
-        property = property->next;
-      }
+      });
       String propertiesBase = deviceBase + "/properties";
       webServer->on(propertiesBase.c_str(), HTTP_GET,
                     std::bind(&WNetwork::sendDeviceValues, this,
@@ -1559,15 +1520,8 @@ class WNetwork {
     wlog->notice(F("WebSocket: %s"), rawData);
   }
 
-  WDevice *getDeviceById(const char *deviceId) {
-    WDevice *device = this->firstDevice;
-    while (device != nullptr) {
-      if (strcmp(device->getId(), deviceId) == 0) {
-        return device;
-      }
-      device = device->next;
-    }
-    return nullptr;
+  WDevice* getDeviceById(const char* deviceId) {
+    return _devices->getIf([deviceId](WDevice* d){return (strcmp(d->getId(), deviceId) == 0);});    
   }
 };
 

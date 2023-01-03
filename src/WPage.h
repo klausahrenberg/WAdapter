@@ -6,10 +6,7 @@
 
 class WPage {
 public:
-
-  WPage* next;
-  WPage(const char* id, const char* title) {
-    this->next = nullptr;
+  WPage(const char* id, const char* title) {    
     this->id = id;
     this->title = title;
     this->showInMainMenu = true;

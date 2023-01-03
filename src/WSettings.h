@@ -3,24 +3,19 @@
 
 #include "EEPROM.h"
 #include "WLog.h"
+#include "WList.h"
 #include "WProperty.h"
 
 const byte FLAG_OPTIONS_NETWORK = 0x60;
 const byte FLAG_OPTIONS_NETWORK_FORCE_AP = 0x65;
 const int EEPROM_SIZE = 1024; // SPI_FLASH_SEC_SIZE;
 
-struct WSettingItem {
-	WProperty* value;
-	bool networkSetting;
-	WSettingItem* next = nullptr;
-};
-
 class WSettings {
 public:
 	WSettings(WLog* log, byte appSettingsFlag = 0x68) {
+		_items = new WList<WProperty>();
 		this->log = log;
-		this->appSettingsFlag = appSettingsFlag;
-		this->addingNetworkSettings = true;
+		this->appSettingsFlag = appSettingsFlag;		
 		this->address = 2;
 		this->readingFirstTime = true;
 		EEPROM.begin(EEPROM_SIZE);
@@ -68,75 +63,50 @@ public:
 	}
 
 	WProperty* getSetting(const char* id) {
-		WSettingItem* settingItem = firstSetting;
-		while (settingItem != nullptr) {
-			WProperty* setting = settingItem->value;
-			if (strcmp(id, setting->getId()) == 0) {
-				return setting;
-			}
-			settingItem = settingItem->next;
-		}
-		return nullptr;
+		return _items->getIf([this, id](WProperty* p){return p->equalsId(id);});
 	}
 
 	bool exists(WProperty* property) {
-		WSettingItem* settingItem = firstSetting;
-		while (settingItem != nullptr) {
-			if (settingItem->value == property) {
-				return true;
-			}
-			settingItem = settingItem->next;
-		}
-		return false;
+		return _items->exists(property);
 	}
 
 	void add(WProperty* property) {
+		this->add(property, false);
+	}	
+
+	void add(WProperty* property, bool networkSetting) {
 		if (!exists(property)) {
-			WSettingItem* settingItem = addSetting(property);
+			_items->add(property);
 			if ((isReadingFirstTime()) &&
-			    (((settingItem->networkSetting) && (this->existsNetworkSettings())) ||
-			     ((!settingItem->networkSetting) && (this->existsSettingsApplication)))) {
-				/*
-				Serial.print("Read prop: ");
-				Serial.print(property->getTitle());
-				Serial.print(" / address: ");
-				Serial.print(address);
-				Serial.print(" / length: ");
-				Serial.print(getLengthInEEPROM(property));
-				Serial.print(" / value: ");
-				*/
+			    (((networkSetting) && (this->existsNetworkSettings())) ||
+			     ((!networkSetting) && (this->existsSettingsApplication)))) {
 				switch (property->getType()) {
 				case BOOLEAN: {
 					property->setBoolean(EEPROM.read(address) == 0xFF);
-					//Serial.println(property->getBoolean());
 					break;
 				}
 				case DOUBLE: {
 					double d;
 					EEPROM.get(address, d);
 					property->setDouble(d);
-					//Serial.println(property->getDouble());
 					break;
 				}
 				case SHORT: {
 					short value = 0;
 					EEPROM.get(address, value);
 					property->setShort(value);
-					//Serial.println(property->getShort());
 					break;
 				}
 				case INTEGER: {
 					int value = 0;
 					EEPROM.get(address, value);
 					property->setInteger(value);
-					//Serial.println(property->getInteger());
 					break;
 				}
 				case UNSIGNED_LONG: {
 					unsigned long value = 0;
 					EEPROM.get(address, value);
 				  property->setUnsignedLong(value);
-					//Serial.println(property->getUnsignedLong());
 					break;
 				}
 				case BYTE: {
@@ -145,7 +115,6 @@ public:
 					break;
 				}
 				case BYTE_ARRAY: {
-					//Serial.println("[]");
 					const byte* ba = readByteArray(address);
 					property->setByteArray(ba);
 					delete ba;
@@ -154,9 +123,8 @@ public:
 				case STRING: {
 					const char* rs = readString(address);
 					property->setString(rs);
-					//Serial.println(property->c_str());
 					delete rs;
-					//break;
+					break;
 				}
 				}
 				address += this->getLengthInEEPROM(property);
@@ -164,29 +132,8 @@ public:
 		}
 	}
 
-	WProperty* remove(const char* id) {
-		WSettingItem* prevItem = nullptr;
-		WSettingItem* settingItem = firstSetting;
-		while (settingItem != nullptr) {
-			WProperty* setting = settingItem->value;
-			if (strcmp(id, setting->getId()) == 0) {
-				if (prevItem != nullptr) {
-					prevItem->next = settingItem->next;
-				}
-				if (settingItem == this->firstSetting) {
-					this->firstSetting = settingItem->next;
-				}
-				if (settingItem == this->lastSetting) {
-					this->lastSetting = prevItem;
-				}
-				WProperty* result = settingItem->value;
-				delete settingItem;
-				return result;
-			}
-			prevItem = settingItem;
-			settingItem = settingItem->next;
-		}
-		return nullptr;
+	void remove(const char* id) {
+		_items->removeIf([this, id](WProperty* p){ return p->equalsId(id);});		
 	}
 
 	bool getBoolean(const char* id) {
@@ -195,15 +142,11 @@ public:
 	}
 
 	WProperty* setBoolean(const char* id, bool value) {
-		WProperty* setting = getSetting(id);
-		if (setting == nullptr) {
-			setting = WProperty::createBooleanProperty(id, id);
-			setting->setBoolean(value);
-			add(setting);
-		} else {
-			setting->setBoolean(value);
-		}
-		return setting;
+		return this->setBoolean(id, value, false);
+	}
+
+	WProperty* setNetworkBoolean(const char* id, bool value) {
+		return this->setBoolean(id, value, true);
 	}
 
 	byte getByte(const char* id) {
@@ -304,15 +247,11 @@ public:
 	}
 
 	WProperty* setString(const char* id, const char* value) {
-		WProperty* setting = getSetting(id);
-		if (setting == nullptr) {
-			setting = WProperty::createStringProperty(id, id);
-			setting->setString(value);
-			add(setting);
-		} else  {
-			setting->setString(value);
-		}
-		return setting;
+		return this->setString(id, value, false);
+	}
+
+	WProperty* setNetworkString(const char* id, const char* value) {
+		return this->setString(id, value, true);
 	}
 
 	WProperty* setByteArray(const char* id, const byte* value) {
@@ -353,73 +292,64 @@ public:
 		dest[0] = ((value >> 24) & 0xFF);
 	}
 
-	bool addingNetworkSettings;
 protected:
-	WSettingItem* addSetting(WProperty* setting) {
-		WSettingItem* settingItem = new WSettingItem();
-		settingItem->value = setting;
-		settingItem->networkSetting = this->addingNetworkSettings;
-		if (this->lastSetting == nullptr) {
-			this->firstSetting = settingItem;
-			this->lastSetting = settingItem;
+
+	WProperty* setBoolean(const char* id, bool value, bool networkSetting) {
+		WProperty* setting = getSetting(id);
+		if (setting == nullptr) {
+			setting = WProperty::createBooleanProperty(id, id);
+			setting->setBoolean(value);
+			add(setting);
 		} else {
-			this->lastSetting->next = settingItem;
-			this->lastSetting = settingItem;
+			setting->setBoolean(value);
 		}
-		return settingItem;
+		return setting;
 	}
 
-	void save(WSettingItem* settingItem) {
-		WProperty* setting = settingItem->value;
-		/*
-		Serial.print("Save prop: ");
-		Serial.print(setting->getTitle());
-		Serial.print(" / address: ");
-		Serial.print(address);
-		Serial.print(" / length: ");
-		Serial.print(getLengthInEEPROM(setting));
-		Serial.print(" / value: ");
-		//log->notice(F("Save boolean to EEPROM: address=%d id='%s'; length=%d"), settingItem->address, setting->getId(), setting->getLength());
-		*/
+	WProperty* setString(const char* id, const char* value, bool networkSetting) {
+		WProperty* setting = getSetting(id);
+		if (setting == nullptr) {
+			setting = WProperty::createStringProperty(id, id);
+			setting->setString(value);
+			add(setting, networkSetting);
+		} else  {
+			setting->setString(value);
+		}
+		return setting;
+	}
+
+	void save(WProperty* setting) {
 		switch (setting->getType()){
 		case BOOLEAN: {
 			EEPROM.write(address, (setting->getBoolean() ? 0xFF : 0x00));
-			//Serial.println(setting->getBoolean());
 			break;
 		}
 		case BYTE: {
 			EEPROM.write(address, setting->getByte());
-			//Serial.println(setting->getByte());
 			break;
 		}
 		case SHORT: {
 			EEPROM.put(address, setting->getShort());
-			//Serial.println(setting->getShort());
 			break;
 		}
 		case INTEGER: {
 			EEPROM.put(address, setting->getInteger());
-			//Serial.println(setting->getInteger());
 			break;
 		}
 		case UNSIGNED_LONG: {
 			EEPROM.put(address, setting->getUnsignedLong());
-			//Serial.println(setting->getUnsignedLong());
 			break;
 		}
 		case DOUBLE: {
 			EEPROM.put(address, setting->getDouble());
-			//Serial.println(setting->getDouble());
 			break;
 		}
 		case BYTE_ARRAY: {
 			writeByteArray(address, setting->getByteArray());
-			//Serial.println("[]");
 			break;
 		}
 		case STRING: {
 			writeString(address, setting->c_str());
-			//Serial.println(setting->c_str());
 			break;
 		}
 		}
@@ -431,8 +361,7 @@ private:
 	bool existsSettingsApplication;
 	int networkByte;
 	byte appSettingsFlag;
-	WSettingItem* firstSetting = nullptr;
-	WSettingItem* lastSetting = nullptr;
+	WList<WProperty>* _items;
 	int address;
 	bool readingFirstTime;
 
@@ -485,11 +414,7 @@ private:
 	void saveEEPROM(int networkSettingsFlag) {
 		EEPROM.begin(EEPROM_SIZE);
 		this->address = 2;
-		WSettingItem* settingItem = firstSetting;
-		while (settingItem != nullptr) {
-			save(settingItem);
-			settingItem = settingItem->next;
-		}
+		_items->forEach([this](WProperty* setting){this->save(setting);});
 		//1. Byte - settingsStored flag
 		EEPROM.write(0, networkSettingsFlag);
 		EEPROM.write(1, this->appSettingsFlag);

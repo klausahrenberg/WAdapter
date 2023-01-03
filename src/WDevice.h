@@ -3,7 +3,10 @@
 
 #include <ESPAsyncWebServer.h>
 
+#include "WList.h"
 #include "WColorProperty.h"
+#include "WInput.h"
+#include "WOutput.h"
 #include "WLed.h"
 #include "WLevelIntProperty.h"
 #include "WLevelProperty.h"
@@ -36,6 +39,7 @@ class WDevice {
     this->stateNotifyInterval = 300000;
     this->mainDevice = true;
     this->lastStateWaitForResponse = false;
+    _properties = new WList<WProperty>();
   }
 
   ~WDevice() {
@@ -49,47 +53,35 @@ class WDevice {
   const char* getType() { return type; }
 
   void addProperty(WProperty* property) {
-    property->setDeviceNotification(
-        std::bind(&WDevice::onPropertyChange, this));
-    if (lastProperty == nullptr) {
-      firstProperty = property;
-      lastProperty = property;
-    } else {
-      lastProperty->next = property;
-      lastProperty = property;
-    }
+    property->setDeviceNotification(std::bind(&WDevice::onPropertyChange, this));
+    _properties->add(property);
   }
 
-  void addPin(WPin* pin) {
-    if (lastPin == nullptr) {
-      firstPin = pin;
-      lastPin = pin;
-    } else {
-      lastPin->next = pin;
-      lastPin = pin;
+  void addInput(WInput* input) {
+    if (this->inputs == nullptr) {
+      this->inputs = new WList<WInput>();
     }
+    this->inputs->add(input);
+  }
+
+  void addOutput(WOutput* output) {
+    if (this->outputs == nullptr) {
+      this->outputs = new WList<WOutput>();
+    }
+    this->outputs->add(output);
   }
 
   WProperty* getPropertyById(const char* propertyId) {
-    WProperty* property = this->firstProperty;
-    while (property != nullptr) {
-      if (strcmp(property->getId(), propertyId) == 0) {
-        return property;
-      }
-      property = property->next;
-    }
-    return nullptr;
+    return _properties->getIf([this, propertyId](WProperty* p){return p->equalsId(propertyId);});
   }
 
   virtual void toJsonValues(WJson* json, WPropertyVisibility visibility) {
-    WProperty* property = this->firstProperty;
-    while (property != nullptr) {
+    _properties->forEach([this, json, visibility](WProperty* property) {    
       if (property->isVisible(visibility)) {
         property->toJsonValue(json, false);
       }
-      property->setUnChanged();
-      property = property->next;
-    }
+      property->setUnChanged();      
+    });
   }
 
   virtual void toJsonStructure(WJson* json, const char* deviceHRef,
@@ -111,23 +103,22 @@ class WDevice {
     json->endArray();
     // properties
     json->beginObject("properties");
-    WProperty* property = this->firstProperty;
-    while (property != nullptr) {
+    _properties->forEach([this, json, result, visibility](WProperty* property) {        
       if (property->isVisible(visibility)) {
         property->toJsonStructure(json, property->getId(), result.c_str());
-      }
-      property = property->next;
-    }
+      }      
+    });
     json->endObject();
     json->endObject();
   }
 
   virtual void loop(unsigned long now) {
-    WPin* pin = this->firstPin;
-    while (pin != nullptr) {
-      pin->loop(now);
-      pin = pin->next;
+    if (this->inputs != nullptr) {
+      this->inputs->forEach([this, now](WInput* input){input->loop(now);});
     }
+    if (this->outputs != nullptr) {
+      this->outputs->forEach([this, now](WOutput* output){output->loop(now);});
+    }  
   }
 
   virtual void bindWebServerCalls(AsyncWebServer* webServer) {}
@@ -144,15 +135,8 @@ class WDevice {
 
   virtual bool off() { return false; }
 
-  virtual bool areAllPropertiesRequested() {
-    WProperty* property = this->firstProperty;
-    while (property != nullptr) {
-      if (!property->isRequested()) {
-        return false;
-      }
-      property = property->next;
-    }
-    return true;
+  virtual bool areAllPropertiesRequested() {    
+    return (_properties->getIf([this](WProperty* p){return (!p->isRequested());}) == nullptr);
   }
 
   WPropertyVisibility getVisibility() { return visibility; }
@@ -167,12 +151,13 @@ class WDevice {
 
   bool isMainDevice() { return mainDevice; }
 
-  WDevice* next = nullptr;
-  AsyncWebSocket* webSocket = nullptr;
-  WProperty* firstProperty = nullptr;
-  WProperty* lastProperty = nullptr;
-  WPin* firstPin = nullptr;
-  WPin* lastPin = nullptr;
+  WList<WProperty>* properties() {
+    return _properties;
+  }
+
+  AsyncWebSocket* webSocket = nullptr;  
+  WList<WInput>* inputs = nullptr;
+  WList<WOutput>* outputs = nullptr;
   bool lastStateWaitForResponse;
   unsigned long lastStateNotify;
   unsigned long stateNotifyInterval;
@@ -181,6 +166,7 @@ class WDevice {
   WNetwork* network;
   bool mainDevice;
   WPropertyVisibility visibility;
+  WList<WProperty>* _properties;
 
  private:
   const char* id;
