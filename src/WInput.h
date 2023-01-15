@@ -5,10 +5,11 @@
 
 class WInput {
  public:
-  WInput(int switchPin, byte mode) {
-    this->pin = pin;
-    if ((this->pin != NO_PIN) && ((mode == INPUT) || (mode == INPUT_PULLUP))) {
-      pinMode(this->pin, mode);
+  typedef std::function<void()> THandlerFunction;
+  WInput(int pin, byte mode) {
+    _pin = pin;
+    if ((_pin != NO_PIN) && ((mode == INPUT) || (mode == INPUT_PULLUP))) {
+      pinMode(_pin, mode);
     }
     this->property = nullptr;
   }
@@ -27,12 +28,12 @@ class WInput {
   virtual void loop(unsigned long now) {}
 
  protected:
-  virtual bool isInitialized() { return (pin != NO_PIN); }
+  virtual bool isInitialized() { return (_pin != NO_PIN); }
 
-  int getPin() { return pin; }
+  int pin() { return _pin; }
 
  private:
-  int pin;
+  int _pin;
   WProperty* property;
 };
 
