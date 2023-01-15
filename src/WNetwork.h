@@ -74,7 +74,7 @@ class WNetwork {
     this->updateRunning = false;
     this->restartFlag = "";
     this->deepSleepFlag = nullptr;
-    this->deepSleepSeconds = 0;
+    this->waitForWifiConnection = false;
     this->startupTime = millis();
     this->mqttClient = nullptr;
     settings = new WSettings(wlog, appSettingsFlag);
@@ -162,8 +162,7 @@ class WNetwork {
   // returns true, if no configuration mode and no own ap is opened
   bool loop(unsigned long now) {
     settings->endReadingFirstTime();
-    bool result = true;
-    bool waitForWifiConnection = (deepSleepSeconds > 0);
+    bool result = true;    
     if (!isWebServerRunning()) {
       if (WiFi.status() != WL_CONNECTED) {
         if ((!settings->existsNetworkSettings()) ||
@@ -196,6 +195,7 @@ class WNetwork {
           WiFi.setHostname(this->hostname);
 #endif
           WiFi.begin(getSsid(), getPassword());
+          
           while ((waitForWifiConnection) && (WiFi.status() != WL_CONNECTED)) {
             delay(100);
             if (millis() - now >= 5000) {
@@ -270,13 +270,21 @@ class WNetwork {
     } else if (deepSleepFlag != nullptr) {
       if (deepSleepFlag->off()) {
         // Deep Sleep
-        wlog->notice("Go to deep sleep. Bye...");
+        wlog->notice(F("Go to deep sleep. Bye..."));
         this->updateRunning = false;
         stopWebServer();
         delay(500);
-        ESP.deepSleep(deepSleepSeconds * 1000 * 1000);
-      } else {
-        deepSleepFlag = nullptr;
+        if (deepSleepFlag->deepSleepSeconds() > 0) {
+          ESP.deepSleep(deepSleepFlag->deepSleepSeconds() * 1000 * 1000);
+        } else if (deepSleepFlag->deepSleepMode() == DEEP_SLEEP_GPIO_HIGH) {
+          esp_sleep_enable_ext0_wakeup(deepSleepFlag->deepSleepGPIO(), HIGH);
+          esp_deep_sleep_start();
+        } else if (deepSleepFlag->deepSleepMode() == DEEP_SLEEP_GPIO_LOW) {  
+          esp_sleep_enable_ext0_wakeup(deepSleepFlag->deepSleepGPIO(), LOW);
+          esp_deep_sleep_start();
+        } else {
+          wlog->notice(F("Going to deep sleep failed. Seconds or GPIO missing..."));
+        }
       }
     }
     return result;
@@ -523,8 +531,6 @@ class WNetwork {
 
   AsyncWebServer *getWebServer() { return this->webServer; }
 
-  void setDeepSleepSeconds(int dsp) { this->deepSleepSeconds = dsp; }
-
   WStringStream *getResponseStream() {
     if (responseStream == nullptr) {
       responseStream = new WStringStream(SIZE_JSON_PACKET);
@@ -571,6 +577,7 @@ class WNetwork {
 
   void restart() { this->restart(nullptr, "Restart..."); }
 
+  bool waitForWifiConnection;
  private:
   WLog *wlog;
   WList<WDevice>* _devices;
@@ -600,14 +607,13 @@ class WNetwork {
   WLed *statusLed;
   bool statusLedOnIfConnected;
   WSettings *settings;
-  WDevice *deepSleepFlag;
-  int deepSleepSeconds;
+  WDevice *deepSleepFlag;  
   unsigned long startupTime;
   char body_data[ESP_MAX_PUT_BODY_SIZE];
   bool b_has_body_data = false;
   Print *debuggingOutput;
   bool initialMqttSent;
-  bool lastWillEnabled;
+  bool lastWillEnabled;  
 
   void handleDeviceStateChange(WDevice *device, bool complete) {
     wlog->notice(F("Device state changed -> send device state..."));
@@ -662,8 +668,8 @@ class WNetwork {
       }
 
       device->lastStateNotify = millis();
-      if ((deepSleepSeconds > 0) && ((!this->isSupportingWebThing()) ||
-                                     (device->areAllPropertiesRequested()))) {
+      if ((device->deepSleepMode() != DEEP_SLEEP_NONE) && ((!this->isSupportingWebThing()) ||
+                                     (device->areAllPropertiesRequested()))) {                        
         deepSleepFlag = device;
       }
     }
@@ -811,7 +817,7 @@ class WNetwork {
 
       if (connected) {  //(mqttPassword != "" ? mqttPassword.c_str() : NULL))) {
         wlog->notice(F("Connected to MQTT server."));
-        if (this->deepSleepSeconds == 0) {
+        //if (this->deepSleepSeconds == 0) {
           // Send device structure and status
           mqttClient->subscribe("devices/#");
           _devices->forEach([this](WDevice* device) {                     
@@ -832,7 +838,7 @@ class WNetwork {
             mqttClient->publish(topic.c_str(), response->c_str(), false);            
           });
           mqttClient->unsubscribe("devices/#");
-        }
+        //}
         // Subscribe to device specific topic
         mqttClient->subscribe(
             String(String(getMqttBaseTopic()) + "/#").c_str());
@@ -1202,6 +1208,7 @@ class WNetwork {
   }
 
   void handleHttpFirmwareUpdateFinished(AsyncWebServerRequest *request) {
+    settings->save();
     if (Update.hasError()) {
       this->restart(request, firmwareUpdateError);
     } else {
@@ -1403,14 +1410,14 @@ class WNetwork {
       // wlog->notice(F("getPropertyValue %s"), response->c_str());
       request->send(response);
 
-      if (deepSleepSeconds > 0) {
+      /*if (deepSleepSeconds > 0) {
         _devices->forEach([this](WDevice* device) {                   
           if ((deepSleepFlag == nullptr) &&
               ((!this->isSupportingWebThing()) || (device->areAllPropertiesRequested()))) {
             deepSleepFlag = device;
           }          
         });
-      }
+      }*/
     }
   }
 

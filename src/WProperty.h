@@ -519,6 +519,7 @@ class WProperty {
         json->propertyByteArray(memberName, getLength(), value.asByteArray);
         break;
     }
+    this->requested = true;
   }
 
   virtual void toJsonStructure(WJson* json, const char* memberName,
@@ -822,10 +823,8 @@ class WProperty {
       notifying = true;
       if (onChange) {
         //Custom change handling
-        Serial.println("handle onChange");
         onChange(this);
       } else if (_outputs != nullptr) {
-        Serial.println("handled by output");
         //Let the output handle the change
         _outputs->forEach([this](WOutput* output){output->handleChangedProperty(this->value);});
 	    }

@@ -23,6 +23,13 @@ const char* DEVICE_TYPE_MULTI_LEVEL_SENSOR = "MultiLevelSensor";
 const char* DEVICE_TYPE_MULTI_LEVEL_SWITCH = "MultiLevelSwitch";
 const char* DEVICE_TYPE_RADIO = "Radio";
 
+enum WDeepSleepMode {
+  DEEP_SLEEP_NONE,
+  DEEP_SLEEP_SECONDS,
+  DEEP_SLEEP_GPIO_LOW,
+  DEEP_SLEEP_GPIO_HIGH
+};
+
 class WNetwork;
 
 class WDevice {
@@ -72,7 +79,9 @@ class WDevice {
   }
 
   WProperty* getPropertyById(const char* propertyId) {
-    return _properties->getIf([this, propertyId](WProperty* p){return p->equalsId(propertyId);});
+    return _properties->getIf([this, propertyId](WProperty* p){
+      return p->equalsId(propertyId);
+    });
   }
 
   virtual void toJsonValues(WJson* json, WPropertyVisibility visibility) {
@@ -161,6 +170,12 @@ class WDevice {
   bool lastStateWaitForResponse;
   unsigned long lastStateNotify;
   unsigned long stateNotifyInterval;
+
+  virtual WDeepSleepMode deepSleepMode() { return DEEP_SLEEP_NONE; }
+
+  virtual int deepSleepSeconds() { return 0; }
+
+  virtual gpio_num_t deepSleepGPIO() { return GPIO_NUM_0; }
 
  protected:
   WNetwork* network;
