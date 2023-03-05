@@ -1,5 +1,7 @@
 # WAdapter
 
+[![GitHub version](https://img.shields.io/github/release/klausahrenberg/WAdapter.svg)](https://github.com/klausahrenberg/WAdapter/releases/latest)
+
 Network management tools for ESP8266 and ESP32 programming
 * Supports devices and properties
 * Devices can be configured via Web-Interface
