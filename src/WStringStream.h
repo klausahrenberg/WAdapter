@@ -6,53 +6,53 @@
 class WStringStream : public Stream {
 public:
   WStringStream(unsigned int maxLength) {
-  	this->maxLength = maxLength;
-  	this->string = new char[maxLength + 1];
+  	_maxLength = maxLength;
+  	_string = new char[maxLength + 1];
   	this->flush();
   }
 
   ~WStringStream() {
-  	if (this->string) {
-  		delete[] this->string;
+  	if (_string) {
+  		delete[] _string;
   	}
   }
 
   // Stream methods
   virtual int available() {
-  	return getMaxLength() - position;
+  	return maxLength() - _position;
   }
 
   virtual int read() {
-  	if (position > 0) {
-  		char c = string[0];
-  		for (int i = 1; i <= position; i++) {
-  			string[i - 1] = string[i];
+  	if (_position > 0) {
+  		char c = _string[0];
+  		for (int i = 1; i <= _position; i++) {
+  			_string[i - 1] = _string[i];
   		}
-		position--;
+		_position--;
   		return c;
   	}
   	return -1;
   }
 
   virtual int peek() {
-  	if (position > 0) {
-  	    char c = string[0];
+  	if (_position > 0) {
+  	    char c = _string[0];
   	    return c;
   	}
   	return -1;
   }
 
   virtual void flush() {
-  	this->position = 0;
-  	this->string[0] = '\0';
+  	_position = 0;
+  	_string[0] = '\0';
   }
 
   // Print methods
   virtual size_t write(uint8_t c) {
-  	if (position < maxLength) {
-  		string[position] = (char) c;
-  		position++;
-  		string[position] = '\0';
+  	if (_position < _maxLength) {
+  		_string[_position] = (char) c;
+  		_position++;
+  		_string[_position] = '\0';
   		return 1;
   	} else {
   		return 0;
@@ -60,15 +60,15 @@ public:
   }
 
   unsigned int length() {
-    return this->position;
+    return _position;
   }
 
-  unsigned int getMaxLength() {
-  	return this->maxLength;
+  unsigned int maxLength() {
+  	return _maxLength;
   }
 
   char charAt(int index) {
-  	return this->string[index];
+  	return _string[index];
   }
 
   template<class T, typename ... Args> size_t printAndReplace(T msg, ...) {
@@ -79,7 +79,7 @@ public:
   }
 
   const char* c_str() {
-  	return this->string;
+  	return _string;
   }
 
   size_t printAndReplaceImpl(const __FlashStringHelper *format, va_list args) {
@@ -100,9 +100,9 @@ public:
 	}
 
 private:
-  char* string;
-  unsigned int maxLength;
-  unsigned int position;
+  char* _string;
+  unsigned int _maxLength;
+  unsigned int _position;
 
   size_t printFormat(const char c, va_list *args) {
     size_t n = 0;

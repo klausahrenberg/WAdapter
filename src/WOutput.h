@@ -55,6 +55,14 @@ class WOutput {
 
   virtual void loop(unsigned long now) {}
 
+  virtual byte countModes() { return 0;}
+
+  virtual const char* modeTitle(byte index) { return ""; }
+
+  virtual byte mode() { return 0;}
+
+  virtual void setMode(byte index) {}
+
  protected:
   virtual bool isInitialized() { return (_pin != NO_PIN); }
 

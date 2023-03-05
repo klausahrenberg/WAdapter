@@ -14,7 +14,7 @@ const byte LED_OFF = LOW;
 class WLed : public WOutput {
  public:
   WLed(int ledPin) : WOutput(ledPin) {
-    this->blinkMillis = 0;    
+    _blinkMillis = 0;    
     _inverted = false;
     if (this->isInitialized()) {
       digitalWrite(this->pin(), getOffLevel());
@@ -22,27 +22,27 @@ class WLed : public WOutput {
   }  
 
   void onChanged() {
-    this->blinkOn = false;
-    this->lastBlinkOn = 0;
+    _blinkOn = false;
+    _lastBlinkOn = 0;
   };
 
   void setOn(bool ledOn, int blinkMillis) {
-    if ((this->isOn()) && (this->blinkMillis != blinkMillis)) {
+    if ((this->isOn()) && (_blinkMillis != blinkMillis)) {
       WOutput::setOn(false);
     }
-    this->blinkMillis = blinkMillis;
+    _blinkMillis = blinkMillis;
     WOutput::setOn(ledOn);
   }
 
-  bool isBlinking() { return (this->blinkMillis > 0); }
+  bool isBlinking() { return (_blinkMillis > 0); }
 
   void loop(unsigned long now) {
     if (isOn()) {
       if (isBlinking()) {
-        if ((lastBlinkOn == 0) || (now - lastBlinkOn > this->blinkMillis)) {
-          blinkOn = !blinkOn;
-          lastBlinkOn = now;
-          digitalWrite(this->pin(), blinkOn ? getOnLevel() : getOffLevel());
+        if ((_lastBlinkOn == 0) || (now - _lastBlinkOn > _blinkMillis)) {
+          _blinkOn = !_blinkOn;
+          _lastBlinkOn = now;
+          digitalWrite(this->pin(), _blinkOn ? getOnLevel() : getOffLevel());
         }
       } else {
         digitalWrite(this->pin(), getOnLevel());
@@ -51,10 +51,6 @@ class WLed : public WOutput {
       // switchoff
       digitalWrite(this->pin(), getOffLevel());
     }
-    /*if ((this->isInitialized()) && (getProperty() != nullptr)) {
-            digitalWrite(this->getPin(), getProperty()->getBoolean() ? LED_ON :
-    LED_OFF);
-    }*/
   }
 
   bool inverted() { return _inverted; }
@@ -67,8 +63,8 @@ class WLed : public WOutput {
   byte getOffLevel() { return !getOnLevel(); }
 
  private:
-  bool blinkOn, _inverted;
-  unsigned long blinkMillis, lastBlinkOn;
+  bool _blinkOn, _inverted;
+  unsigned long _blinkMillis, _lastBlinkOn;
 };
 
 #endif

@@ -11,19 +11,19 @@ class WInput {
     if ((_pin != NO_PIN) && ((mode == INPUT) || (mode == INPUT_PULLUP))) {
       pinMode(_pin, mode);
     }
-    this->property = nullptr;
+    _property = nullptr;
   }
 
-  WProperty* getProperty() { return property; }
+  WProperty* property() { return _property; }
 
   void setProperty(WProperty* property) {
-    if (this->property != property) {
-      this->property = property;
+    if (_property != property) {
+      _property = property;
       this->loop(millis());
     }
   }
 
-  bool hasProperty() { return (this->property != nullptr); }
+  bool hasProperty() { return (_property != nullptr); }
 
   virtual void loop(unsigned long now) {}
 
@@ -34,7 +34,7 @@ class WInput {
 
  private:
   int _pin;
-  WProperty* property;
+  WProperty* _property;
 };
 
 #endif

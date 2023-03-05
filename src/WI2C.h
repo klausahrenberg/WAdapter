@@ -1,15 +1,15 @@
 #ifndef W_I2C_H
 #define W_I2C_H
 
-#include "WPin.h"
+#include "WInput.h"
 
-class WI2C: public WPin {
+class WI2C: public WInput {
 public:
 	WI2C(byte address, int sda, int scl, int interrupt)
-			: WPin(interrupt, INPUT_PULLUP) {
-		this->address = address;
-		this->sda = sda;
-		this->scl = scl;
+			: WInput(interrupt, INPUT_PULLUP) {
+		_address = address;
+		_sda = sda;
+		_scl = scl;
 		if (this->isInitialized()) {
 			Wire.begin(sda, scl);
 		}
@@ -29,9 +29,9 @@ protected:
 	}
 
 private:
-	byte address;
-	int sda;
-	int scl;
+	byte _address;
+	int _sda;
+	int _scl;
 };
 
 #endif

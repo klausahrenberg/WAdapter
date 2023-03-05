@@ -1,18 +1,18 @@
 #ifndef W_PWM_DIMMER_H
 #define W_PWM_DIMMER_H
 
-#include "WPin.h"
+#include "WOutput.h"
 
-class WPwmDimmer: public WPin {
+class WPwmDimmer: public WOutput {
 public:
 	#ifdef ESP8266
 	WPwmDimmer(int pwmPin, byte pwmChannel = 0)
-	: WPin(pwmPin, OUTPUT) {
+	: WOutput(pwmPin, OUTPUT) {
 	#elif ESP32
 	WPwmDimmer(int pwmPin, byte pwmChannel = 0)
-	: WPin(pwmPin, NO_MODE) {
+	: WOutput(pwmPin, NO_MODE) {
 	#endif
-		this->pwmChannel = pwmChannel;
+		_pwmChannel = pwmChannel;
 		if (this->isInitialized()) {
 			#ifdef ESP8266
 			analogWrite(this->getPin(), 0);
@@ -22,9 +22,9 @@ public:
 			ledcWrite(this->pwmChannel, 0);
 			#endif
 		}
-		brightness = 0;
-		changeBrightness = false;
-		changeProperty = false;
+		_brightness = 0;
+		_changeBrightness = false;
+		_changeProperty = false;
 	}
 
 	bool isOn() {
@@ -32,34 +32,34 @@ public:
 	}
 
 	void loop(unsigned long now) {
-		if ((this->isInitialized()) && (getProperty() != nullptr) && ((getProperty()->getBoolean() != changeProperty) || (changeBrightness == true))) {
+		if ((this->isInitialized()) && (getProperty() != nullptr) && ((getProperty()->getBoolean() != _changeProperty) || (_changeBrightness == true))) {
 			#ifdef ESP8266
-			analogWrite(this->getPin(), getProperty()->getBoolean() ? getBrigthness() : 0);
+			analogWrite(this->getPin(), getProperty()->getBoolean() ? brigthness() : 0);
 			#elif ESP32
-			ledcWrite(this->pwmChannel, getProperty()->getBoolean() ? getBrigthness() : 0);
+			ledcWrite(_pwmChannel, getProperty()->getBoolean() ? brigthness() : 0);
 			#endif
-			changeBrightness = false;
-			changeProperty = getProperty()->getBoolean();
+			_changeBrightness = false;
+			_changeProperty = getProperty()->getBoolean();
 		}
 	}
 
-	int getBrigthness() {
-		return this->brightness;
+	int brigthness() {
+		return _brightness;
 	}
 
 	void setBrightness(int brightness) {
-		if (this->brightness != brightness) {
-			changeBrightness = true;
-			this->brightness = brightness;
+		if (_brightness != brightness) {
+			_changeBrightness = true;
+			_brightness = brightness;
 		}
 	}
 protected:
 
 private:
-	byte pwmChannel;
-	int brightness;
-	bool changeBrightness;
-	bool changeProperty;
+	byte _pwmChannel;
+	int _brightness;
+	bool _changeBrightness;
+	bool _changeProperty;
 
 };
 

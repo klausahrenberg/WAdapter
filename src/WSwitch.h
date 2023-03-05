@@ -20,11 +20,11 @@ public:
 		_startTime = 0;
 		_longPressStartTime = 0;
 		_inverted = inverted;
-		triggerProperty = nullptr;
-		this->mode = mode;
+		_triggerProperty = nullptr;
+		_mode = mode;
 		if (this->isInitialized()) {
-			state = digitalRead(this->pin());
-			lastState = state;
+			_state = digitalRead(this->pin());
+			_lastState = _state;
 		}
 	}
 	
@@ -33,26 +33,26 @@ public:
 			//1. Eliminate flickering input
 			bool stateChanged = false;
 			bool newState = digitalRead(this->pin());					
-			bool expectedPegel = (this->mode == MODE_SWITCH ? !state : getOnLevel());
-			unsigned long sensitiveness = (this->mode == MODE_SWITCH ? SWITCH_SENSITIVENESS : BUTTON_SENSITIVENESS);
+			bool expectedPegel = (_mode == MODE_SWITCH ? !_state : getOnLevel());
+			unsigned long sensitiveness = (_mode == MODE_SWITCH ? SWITCH_SENSITIVENESS : BUTTON_SENSITIVENESS);
 
-			if ((newState != lastState) && (_startTime == 0)) {
+			if ((newState != _lastState) && (_startTime == 0)) {
 				_startTime = now;	
-			} else if ((newState == state) && (_startTime > 0)) {
+			} else if ((newState == _state) && (_startTime > 0)) {
 				_startTime = now;
-			} else if ((newState != state) && (now - _startTime >= sensitiveness)) {
+			} else if ((newState != _state) && (now - _startTime >= sensitiveness)) {
 				stateChanged = true;	
 			}
 
-			lastState = newState;
+			_lastState = newState;
 			//2. If state really changed, now switch logic
 			if (stateChanged) {
-				state = !state;
+				_state = !_state;
 				_startTime = 0;
-				if (state == expectedPegel) {					
-					if (this->mode != MODE_SWITCH) {
+				if (_state == expectedPegel) {					
+					if (_mode != MODE_SWITCH) {
 						//Button handling
-						if (this->mode == MODE_BUTTON) {
+						if (_mode == MODE_BUTTON) {
 							//Button
 							handleButtonOrSwitchPressed();
 							_longPressStartTime = 0;
@@ -65,10 +65,10 @@ public:
 						_longPressStartTime = 0;
 					}
 				} else {					
-					if (this->mode == MODE_SWITCH) {
+					if (_mode == MODE_SWITCH) {
 						//Switch handling
 						handleButtonOrSwitchPressed();
-					}	else if ((this->mode == MODE_BUTTON_LONG_PRESS) && (_longPressStartTime >0) && (now - _longPressStartTime < SWICTH_LONG_PRESS_DURATION)) {
+					}	else if ((_mode == MODE_BUTTON_LONG_PRESS) && (_longPressStartTime >0) && (now - _longPressStartTime < SWICTH_LONG_PRESS_DURATION)) {
 						//Long press button was released before long press time
 						handleButtonOrSwitchPressed();						
 					}
@@ -78,7 +78,7 @@ public:
 				//3. If state not changed, reset trigger and handle long press buttons
 				setTriggerValue(false);
 				//Long press time is up				
-				if ((this->mode == MODE_BUTTON_LONG_PRESS) && (_longPressStartTime > 0) && (now - _longPressStartTime >= SWICTH_LONG_PRESS_DURATION)) {
+				if ((_mode == MODE_BUTTON_LONG_PRESS) && (_longPressStartTime > 0) && (now - _longPressStartTime >= SWICTH_LONG_PRESS_DURATION)) {
 					handleLongButtonPressed();
 					_longPressStartTime = 0;
 				}
@@ -87,42 +87,42 @@ public:
 	}
 
 	bool isLongPressing() {
-		return ((this->mode == MODE_BUTTON_LONG_PRESS) && (_longPressStartTime > 0));
+		return ((_mode == MODE_BUTTON_LONG_PRESS) && (_longPressStartTime > 0));
 	}
 
 	void handleButtonOrSwitchPressed() {
 
 		setTriggerValue(true);
-		if (getProperty() != nullptr) {
-			getProperty()->setBoolean(!getProperty()->getBoolean());
+		if (property() != nullptr) {
+			property()->setBoolean(!property()->getBoolean());
 		}
-		if (onPressed) {
-			onPressed();
+		if (_onPressed) {
+			_onPressed();
 		}
 	}
 
 	void handleLongButtonPressed() {
-		if (onLongPressed) {
-			onLongPressed();
+		if (_onLongPressed) {
+			_onLongPressed();
 		}
 	}
 
 	void setOnPressed(THandlerFunction onPressed) {
-		this->onPressed = onPressed;
+		_onPressed = onPressed;
 	}
 
 	void setOnLongPressed(THandlerFunction onLongPressed) {
-		this->onLongPressed = onLongPressed;
+		_onLongPressed = onLongPressed;
 	}
 
 	void setTriggerProperty(WProperty* triggerProperty) {
-		if (this->triggerProperty != triggerProperty) {
-			this->triggerProperty = triggerProperty;
+		if (_triggerProperty != triggerProperty) {
+			_triggerProperty = triggerProperty;
 		}
 	}
 
 	bool hasTriggerProperty() {
-		return (this->triggerProperty != nullptr);
+		return (_triggerProperty != nullptr);
 	}
 
 protected:
@@ -136,16 +136,16 @@ protected:
 	}
 
 private:
-	THandlerFunction onPressed;
-	THandlerFunction onLongPressed;
-	byte mode;
-	bool state, lastState, _inverted;
+	THandlerFunction _onPressed;
+	THandlerFunction _onLongPressed;
+	byte _mode;
+	bool _state, _lastState, _inverted;
 	unsigned long _startTime, _longPressStartTime;
-	WProperty* triggerProperty;
+	WProperty* _triggerProperty;
 
 	void setTriggerValue(bool triggered) {
-		if (triggerProperty != nullptr) {
-			triggerProperty->setBoolean(triggered);
+		if (_triggerProperty != nullptr) {
+			_triggerProperty->setBoolean(triggered);
 		}
 	}
 

@@ -1,8 +1,6 @@
 #ifndef W_DEVICE_H
 #define W_DEVICE_H
 
-#include <ESPAsyncWebServer.h>
-
 #include "WList.h"
 #include "WColorProperty.h"
 #include "WInput.h"
@@ -34,30 +32,26 @@ class WNetwork;
 
 class WDevice {
  public:
-  WDevice(WNetwork* network, const char* id, const char* name, const char* type,
+  WDevice(WNetwork* network, const char* id, const char* title, const char* type,
           const char* alternativeType = nullptr) {
-    this->network = network;
-    this->id = id;
-    this->name = name;
-    this->type = type;
-    this->alternativeType = alternativeType;
-    this->visibility = ALL;
-    this->lastStateNotify = 0;
-    this->stateNotifyInterval = 300000;
-    this->mainDevice = true;
-    this->lastStateWaitForResponse = false;
+    _network = network;
+    _id = id;
+    _title = title;
+    _type = type;
+    _alternativeType = alternativeType;
+    _visibility = ALL;
+    _lastStateNotify = 0;
+    _stateNotifyInterval = 300000;
+    _mainDevice = true;
+    _lastStateWaitForResponse = false;
     _properties = new WList<WProperty>();
   }
 
-  ~WDevice() {
-    // if (webSocket) delete webSocket;
-  }
+  const char* id() { return _id; }
 
-  const char* getId() { return id; }
+  const char* title() { return _title; }
 
-  const char* getName() { return name; }
-
-  const char* getType() { return type; }
+  const char* type() { return _type; }
 
   void addProperty(WProperty* property) {
     property->setDeviceNotification(std::bind(&WDevice::onPropertyChange, this));
@@ -65,17 +59,17 @@ class WDevice {
   }
 
   void addInput(WInput* input) {
-    if (this->inputs == nullptr) {
-      this->inputs = new WList<WInput>();
+    if (_inputs == nullptr) {
+      _inputs = new WList<WInput>();
     }
-    this->inputs->add(input);
+    _inputs->add(input);
   }
 
   void addOutput(WOutput* output) {
-    if (this->outputs == nullptr) {
-      this->outputs = new WList<WOutput>();
+    if (_outputs == nullptr) {
+      _outputs = new WList<WOutput>();
     }
-    this->outputs->add(output);
+    _outputs->add(output);
   }
 
   WProperty* getPropertyById(const char* propertyId) {
@@ -96,25 +90,25 @@ class WDevice {
   virtual void toJsonStructure(WJson* json, const char* deviceHRef,
                                WPropertyVisibility visibility) {
     json->beginObject();
-    json->propertyString("id", this->getId());
-    json->propertyString("title", this->getName());
+    json->propertyString("id", this->id());
+    json->propertyString("title", this->title());
     String result(deviceHRef);
     result.concat("/things/");
-    result.concat(this->getId());
+    result.concat(this->id());
     json->propertyString("href", result.c_str());
     json->propertyString("@context", "https://iot.mozilla.org/schemas");
     // type
     json->beginArray("@type");
-    json->string(getType());
-    if (alternativeType != nullptr) {
-      json->string(alternativeType);
+    json->string(type());
+    if (_alternativeType != nullptr) {
+      json->string(_alternativeType);
     }
     json->endArray();
     // properties
     json->beginObject("properties");
     _properties->forEach([this, json, result, visibility](WProperty* property) {        
       if (property->isVisible(visibility)) {
-        property->toJsonStructure(json, property->getId(), result.c_str());
+        property->toJsonStructure(json, property->id(), result.c_str());
       }      
     });
     json->endObject();
@@ -122,11 +116,11 @@ class WDevice {
   }
 
   virtual void loop(unsigned long now) {
-    if (this->inputs != nullptr) {
-      this->inputs->forEach([this, now](WInput* input){input->loop(now);});
+    if (_inputs != nullptr) {
+      _inputs->forEach([this, now](WInput* input){input->loop(now);});
     }
-    if (this->outputs != nullptr) {
-      this->outputs->forEach([this, now](WOutput* output){output->loop(now);});
+    if (_outputs != nullptr) {
+      _outputs->forEach([this, now](WOutput* output){output->loop(now);});
     }  
   }
 
@@ -148,48 +142,66 @@ class WDevice {
     return (_properties->getIf([this](WProperty* p){return (!p->isRequested());}) == nullptr);
   }
 
-  WPropertyVisibility getVisibility() { return visibility; }
+  WPropertyVisibility visibility() { return _visibility; }
 
   void setVisibility(WPropertyVisibility visibility) {
-    this->visibility = visibility;
+    _visibility = visibility;
   }
 
   bool isVisible(WPropertyVisibility visibility) {
-    return ((this->visibility == ALL) || (this->visibility == visibility));
+    return ((_visibility == ALL) || (_visibility == visibility));
   }
 
-  bool isMainDevice() { return mainDevice; }
+  bool isMainDevice() { return _mainDevice; }
+
+  void setMainDevice(bool mainDevice) { _mainDevice = mainDevice; }
 
   WList<WProperty>* properties() {
     return _properties;
-  }
-
-  AsyncWebSocket* webSocket = nullptr;  
-  WList<WInput>* inputs = nullptr;
-  WList<WOutput>* outputs = nullptr;
-  bool lastStateWaitForResponse;
-  unsigned long lastStateNotify;
-  unsigned long stateNotifyInterval;
+  }  
 
   virtual WDeepSleepMode deepSleepMode() { return DEEP_SLEEP_NONE; }
 
   virtual int deepSleepSeconds() { return 0; }
 
-  virtual gpio_num_t deepSleepGPIO() { return GPIO_NUM_0; }
+  virtual int deepSleepGPIO() { return NO_PIN; }
 
- protected:
-  WNetwork* network;
-  bool mainDevice;
-  WPropertyVisibility visibility;
-  WList<WProperty>* _properties;
+  WNetwork* network() { return _network; }
+
+  unsigned long lastStateNotify() { return _lastStateNotify; }
+
+  void setLastStateNotify(unsigned long lastStateNotify) { _lastStateNotify = lastStateNotify; }
+
+  unsigned long stateNotifyInterval() { return _stateNotifyInterval; }
+
+  bool needsWebThings() {
+    bool result = false;
+    WIterator<WProperty>* it_p = _properties->iterator();
+    while ((!result) && (it_p->hasNext())) {
+      WProperty* p = it_p->next();
+      result = ((p->visibility() == WPropertyVisibility::WEBTHING) || (p->visibility() == WPropertyVisibility::ALL));
+    } 
+    return result;
+  }  
+
+ protected:  
 
  private:
-  const char* id;
-  const char* name;
-  const char* type;
-  const char* alternativeType;
+  WNetwork* _network;
+  bool _mainDevice;
+  WPropertyVisibility _visibility;
+  WList<WProperty>* _properties;
+  const char* _id;
+  const char* _title;
+  const char* _type;
+  const char* _alternativeType;
+  unsigned long _lastStateNotify;
+  unsigned long _stateNotifyInterval;
+  bool _lastStateWaitForResponse;
+  WList<WInput>* _inputs = nullptr;
+  WList<WOutput>* _outputs = nullptr;  
 
-  void onPropertyChange() { this->lastStateNotify = 0; }
+  void onPropertyChange() { _lastStateNotify = 0; }
 };
 
 #endif

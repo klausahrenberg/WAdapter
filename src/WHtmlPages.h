@@ -264,9 +264,13 @@ const static char HTTP_COMBOBOX_END[] PROGMEM = R"=====(
 
 class WHtml {
  public:
-  static void comboBoxItem(Print* page, const char* title, const char* value, bool selected) {
-    page->printf(HTTP_COMBOBOX_ITEM, value, (selected ? HTTP_SELECTED : ""),
-                 title);
+
+	static void checkBox(Print* page, const char* id, const char* title, const char* value, bool checked) {
+		page->printf(HTTP_CHECKBOX_OPTION, id, id, (checked ? HTTP_CHECKED : ""), "", title);
+	}
+
+	static void comboBoxItem(Print* page, const char* title, const char* value, bool selected) {
+    page->printf(HTTP_COMBOBOX_ITEM, value, (selected ? HTTP_SELECTED : ""), title);
   }
 
   static void textField(Print* page, const char* fieldName, const char* title, byte maxLength, const char* value) {

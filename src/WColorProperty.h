@@ -4,105 +4,103 @@
 #include "WProperty.h"
 #include "WStringStream.h"
 
-class WColorProperty: public WProperty {
-public:
-	WColorProperty(const char* id, const char* title, byte red, byte green, byte blue)
-	: WProperty(id, title, STRING, TYPE_COLOR_PROPERTY) {
-		this->setRGB(red, green, blue);
-		this->changeValue = false;
-	}
+class WColorProperty : public WProperty {
+ public:
+  WColorProperty(const char* id, const char* title, byte red, byte green, byte blue)
+      : WProperty(id, title, STRING, TYPE_COLOR_PROPERTY) {
+    _red = red;
+    _green = green;
+    _blue = blue;      
+    setRGBString();
+    //this->setRGB(red, green, blue);
+    _changeValue = false;
+  }
 
-	byte getRed() {
-		return this->red;
-	}
+  byte red() { return _red; }
 
-	byte getGreen() {
-		return this->green;
-	}
+  byte green() { return _green; }
 
-	byte getBlue() {
-		return this->blue;
-	}
+  byte blue() { return _blue; }
 
-	void setRGB(byte red, byte green, byte blue) {
-		if ((this->red != red) || (this->green != green) || (this->blue != blue)) {
-			this->red = red;
-			this->green = green;
-			this->blue = blue;	
-			setRGBString();		
-		}		
-	}
+  void setRGB(byte red, byte green, byte blue) {      
+    if ((_red != red) || (_green != green) || (_blue != blue)) {
+      _red = red;
+      _green = green;
+      _blue = blue;      
+      setRGBString();
+    }
+  }
 
-	void setRGBString() {
-		WStringStream result(7);
-		result.print("#");
-		char buffer[2];
-		itoa(red, buffer, 16);
-		if (red < 0x10) result.print("0");
-		result.print(buffer);
-		itoa(green, buffer, 16);
-		if (green < 0x10) result.print("0");
-		result.print(buffer);
-		itoa(blue, buffer, 16);
-		if (blue < 0x10) result.print("0");
-		result.print(buffer);
-		this->changeValue = true;
-		setString(result.c_str());
-		this->changeValue = false;
-	}
+  void setRGBString() {
+    WStringStream result(7);
+    result.print("#");
+    char buffer[3];    
+    itoa(_red, buffer, 16);    
+    if (_red < 0x10) result.print("0");
+    result.print(buffer);
+    itoa(_green, buffer, 16);
+    if (_green < 0x10) result.print("0");
+    result.print(buffer);
+    itoa(_blue, buffer, 16);
+    if (_blue < 0x10) result.print("0");
+    result.print(buffer);
+    _changeValue = true;
+    setString(result.c_str());
+    _changeValue = false;
+  }
 
-	void parseRGBString() {
-		char buffer[3];
-		buffer[2] = '\0';
-		buffer[0] = c_str()[1];
-		buffer[1] = c_str()[2];
-		this->red = strtol(buffer, NULL, 16);
-		buffer[0] = c_str()[3];
-		buffer[1] = c_str()[4];
-		this->green = strtol(buffer, NULL, 16);
-		buffer[0] = c_str()[5];
-		buffer[1] = c_str()[6];
-		this->blue = strtol(buffer, NULL, 16);
-	}
+  void parseRGBString() {
+    char buffer[3];
+    buffer[2] = '\0';
+    buffer[0] = c_str()[1];
+    buffer[1] = c_str()[2];
+    _red = strtol(buffer, NULL, 16);
+    buffer[0] = c_str()[3];
+    buffer[1] = c_str()[4];
+    _green = strtol(buffer, NULL, 16);
+    buffer[0] = c_str()[5];
+    buffer[1] = c_str()[6];
+    _blue = strtol(buffer, NULL, 16);
+  }
 
-	bool parse(String value) {
-		if ((!isReadOnly()) && (value != nullptr)) {
-			if ((value.startsWith("#")) && (value.length() == 7)) {
-				setString(value.c_str());
-				return true;
-			} else if ((value.startsWith("rgb(")) && (value.endsWith(")"))) {
-				value = value.substring(4, value.length() - 1);
-				int theComma;
-				//red
-				byte red = 0;
-				if ((theComma = value.indexOf(",")) > -1) {
-					red = value.substring(0, theComma).toInt();
-					value = value.substring(theComma + 1);
-				}
-				//green
-				byte green = 0;
-				if ((theComma = value.indexOf(",")) > -1) {
-					green = value.substring(0, theComma).toInt();
-					value = value.substring(theComma + 1);
-				}
-				//blue
-				byte blue = value.toInt();
-				setRGB(red, green, blue);
-			}
-		}
-		return false;
-	}
+  bool parse(String value) {
+    if ((!isReadOnly()) && (value != nullptr)) {
+      if ((value.startsWith("#")) && (value.length() == 7)) {
+        setString(value.c_str());
+        return true;
+      } else if ((value.startsWith("rgb(")) && (value.endsWith(")"))) {
+        value = value.substring(4, value.length() - 1);
+        int theComma;
+        // red
+        byte red = 0;
+        if ((theComma = value.indexOf(",")) > -1) {
+          red = value.substring(0, theComma).toInt();
+          value = value.substring(theComma + 1);
+        }
+        // green
+        byte green = 0;
+        if ((theComma = value.indexOf(",")) > -1) {
+          green = value.substring(0, theComma).toInt();
+          value = value.substring(theComma + 1);
+        }
+        // blue
+        byte blue = value.toInt();
+        setRGB(red, green, blue);
+      }
+    }
+    return false;
+  }
 
+ protected:
+  virtual void valueChanged() {
+    if (!_changeValue) {
+      parseRGBString();
+    }
+  }
 
-protected:
-	virtual void valueChanged() {
-		if (!changeValue) {
-			parseRGBString();
-		}
-	}
-private:
-	bool changeValue;
-	byte red, green, blue;
+ private:
+  bool _changeValue;
+  byte _red, _green, _blue;
 };
 
 #endif
