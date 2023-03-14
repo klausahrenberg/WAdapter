@@ -4,3 +4,4 @@
 # Precompiled Headers
 *.gch
 *.pch
+.gitignore

@@ -1,37 +1,42 @@
 #ifndef W_I2C_H
 #define W_I2C_H
 
+#include <Wire.h>
 #include "WInput.h"
 
 class WI2C: public WInput {
 public:
-	WI2C(byte address, int sda, int scl, int interrupt)
+	WI2C(byte address, int sda, int scl, int interrupt, TwoWire &i2cPort = Wire)
 			: WInput(interrupt, INPUT_PULLUP) {
+		_i2cPort = &i2cPort;
 		_address = address;
 		_sda = sda;
 		_scl = scl;
 		if (this->isInitialized()) {
-			Wire.begin(sda, scl);
+			_i2cPort->begin(_sda, _scl);
 		}
-
 	}
 
-	byte getAddress() {
-		return this->address;
+	byte address() {
+		return _address;
 	}
 
 	virtual void loop(unsigned long now) {
+		WInput::loop(now);
 	}
 
 protected:
-	bool isInitialized() {
-		return ((sda != NO_PIN) && (scl != NO_PIN));
-	}
-
-private:
+	TwoWire* _i2cPort;
 	byte _address;
 	int _sda;
 	int _scl;
+
+	bool isInitialized() {
+		return ((_sda != NO_PIN) && (_scl != NO_PIN));
+	}
+
+private:
+	
 };
 
 #endif

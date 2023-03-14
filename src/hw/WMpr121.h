@@ -47,13 +47,13 @@
 #include "WMpr121Defs.h"
 #include "WI2C.h"
 
-class WMpr121: public WI2C {
+class WMpr121: public WHtu21D {
 public:
 
   typedef std::function<void(byte pin, bool isRising)> THandlerFunction;
 
   WMpr121(byte address, int sda, int scl, int interrupt)
-      : WI2C(address, sda, scl, interrupt) {
+      : WHtu21D(address, sda, scl, interrupt) {
     ECR_backup = 0x00;
   	running = false;
   	error = 1 << NOT_INITED_BIT; // initially, we're not initialised

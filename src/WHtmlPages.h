@@ -9,6 +9,7 @@ const char* HTTP_NONE = "none";
 const char* HTTP_BLOCK = "block";
 const char* HTTP_TRUE = "true";
 const char* HTTP_FALSE = "false";
+const char* VALUE_GET = "get";
 
 const static char HTTP_TR[] PROGMEM = R"=====(<tr>)=====";
 void tr(Print* page) { page->print(FPSTR(HTTP_TR)); }
@@ -265,7 +266,7 @@ const static char HTTP_COMBOBOX_END[] PROGMEM = R"=====(
 class WHtml {
  public:
 
-	static void checkBox(Print* page, const char* id, const char* title, const char* value, bool checked) {
+	static void checkBox(Print* page, const char* id, const char* title, bool checked) {
 		page->printf(HTTP_CHECKBOX_OPTION, id, id, (checked ? HTTP_CHECKED : ""), "", title);
 	}
 

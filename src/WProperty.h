@@ -6,6 +6,7 @@
 #include "WList.h"
 #include "WValue.h"
 #include "WOutput.h"
+#include "WStringStream.h"
 
 // for reference see https://iot.mozilla.org/schemas
 const char* TYPE_COLOR_PROPERTY = "ColorProperty";
@@ -18,10 +19,15 @@ const char* TYPE_OPEN_PROPERTY = "OpenProperty";
 const char* TYPE_TARGET_TEMPERATURE_PROPERTY = "TargetTemperatureProperty";
 const char* TYPE_THERMOSTAT_MODE_PROPERTY = "ThermostatModeProperty";
 const char* TYPE_TEMPERATURE_PROPERTY = "TemperatureProperty";
+const char* TYPE_HUMIDITY_PROPERTY = "HumidityProperty";
 const char* TYPE_PUSHED_PROPERTY = "PushedProperty";
 
 const char* UNIT_CELSIUS = "degree celsius";
 const char* UNIT_PERCENT = "percent";
+
+const char* VALUE_OFF = "off";
+const char* VALUE_HEATING = "heating";
+const char* VALUE_COOLING = "cooling";
 
 enum WPropertyType {
   BOOLEAN,
@@ -38,58 +44,7 @@ enum WPropertyVisibility { ALL, NONE, MQTT, WEBTHING };
 
 class WProperty {
  public:
-  static WProperty* createIntegerProperty(const char* id, const char* title) {
-    return new WProperty(id, title, INTEGER, "");
-  }
-
-  static WProperty* createStringProperty(const char* id, const char* title) {
-    return new WProperty(id, title, STRING, "");
-  }
-
-  static WProperty* createByteProperty(const char* id, const char* title) {
-    return new WProperty(id, title, BYTE, "");
-  }
-
-  static WProperty* createDoubleProperty(const char* id, const char* title) {
-    return new WProperty(id, title, DOUBLE, "");
-  }
-
-  static WProperty* createUnsignedLongProperty(const char* id,
-                                               const char* title) {
-    return new WProperty(id, title, UNSIGNED_LONG, "");
-  }
-
-  static WProperty* createShortProperty(const char* id, const char* title) {
-    return new WProperty(id, title, SHORT, "");
-  }
-
-  static WProperty* createBooleanProperty(const char* id, const char* title) {
-    return new WProperty(id, title, BOOLEAN, "");
-  }
-
-  static WProperty* createTargetTemperatureProperty(const char* id,
-                                                    const char* title) {
-    WProperty* p = new WProperty(id, title, DOUBLE, TYPE_TARGET_TEMPERATURE_PROPERTY);
-    p->setUnit(UNIT_CELSIUS);
-    return p;
-  }
-
-  static WProperty* createTemperatureProperty(const char* id,
-                                              const char* title) {
-    WProperty* p = new WProperty(id, title, DOUBLE, TYPE_TEMPERATURE_PROPERTY);
-    p->setUnit(UNIT_CELSIUS);
-    return p;
-  }
-
-  static WProperty* createOnOffProperty(const char* id, const char* title) {
-    return new WProperty(id, title, BOOLEAN, TYPE_ON_OFF_PROPERTY);
-  }
-
-  static WProperty* createPushedProperty(const char* id, const char* title) {
-    return new WProperty(id, title, BOOLEAN, TYPE_PUSHED_PROPERTY);
-  }
-
-  typedef std::function<void(WProperty* property)> TOnPropertyChange;
+  typedef std::function<void(WProperty* property)> TOnPropertyChange;  
 
   WProperty(const char* id, const char* title, WPropertyType type,
             const char* atType) {
@@ -241,8 +196,7 @@ class WProperty {
     if (_type != DOUBLE) {
       return;
     }
-    bool changed =
-        ((_valueNull) || (!isEqual(_value.asDouble, newValue, 0.01)));
+    bool changed = ((_valueNull) || (!isEqual(_value.asDouble, newValue, 0.01)));
     if (changed) {
       WValue valueB;
       valueB.asDouble = newValue;
@@ -716,6 +670,18 @@ class WProperty {
     _visibility = visibility;
   }
 
+  void setVisibility(bool mqtt, bool webthing) {
+    if ((mqtt) && (webthing)) {
+      setVisibility(ALL);
+    } else if ((!mqtt) && (!webthing)) {
+      setVisibility(NONE);
+    } else if (mqtt) {
+      setVisibility(MQTT);
+    } else {
+      setVisibility(WEBTHING);
+    } 
+  }  
+
   void setVisibilityMqtt(bool value) {
     if ((value) && (_visibility != MQTT) && (_visibility != ALL)) {
       setVisibility(_visibility == WEBTHING ? ALL : MQTT);
@@ -828,6 +794,167 @@ class WProperty {
       _valueRequesting = false;
     }
   }
+};
+
+class WRangeProperty: public WProperty {
+public:
+	WRangeProperty(const char* id, const char* title, WPropertyType type, WValue minimum, WValue maximum, const char* atType = TYPE_LEVEL_PROPERTY)
+	: WProperty(id, title, type, atType) {    
+		_min = minimum;
+		_max = maximum;
+	}
+
+	double getMinAsDouble() {
+		return _min.asDouble;
+	}
+
+  int getMinAsInteger() {
+		return _min.asInteger;
+	}
+
+	double getMaxAsDouble() {
+		return _max.asDouble;
+	}
+
+  int getMaxAsInteger() {
+		return _max.asInteger;
+	}
+
+  byte getScaledToMax0xFF() {
+		int v = 0;
+    switch (this->type()) {
+      case DOUBLE: {
+        v = (int) round(getDouble() * 0xFF / getMaxAsDouble());
+        break;
+      }
+      case INTEGER: {
+        v = getInteger() * 0xFF / getMaxAsInteger();
+        break;
+      }
+    }  
+		return (byte) v;
+	}
+
+	void toJsonStructureAdditionalParameters(WJson* json) {
+    switch (this->type()) {
+      case DOUBLE: {
+        json->propertyDouble("minimum", getMinAsDouble());
+		    json->propertyDouble("maximum", getMaxAsDouble());
+        break;
+      }
+      case INTEGER: {
+        json->propertyInteger("minimum", getMinAsInteger());
+		    json->propertyInteger("maximum", getMaxAsInteger());
+        break;
+      }
+    }
+
+		
+	}
+
+protected:
+
+private:
+	WValue _min, _max;
+};
+
+class WColorProperty : public WProperty {
+ public:
+  WColorProperty(const char* id, const char* title, byte red, byte green, byte blue)
+      : WProperty(id, title, STRING, TYPE_COLOR_PROPERTY) {
+    _red = red;
+    _green = green;
+    _blue = blue;      
+    setRGBString();
+    //this->setRGB(red, green, blue);
+    _changeValue = false;
+  }
+
+  byte red() { return _red; }
+
+  byte green() { return _green; }
+
+  byte blue() { return _blue; }
+
+  void setRGB(byte red, byte green, byte blue) {      
+    if ((_red != red) || (_green != green) || (_blue != blue)) {
+      _red = red;
+      _green = green;
+      _blue = blue;      
+      setRGBString();
+    }
+  }
+
+  void setRGBString() {
+    WStringStream result(7);
+    result.print("#");
+    char buffer[3];    
+    itoa(_red, buffer, 16);    
+    if (_red < 0x10) result.print("0");
+    result.print(buffer);
+    itoa(_green, buffer, 16);
+    if (_green < 0x10) result.print("0");
+    result.print(buffer);
+    itoa(_blue, buffer, 16);
+    if (_blue < 0x10) result.print("0");
+    result.print(buffer);
+    _changeValue = true;
+    setString(result.c_str());
+    _changeValue = false;
+  }
+
+  void parseRGBString() {
+    char buffer[3];
+    buffer[2] = '\0';
+    buffer[0] = c_str()[1];
+    buffer[1] = c_str()[2];
+    _red = strtol(buffer, NULL, 16);
+    buffer[0] = c_str()[3];
+    buffer[1] = c_str()[4];
+    _green = strtol(buffer, NULL, 16);
+    buffer[0] = c_str()[5];
+    buffer[1] = c_str()[6];
+    _blue = strtol(buffer, NULL, 16);
+  }
+
+  bool parse(String value) {
+    if ((!isReadOnly()) && (value != nullptr)) {
+      if ((value.startsWith("#")) && (value.length() == 7)) {
+        setString(value.c_str());
+        return true;
+      } else if ((value.startsWith("rgb(")) && (value.endsWith(")"))) {
+        value = value.substring(4, value.length() - 1);
+        int theComma;
+        // red
+        byte red = 0;
+        if ((theComma = value.indexOf(",")) > -1) {
+          red = value.substring(0, theComma).toInt();
+          value = value.substring(theComma + 1);
+        }
+        // green
+        byte green = 0;
+        if ((theComma = value.indexOf(",")) > -1) {
+          green = value.substring(0, theComma).toInt();
+          value = value.substring(theComma + 1);
+        }
+        // blue
+        byte blue = value.toInt();
+        setRGB(red, green, blue);
+      }
+    }
+    return false;
+  }
+
+ protected:
+  virtual void valueChanged() {
+    if (!_changeValue) {
+      parseRGBString();
+    }
+  }
+
+ private:
+  bool _changeValue;
+  byte _red, _green, _blue;
 };
 
 #endif

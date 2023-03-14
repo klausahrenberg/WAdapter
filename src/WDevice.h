@@ -2,12 +2,9 @@
 #define W_DEVICE_H
 
 #include "WList.h"
-#include "WColorProperty.h"
 #include "WInput.h"
 #include "WOutput.h"
 #include "WLed.h"
-#include "WLevelIntProperty.h"
-#include "WLevelProperty.h"
 #include "WProperty.h"
 
 const char* DEVICE_TYPE_BINARY_SENSOR = "BinarySensor";

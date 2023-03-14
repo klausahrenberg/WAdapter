@@ -4,7 +4,7 @@
 #include "EEPROM.h"
 #include "WLog.h"
 #include "WList.h"
-#include "WProperty.h"
+#include "WProps.h"
 
 const byte FLAG_OPTIONS_NETWORK = 0x61;
 const byte FLAG_OPTIONS_NETWORK_FORCE_AP = 0x65;
@@ -171,7 +171,7 @@ public:
 	WProperty* setByte(const char* id, byte value, byte max) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = WProperty::createByteProperty(id, id);
+			setting = WProps::createByteProperty(id, id);
 			setting->setByte(value);
 			add(setting);
 			if ((max > 0) && (setting->getByte() > max)) {
@@ -191,7 +191,7 @@ public:
 	WProperty* setInteger(const char* id, int value) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = WProperty::createIntegerProperty(id, id);
+			setting = WProps::createIntegerProperty(id, id);
 			setting->setInteger(value);
 			add(setting);
 		} else {
@@ -208,7 +208,7 @@ public:
 	WProperty* setShort(const char* id, short value) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = WProperty::createShortProperty(id, id);
+			setting = WProps::createShortProperty(id, id);
 			setting->setShort(value);
 			add(setting);
 		} else {
@@ -225,7 +225,7 @@ public:
 	WProperty* setUnsignedLong(const char* id, unsigned long value) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = WProperty::createUnsignedLongProperty(id, id);
+			setting = WProps::createUnsignedLongProperty(id, id);
 			setting->setUnsignedLong(value);
 			add(setting);
 		} else {
@@ -242,7 +242,7 @@ public:
 	WProperty* setDouble(const char* id, double value) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = WProperty::createDoubleProperty(id, id);
+			setting = WProps::createDoubleProperty(id, id);
 			setting->setDouble(value);
 			add(setting);
 		} else {
@@ -307,7 +307,7 @@ protected:
 	WProperty* setBoolean(const char* id, bool value, bool networkSetting) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = WProperty::createBooleanProperty(id, id);
+			setting = WProps::createBooleanProperty(id, id);
 			setting->setBoolean(value);
 			add(setting, networkSetting);
 		} else {
@@ -319,7 +319,7 @@ protected:
 	WProperty* setString(const char* id, const char* value, bool networkSetting) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
-			setting = WProperty::createStringProperty(id, id);
+			setting = WProps::createStringProperty(id, id);
 			setting->setString(value);
 			add(setting, networkSetting);
 		} else  {

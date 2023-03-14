@@ -1,6 +1,8 @@
 #ifndef W_OUTPUT_H
 #define W_OUTPUT_H
 
+#include "WValue.h"
+
 const int NO_PIN = -1;
 const int NO_MODE = -1;
 
@@ -62,6 +64,15 @@ class WOutput {
   virtual byte mode() { return 0;}
 
   virtual void setMode(byte index) {}
+
+  virtual void setModeByTitle(const char* title) {
+    for (byte b = 0; b < countModes(); b++) {
+      if (strcmp(modeTitle(b), title) == 0) {
+        setMode(b);
+        break;
+      }
+    }    
+  }
 
  protected:
   virtual bool isInitialized() { return (_pin != NO_PIN); }

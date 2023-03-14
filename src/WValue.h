@@ -12,6 +12,18 @@ union WValue {
   byte asByte;
   char* string;
   byte* asByteArray;
+
+  static WValue ofDouble(double d) {
+    WValue r;
+    r.asDouble = d;
+    return r;
+  }
+
+  static WValue ofInteger(int d) {
+    WValue r;
+    r.asInteger = d;
+    return r;
+  }
 };
 
 #endif
