@@ -2,6 +2,7 @@
 #define W_PROPERTY_H
 
 #include <Arduino.h>
+#include <list>
 #include "WJson.h"
 #include "WList.h"
 #include "WValue.h"
@@ -42,12 +43,15 @@ enum WPropertyType {
 
 enum WPropertyVisibility { ALL, NONE, MQTT, WEBTHING };
 
-class WProperty {
- public:
-  typedef std::function<void(WProperty* property)> TOnPropertyChange;  
+typedef std::function<void(WProperty* property)> TOnPropertyChange;
 
-  WProperty(const char* id, const char* title, WPropertyType type,
-            const char* atType) {
+/*struct WPropertyListener {
+  TOnPropertyChange onChange; 
+};*/
+
+class WProperty {
+ public:    
+  WProperty(const char* id, const char* title, WPropertyType type, const char* atType) {
     initialize(id, title, type, atType);
   }
 
@@ -66,7 +70,10 @@ class WProperty {
     _onValueRequest = onValueRequest;
   }
 
-  void setOnChange(TOnPropertyChange onChange) { _onChange = onChange; }
+  void addListener(TOnPropertyChange onChange) { 
+    //WPropertyListener pl = {onChange};    
+    _listeners.push_back(onChange);    
+  }
 
   void setDeviceNotification(TOnPropertyChange deviceNotification) {
     _deviceNotification = deviceNotification;
@@ -94,7 +101,7 @@ class WProperty {
       case BOOLEAN:
         return 1;
       case BYTE_ARRAY:
-        return (_valueNull ? 0 : sizeof(_value.asByteArray));
+        return (_valueNull ? 0 : getByteArrayLength());
     }
     return 0;
   }
@@ -318,23 +325,37 @@ class WProperty {
     return _value.string;
   }
 
-  byte* getByteArray() { return _value.asByteArray; }
+  byte* getByteArray() { 
+    if (_type != BYTE_ARRAY) {
+      return 0;
+    } else {
+      byte length = getByteArrayLength();
+      if (length > 0) {    
+        byte* result = (byte*) malloc(length);
+        for (int i = 0; i < length; i++) {
+          result[i] = _value.asByteArray[i + 1];
+        }
+        return result; 
+      } else {
+        return 0;
+      }
+    }
+  }
 
-  bool setByteArray(const byte* newValue) {
+  bool setByteArray(byte length, const byte* newValue) {
     if (_type != BYTE_ARRAY) {
       return false;
     }
-    byte newLength = sizeof(newValue);
-    bool changed =
-        ((_valueNull) || (newLength != (sizeof(_value.asByteArray))));
-    if ((!_valueNull) && (newLength != (sizeof(_value.asByteArray)))) {
-      free(_value.asByteArray);
-      _value.asByteArray = (byte*)malloc(newLength);
+    //byte newLength = sizeof(newValue);    
+    bool changed = ((_valueNull) || (length != (_value.asByteArray[0])));
+    if ((!_valueNull) && (length != (_value.asByteArray[0]))) {
+      free(_value.asByteArray);      
     }
-    _value.asByteArray = (byte*)malloc(sizeof(newValue));
-    for (int i = 0; i < newLength; i++) {
+    _value.asByteArray = (byte*) malloc(length + 1);
+    _value.asByteArray[0] = length;
+    for (int i = 0; i < length; i++) {
       changed = ((changed) || (_value.asByteArray[i] != newValue[i]));
-      _value.asByteArray[i] = newValue[i];
+      _value.asByteArray[i + 1] = newValue[i];
     }
     if (changed) {
       _valueNull = false;
@@ -345,10 +366,40 @@ class WProperty {
     return changed;
   }
 
-  byte getByteArrayValue(byte index) { return _value.asByteArray[index]; }
+  byte getByteArrayLength() { return (!_valueNull ? _value.asByteArray[0] : 0); }
+
+  byte getByteArrayValue(byte index) { return _value.asByteArray[index + 1]; }
+
+  bool setByteArrayValue(byte index, byte newValue) {
+    if (_type != BYTE_ARRAY) {
+      return false;
+    }
+    bool changed = ((_valueNull) || (_value.asByteArray[index + 1] != newValue));
+    if (changed) {
+      _value.asByteArray[index + 1] = newValue;
+      _valueNull = false;
+      _changed = true;
+      valueChanged();
+      notify();
+    }
+    return changed;
+  }
 
   bool getByteArrayBitValue(byte byteIndex, byte bitIndex) {
     return bitRead(getByteArrayValue(byteIndex), bitIndex);
+  }
+
+  bool setByteArrayBitValue(byte byteIndex, byte bitIndex, bool bitValue) {
+    if (_type != BYTE_ARRAY) {
+      return false;
+    }
+    byte v = getByteArrayValue(byteIndex);
+    if (bitValue) {
+      bitSet(v, bitIndex);
+    } else {
+      bitClear(v, bitIndex);
+    }
+    return setByteArrayValue(byteIndex, v);
   }
 
   WValue getValue() { return _value; }
@@ -383,36 +434,7 @@ class WProperty {
       notify();
     }
     return changed;
-  }
-
-  bool setByteArrayValue(byte index, byte newValue) {
-    if (_type != BYTE_ARRAY) {
-      return false;
-    }
-    bool changed =
-        ((_valueNull) || (_value.asByteArray[index] != newValue));
-    if (changed) {
-      _value.asByteArray[index] = newValue;
-      _valueNull = false;
-      _changed = true;
-      valueChanged();
-      notify();
-    }
-    return changed;
-  }
-
-  bool setByteArrayBitValue(byte byteIndex, byte bitIndex, bool bitValue) {
-    if (_type != BYTE_ARRAY) {
-      return false;
-    }
-    byte v = getByteArrayValue(byteIndex);
-    if (bitValue) {
-      bitSet(v, bitIndex);
-    } else {
-      bitClear(v, bitIndex);
-    }
-    return setByteArrayValue(byteIndex, v);
-  }
+  }    
 
   bool isReadOnly() { return _readOnly; }
 
@@ -456,7 +478,7 @@ class WProperty {
         break;
       case BYTE_ARRAY:
         // tbi
-        json->propertyByteArray(memberName, getLength(), _value.asByteArray);
+        json->propertyByteArray(memberName, getLength(), getByteArray());
         break;
     }
     _requested = true;
@@ -651,6 +673,8 @@ class WProperty {
 
   bool hasEnums() { return (_enums != nullptr); }
 
+  int enumsCount() { return _enums->size(); }
+
   void addOutput(WOutput* output) {
     if (_outputs == nullptr) {
       _outputs = new WList<WOutput>();
@@ -729,7 +753,6 @@ class WProperty {
     _atType = atType;
     _unit = "";
     _multipleOf = 0.0;
-    _onChange = nullptr;
     _deviceNotification = nullptr;
     _enums = nullptr;
     _outputs = nullptr;
@@ -757,7 +780,7 @@ class WProperty {
   bool _readOnly;
   const char* _unit;
   double _multipleOf;
-  TOnPropertyChange _onChange;
+  std::list<TOnPropertyChange> _listeners;
   TOnPropertyChange _onValueRequest;
   TOnPropertyChange _deviceNotification;
   WValue _value = {false};
@@ -773,9 +796,11 @@ class WProperty {
   void notify() {
     if (!_valueRequesting) {
       _notifying = true;
-      if (_onChange) {
-        //Custom change handling
-        _onChange(this);
+      if (!_listeners.empty()) {
+        for(std::list<TOnPropertyChange>::iterator f = _listeners.begin(); f != _listeners.end(); ++f ) {
+          //f->onChange(this);
+          f->operator()(this);
+        }
       } else if (_outputs != nullptr) {
         //Let the output handle the change
         _outputs->forEach([this](WOutput* output){output->handleChangedProperty(_value);});

@@ -35,8 +35,9 @@ class WProps {
     return new WProperty(id, title, BOOLEAN, "");
   }
 
-  static WProperty* createTargetTemperatureProperty(const char* id, const char* title) {
-    WProperty* p = new WProperty(id, title, DOUBLE, TYPE_TARGET_TEMPERATURE_PROPERTY);
+  static WRangeProperty* createTargetTemperatureProperty(const char* id, const char* title) {
+    WRangeProperty* p = new WRangeProperty(id, title, DOUBLE, WValue::ofDouble(15.0), WValue::ofDouble(25.0), TYPE_TARGET_TEMPERATURE_PROPERTY);
+    p->setMultipleOf(0.5);
     p->setUnit(UNIT_CELSIUS);
     return p;
   }  

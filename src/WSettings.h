@@ -124,7 +124,7 @@ public:
 				}
 				case BYTE_ARRAY: {
 					const byte* ba = readByteArray(_address);
-					property->setByteArray(ba);
+					property->setByteArray(readByteArrayLength(_address), ba);
 					delete ba;
 					break;
 				}
@@ -264,15 +264,15 @@ public:
 		return this->setString(id, value, true);
 	}
 
-	WProperty* setByteArray(const char* id, const byte* value) {
+	WProperty* setByteArray(const char* id, byte length, const byte* value) {
 		WProperty* setting = getSetting(id);
 		if (setting == nullptr) {
 			setting = new WProperty(id, id, BYTE_ARRAY, "");
-			setting->setByteArray(value);
+			setting->setByteArray(length, value);
 			setting->setVisibility(NONE);
 			add(setting);
 		} else {
-			setting->setByteArray(value);
+			setting->setByteArray(length, value);
 		}
 		return setting;
 	}
@@ -355,7 +355,7 @@ protected:
 			break;
 		}
 		case BYTE_ARRAY: {
-			writeByteArray(_address, setting->getByteArray());
+			writeByteArray(_address, setting->getByteArrayLength(), setting->getByteArray());
 			break;
 		}
 		case STRING: {						
@@ -384,6 +384,10 @@ private:
 		return setting->getLength();
 	}
 
+	const byte readByteArrayLength(int address) {
+		return EEPROM.read(address);
+	}	
+
 	const byte* readByteArray(int address) {
 		byte length = EEPROM.read(address);
 		byte* data = new byte[length];
@@ -394,10 +398,9 @@ private:
 		return data;
 	}
 
-	void writeByteArray(int address, const byte* value) {
-		byte size = sizeof(value);
-		EEPROM.write(address, size);
-		for (int i = 1; i <= size; i++) {
+	void writeByteArray(int address, byte length, const byte* value) {		
+		EEPROM.write(address, length);
+		for (int i = 1; i <= length; i++) {
 			EEPROM.write(address + i, value[i - 1]);
 		}
 	}

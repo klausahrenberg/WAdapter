@@ -624,14 +624,13 @@ class WNetwork {
         if (complete) {
           _initialMqttSent = true;
         }
-      }
-
+      }      
       device->setLastStateNotify(millis());
       if ((device->deepSleepMode() != DEEP_SLEEP_NONE) &&
           ((!_supportsWebServer) ||
            (device->areAllPropertiesRequested()))) {
         _deepSleepFlag = device;
-      }
+      }      
     }
   }
 
