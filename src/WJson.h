@@ -240,6 +240,7 @@ public:
 		stream->print(QUOTE);
 		return *this;
 	}
+
 	WJson& onlyString(const char *text1) {
 		if (text1 != nullptr) stream->print(text1);
 		return *this;
@@ -319,37 +320,6 @@ private:
 			separator();
 		}
 	}
-
-
-
-	/*#include <stdarg.h>
-// Concatenate strings from NULL-terminated list to a buffer
-
-char *mcat(char *b,...)
-{  char *r = b, *s = b;                // Pointers to buffer
-   va_list ap;                         // Parameter list reference
-   while (*s) ++s;                     // Find buffer string terminator
-   va_start(ap,b);                     // Initialize ap
-   while (b = va_arg(ap,char *))       // If the next parameter is non-NULL
-      while (*b) *s++ = *b++;          // Concatenate string to buffer
-   va_end(ap);                         // Done with parameter list
-   *s = '\0';                          // Terminate the concatenated string
-   return r;                           // Return pointer to buffer
-}                                      //  end: mcat() function
-
-
-#ifdef MCAT_TEST
-
-// Test program - dummy fusion reactor log line
-#include <stdio.h>
-int main(void)
-{  char b[81] = "\0";
-   mcat(b,"YY-MM-DD HH:MM:SS.SSS"," 123"," 456"," 789",NULL);
-   mcat(b," # ","Annotation",NULL);
-   puts(b);
-   return 0;
-}
-#endif*/
 
 };
 

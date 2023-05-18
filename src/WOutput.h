@@ -10,12 +10,12 @@ class WProperty;
 
 class WOutput {
  public:
-  WOutput(int pin) {
+  WOutput(int pin, uint8_t mode = OUTPUT) {
     _pin = pin;
     _id = nullptr;
     _isOn = false;
-    if (_pin != NO_PIN) {
-      pinMode(_pin, OUTPUT);
+    if ((_pin != NO_PIN) && (mode != NO_MODE)) {
+      pinMode(_pin, mode);
     }
   }
 

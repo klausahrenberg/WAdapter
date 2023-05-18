@@ -65,6 +65,7 @@ class WNetwork {
     _firmwareVersion = firmwareVersion;
     _webServer = nullptr;
     _dnsApServer = nullptr;
+    _wifiClient = new WiFiClient();
     _debugging = debugging;
     _devices = new WList<WDevice>();
     _pages = new WList<WPage>();
@@ -550,6 +551,7 @@ class WNetwork {
   WProperty* _mqttBaseTopic;
   WProperty* _mqttSetTopic;
   WProperty* _mqttStateTopic;
+  WiFiClient* _wifiClient;
   PubSubClient* _mqttClient;
   unsigned long _lastMqttConnect, _lastWifiConnect, _lastWifiConnectFirstTry;
   byte _wifiConnectTrys;
@@ -577,7 +579,7 @@ class WNetwork {
   }
 
   void _handleDeviceStateChange(WDevice *device, bool complete) {
-    _wlog->notice(F("Device state changed -> send device state..."));
+    _wlog->notice(F("Device state changed -> send device state for device '%s'"), device->id());
     String topic = String(getMqttBaseTopic()) + SLASH + String(device->id()) + SLASH + String(getMqttStateTopic());
     _mqttSendDeviceState(topic, device, complete);
   }
@@ -1385,8 +1387,7 @@ class WNetwork {
   }
 
   WDevice* _getDeviceById(const char *deviceId) {
-    return _devices->getIf(
-        [deviceId](WDevice *d) { return (strcmp(d->id(), deviceId) == 0); });
+    return _devices->getIf([deviceId](WDevice *d) { return (strcmp(d->id(), deviceId) == 0); });
   }
 };
 

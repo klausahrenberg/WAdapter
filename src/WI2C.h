@@ -6,9 +6,9 @@
 
 class WI2C: public WInput {
 public:
-	WI2C(byte address, int sda, int scl, int interrupt, TwoWire &i2cPort = Wire)
+	WI2C(byte address, int sda, int scl, int interrupt, TwoWire* i2cPort = &Wire)
 			: WInput(interrupt, INPUT_PULLUP) {
-		_i2cPort = &i2cPort;
+		_i2cPort = i2cPort;
 		_address = address;
 		_sda = sda;
 		_scl = scl;

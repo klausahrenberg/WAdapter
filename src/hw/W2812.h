@@ -21,7 +21,7 @@ class W2812Led : public WOutput {
     _brightness = WProps::createLevelIntProperty("brightness", "Brightness", 10, 255);
     _brightness->setInteger(160);
     // network->getSettings()->add(this->brightness);
-    _brightness->setOnChange([this](WProperty* property) {
+    _brightness->addListener([this](WProperty* property) {
       _strip->setBrightness(property->getInteger());
     });
     _strip = new Adafruit_NeoPixel(numberOfLeds, ledPin, NEO_GRB + NEO_KHZ800);

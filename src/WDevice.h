@@ -5,7 +5,7 @@
 #include "WInput.h"
 #include "WOutput.h"
 #include "WLed.h"
-#include "WProperty.h"
+#include "WProps.h"
 
 const char* DEVICE_TYPE_BINARY_SENSOR = "BinarySensor";
 const char* DEVICE_TYPE_DOOR_SENSOR = "DoorSensor";
@@ -75,7 +75,7 @@ class WDevice {
     });
   }
 
-  virtual void toJsonValues(WJson* json, WPropertyVisibility visibility) {
+  virtual void toJsonValues(WJson* json, WPropertyVisibility visibility) {    
     _properties->forEach([this, json, visibility](WProperty* property) {    
       if (property->isVisible(visibility)) {
         property->toJsonValue(json, false);

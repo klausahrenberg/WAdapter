@@ -45,13 +45,9 @@ enum WPropertyVisibility { ALL, NONE, MQTT, WEBTHING };
 
 typedef std::function<void(WProperty* property)> TOnPropertyChange;
 
-/*struct WPropertyListener {
-  TOnPropertyChange onChange; 
-};*/
-
 class WProperty {
- public:    
-  WProperty(const char* id, const char* title, WPropertyType type, const char* atType) {
+ public:
+  WProperty(const char* id, const char* title, WPropertyType type, const char* atType = "") {
     initialize(id, title, type, atType);
   }
 
@@ -287,6 +283,10 @@ class WProperty {
 
   bool equalsString(const char* toCompare) {
     return ((!_valueNull) && (strcmp(_value.string, toCompare) == 0));
+  }
+
+  bool isStringEmpty() {
+    return ((isNull()) || (equalsString("")));
   }
 
   bool equalsUnsignedLong(unsigned long number) {

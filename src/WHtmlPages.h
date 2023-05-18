@@ -270,6 +270,14 @@ class WHtml {
 		page->printf(HTTP_CHECKBOX_OPTION, id, id, (checked ? HTTP_CHECKED : ""), "", title);
 	}
 
+	static void comboBoxBegin(Print* page, const char* id, const char* title) {
+		page->printf(HTTP_COMBOBOX_BEGIN, title, id);
+	}
+
+	static void comboBoxEnd(Print* page) {
+		page->print(FPSTR(HTTP_COMBOBOX_END));
+	}
+
 	static void comboBoxItem(Print* page, const char* title, const char* value, bool selected) {
     page->printf(HTTP_COMBOBOX_ITEM, value, (selected ? HTTP_SELECTED : ""), title);
   }
