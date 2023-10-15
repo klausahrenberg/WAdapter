@@ -1,15 +1,12 @@
 #ifndef W_HTU21D_H
 #define W_HTU21D_H
 
-#include "../WI2C.h"
+#include "hw/WI2CTemperature.h"
 
 #define HTU21D_ADDRESS 0x40
 #define I2C_TIMEOUT 500
 #define I2C_BETWEEN 500
 #define I2C_REQUEST_TO_RESULT 50
-#define ERROR_NONE 0
-#define ERROR_I2C_TIMEOUT 1
-#define ERROR_BAD_CRC	2
 #define TRIGGER_TEMP_MEASURE_NOHOLD 0xF3
 #define TRIGGER_HUMD_MEASURE_NOHOLD 0xF5
 #define MAX_WAIT 100
@@ -24,21 +21,19 @@ enum WHtu21DState {
 	STATE_READ_HUMIDITY_PAUSED
 };
 
-class WHtu21D: public WI2C {
+class WHtu21D: public WI2CTemperature {
 public:
-	WHtu21D(int sda, int scl, int interrupt = NO_PIN, TwoWire* i2cPort = &Wire)
-			: WI2C(HTU21D_ADDRESS, sda, scl, interrupt, i2cPort) {
+	WHtu21D(int sda, int scl, TwoWire* i2cPort = &Wire)
+			: WI2CTemperature(HTU21D_ADDRESS, sda, scl, i2cPort) {
 		_lastMeasure = 0;
 		_measureInterval = 10000;
-		_humidity = nullptr;
 		_correctionTemperature = -0.5;
 		_correctionHumidity = 0.0;
 		_reset();
-		_lastError = ERROR_NONE;
 	}
 
 	virtual void loop(unsigned long now) {
-		WI2C::loop(now);		
+		WI2CTemperature::loop(now);		
 		if (_state == STATE_IDLE) {			
 			if ((_lastMeasure == 0) || (now - _lastMeasure > (unsigned long)(_measureInterval))) {
 				//start measurement
@@ -76,7 +71,7 @@ public:
 						} else {
 							_temperatureValue = _temperatureValue / (double) HTU21D_AVERAGE_COUNTS;							
 							if (hasProperty()) {
-								property()->setDouble(_temperatureValue + _correctionTemperature);
+								property()->asDouble(_temperatureValue + _correctionTemperature);
 							}
 							_counter = 0;
 							_request(now, TRIGGER_HUMD_MEASURE_NOHOLD, STATE_READ_HUMIDITY);
@@ -91,7 +86,7 @@ public:
 						} else {
 							_humidityValue = _humidityValue / (double) HTU21D_AVERAGE_COUNTS;
 							if (hasHumidity()) {
-								humidity()->setDouble(_humidityValue + _correctionHumidity);
+								humidity()->asDouble(_humidityValue + _correctionHumidity);
 							}
 							_reset();
 							_lastError = ERROR_NONE;
@@ -159,10 +154,8 @@ private:
 	unsigned long _lastMeasure, _lastRequest;
 	int _measureInterval;
 	double _temperatureValue, _humidityValue;
-	WProperty* _humidity;
 	WHtu21DState _state;
 	byte _counter;
-	byte _lastError;
 	double _correctionTemperature, _correctionHumidity;
 
 	byte _checkCRC(uint16_t message_from_sensor, uint8_t check_value_from_sensor) {  	

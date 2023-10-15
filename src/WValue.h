@@ -4,10 +4,10 @@
 #include <Arduino.h>
 
 union WValue {
-  bool asBoolean;
+  bool asBool;
   double asDouble;
   short asShort;
-  int asInteger;
+  int asInt;
   unsigned long asUnsignedLong;
   byte asByte;
   char* string;
@@ -19,9 +19,9 @@ union WValue {
     return r;
   }
 
-  static WValue ofInteger(int d) {
+  static WValue ofInt(int d) {
     WValue r;
-    r.asInteger = d;
+    r.asInt = d;
     return r;
   }
 };

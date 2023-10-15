@@ -37,23 +37,23 @@ class WProps {
 
   static WRangeProperty* createTargetTemperatureProperty(const char* id, const char* title) {
     WRangeProperty* p = new WRangeProperty(id, title, DOUBLE, WValue::ofDouble(15.0), WValue::ofDouble(25.0), TYPE_TARGET_TEMPERATURE_PROPERTY);
-    p->setMultipleOf(0.5);
-    p->setUnit(UNIT_CELSIUS);
+    p->multipleOf(0.5);
+    p->unit(UNIT_CELSIUS);
     return p;
   }  
 
   static WProperty* createTemperatureProperty(const char* id,
                                               const char* title) {
     WProperty* p = new WProperty(id, title, DOUBLE, TYPE_TEMPERATURE_PROPERTY);
-    p->setReadOnly(true);
-    p->setUnit(UNIT_CELSIUS);
+    p->readOnly(true);
+    p->unit(UNIT_CELSIUS);
     return p;
   }
 
   static WRangeProperty* createHumidityProperty(const char* id, const char* title) {
     WRangeProperty* p = new WRangeProperty(id, title, DOUBLE, WValue::ofDouble(0.0), WValue::ofDouble(100.0), TYPE_HUMIDITY_PROPERTY);
-    p->setReadOnly(true);
-    p->setUnit(UNIT_PERCENT);
+    p->readOnly(true);
+    p->unit(UNIT_PERCENT);
     return p;
   }
 
@@ -63,12 +63,12 @@ class WProps {
   }
 
   static WRangeProperty* createLevelIntProperty(const char* id, const char* title, int min, int max) {
-    WRangeProperty* p = new WRangeProperty(id, title, INTEGER, WValue::ofInteger(min), WValue::ofInteger(max), TYPE_LEVEL_PROPERTY);    
+    WRangeProperty* p = new WRangeProperty(id, title, INTEGER, WValue::ofInt(min), WValue::ofInt(max), TYPE_LEVEL_PROPERTY);    
     return p;
   }
 
   static WRangeProperty* createBrightnessProperty(const char* id, const char* title, byte min = 0, byte max = 100) {
-    WRangeProperty* p = new WRangeProperty(id, title, INTEGER, WValue::ofInteger(min), WValue::ofInteger(max), TYPE_BRIGHTNESS_PROPERTY);    
+    WRangeProperty* p = new WRangeProperty(id, title, INTEGER, WValue::ofInt(min), WValue::ofInt(max), TYPE_BRIGHTNESS_PROPERTY);    
     return p;
   }
 
@@ -87,7 +87,7 @@ class WProps {
 
   static WProperty* createHeatingCoolingProperty(const char* id, const char* title) {
     WProperty* p = new WProperty(id, title, STRING, TYPE_HEATING_COOLING_PROPERTY);
-    p->setReadOnly(true);
+    p->readOnly(true);
 		p->addEnumString(VALUE_OFF);
 		p->addEnumString(VALUE_HEATING);
 		p->addEnumString(VALUE_COOLING);

@@ -52,7 +52,7 @@ class WOutput {
   }
 
   virtual void handleChangedProperty(WValue value) {    
-    this->setOn(value.asBoolean);
+    this->setOn(value.asBool);
   }
 
   virtual void loop(unsigned long now) {}

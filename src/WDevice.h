@@ -51,7 +51,7 @@ class WDevice {
   const char* type() { return _type; }
 
   void addProperty(WProperty* property) {
-    property->setDeviceNotification(std::bind(&WDevice::onPropertyChange, this));
+    property->deviceNotification(std::bind(&WDevice::onPropertyChange, this));
     _properties->add(property);
   }
 
@@ -80,7 +80,7 @@ class WDevice {
       if (property->isVisible(visibility)) {
         property->toJsonValue(json, false);
       }
-      property->setUnChanged();      
+      property->changed(false);      
     });
   }
 
@@ -136,7 +136,7 @@ class WDevice {
   virtual bool off() { return false; }
 
   virtual bool areAllPropertiesRequested() {    
-    return (_properties->getIf([this](WProperty* p){return (!p->isRequested());}) == nullptr);
+    return (_properties->getIf([this](WProperty* p){return (!p->requested());}) == nullptr);
   }
 
   WPropertyVisibility visibility() { return _visibility; }
@@ -167,9 +167,11 @@ class WDevice {
 
   unsigned long lastStateNotify() { return _lastStateNotify; }
 
-  void setLastStateNotify(unsigned long lastStateNotify) { _lastStateNotify = lastStateNotify; }
+  void lastStateNotify(unsigned long lastStateNotify) { _lastStateNotify = lastStateNotify; }
 
   unsigned long stateNotifyInterval() { return _stateNotifyInterval; }
+  
+  void stateNotifyInterval(unsigned long stateNotifyInterval) { _stateNotifyInterval = stateNotifyInterval; }
 
   bool needsWebThings() {
     bool result = false;

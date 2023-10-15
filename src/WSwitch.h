@@ -94,7 +94,7 @@ public:
 
 		setTriggerValue(true);
 		if (property() != nullptr) {
-			property()->setBoolean(!property()->getBoolean());
+			property()->asBool(!property()->asBool());
 		}
 		if (_onPressed) {
 			_onPressed();
@@ -145,7 +145,7 @@ private:
 
 	void setTriggerValue(bool triggered) {
 		if (_triggerProperty != nullptr) {
-			_triggerProperty->setBoolean(triggered);
+			_triggerProperty->asBool(triggered);
 		}
 	}
 

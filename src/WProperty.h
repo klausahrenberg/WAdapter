@@ -62,7 +62,7 @@ class WProperty {
     }
   }
 
-  void setOnValueRequest(TOnPropertyChange onValueRequest) {
+  void onValueRequest(TOnPropertyChange onValueRequest) {
     _onValueRequest = onValueRequest;
   }
 
@@ -71,17 +71,15 @@ class WProperty {
     _listeners.push_back(onChange);    
   }
 
-  void setDeviceNotification(TOnPropertyChange deviceNotification) {
+  void deviceNotification(TOnPropertyChange deviceNotification) {
     _deviceNotification = deviceNotification;
   }
 
   const char* id() { return _id; }
 
-  const char* title() { return _title; }
+  const char* title() { return _title; }  
 
-  WPropertyType type() { return _type; }
-
-  byte getLength() {
+  byte length() {
     switch (_type) {
       case STRING:
         return (_valueNull ? 0 : strlen(_value.string));
@@ -97,59 +95,62 @@ class WProperty {
       case BOOLEAN:
         return 1;
       case BYTE_ARRAY:
-        return (_valueNull ? 0 : getByteArrayLength());
+        return (_valueNull ? 0 : byteArrayLength());
     }
     return 0;
   }
 
-  void setType(WPropertyType type) { _type = type; }
+  WPropertyType type() { return _type; }
+
+  void type(WPropertyType type) { _type = type; }
 
   const char* atType() { return _atType; }
 
   bool isNull() { return (_valueNull); }
 
-  bool isRequested() { return (_requested); }
-
-  void setRequested(bool requested) {
-    _requested = ((requested) && (!isNull()));
-  }
-
   void setNull() { _valueNull = true; }
 
-  bool isChanged() { return (_changed); }
+  bool requested() { return (_requested); }
 
-  void setUnChanged() { _changed = false; }
+  void requested(bool requested) {
+    _requested = ((requested) && (!isNull()));
+  }  
 
-  virtual bool parse(String value) {
-    if ((!isReadOnly()) && (value != nullptr)) {
+  bool changed() { return (_changed); }
+
+  void changed(bool changed) { _changed = changed; }
+
+  virtual bool parse(const char* value) {
+    if ((!readOnly()) && (value != nullptr)) {      
+      String v = String(value);
       switch (_type) {
         case BOOLEAN: {
-          value.toLowerCase();
-          setBoolean(value.equals("true"));
+          v.toLowerCase();
+          asBool(v.equals("true"));
           return true;
         }
         case DOUBLE: {
-          setDouble(value.toDouble());
+          asDouble(v.toDouble());
           return true;
         }
         case SHORT: {
-          setShort(value.toInt());
+          asShort(v.toInt());
           return true;
         }
         case INTEGER: {
-          setInteger(value.toInt());
+          asInt(v.toInt());
           return true;
         }
         case UNSIGNED_LONG: {
-          setUnsignedLong(value.toInt());
+          asUnsignedLong(v.toInt());
           return true;
         }
         case BYTE: {
-          setByte(value.toInt());
+          asByte(v.toInt());
           return true;
         }
         case STRING: {
-          setString(value.c_str());
+          asString(value);
           return true;
         }
         case BYTE_ARRAY: {
@@ -161,32 +162,32 @@ class WProperty {
     return false;
   }
 
-  bool getBoolean() {
-    requestValue();
-    return (!_valueNull ? _value.asBoolean : false);
+  bool asBool() {
+    _requestValue();
+    return (!_valueNull ? _value.asBool : false);
   }
 
-  void setBoolean(bool newValue) {
+  void asBool(bool newValue) {
     if (_type != BOOLEAN) {
       return;
     }
-    bool changed = ((_valueNull) || (_value.asBoolean != newValue));
+    bool changed = ((_valueNull) || (_value.asBool != newValue));
     if (changed) {
       WValue valueB;
-      valueB.asBoolean = newValue;
-      this->setValue(valueB);
+      valueB.asBool = newValue;
+      this->value(valueB);
     }
   }
 
-  void toggleBoolean() {
+  void toggleBool() {
     if (_type != BOOLEAN) {
       return;
     }
-    setBoolean(!getBoolean());
+    asBool(!asBool());
   }
 
-  double getDouble() {
-    requestValue();
+  double asDouble() {
+    _requestValue();
     return (!_valueNull ? _value.asDouble : 0.0);
   }
 
@@ -195,7 +196,7 @@ class WProperty {
     return ((diff < precision) && (-diff < precision));
   }
 
-  void setDouble(double newValue) {
+  void asDouble(double newValue) {
     if (_type != DOUBLE) {
       return;
     }
@@ -203,7 +204,7 @@ class WProperty {
     if (changed) {
       WValue valueB;
       valueB.asDouble = newValue;
-      this->setValue(valueB);
+      this->value(valueB);
     }
   }
 
@@ -212,29 +213,29 @@ class WProperty {
             (isEqual(_value.asDouble, number, 0.01)));
   }
 
-  int getInteger() {
-    requestValue();
-    return (!_valueNull ? _value.asInteger : 0);
+  int asInt() {
+    _requestValue();
+    return (!_valueNull ? _value.asInt : 0);
   }
 
-  void setInteger(int newValue) {
+  void asInt(int newValue) {
     if (_type != INTEGER) {
       return;
     }
-    bool changed = ((_valueNull) || (_value.asInteger != newValue));
+    bool changed = ((_valueNull) || (_value.asInt != newValue));
     if (changed) {
       WValue valueB;
-      valueB.asInteger = newValue;
-      this->setValue(valueB);
+      valueB.asInt = newValue;
+      this->value(valueB);
     }
   }
 
-  short getShort() {
-    requestValue();
+  short asShort() {
+    _requestValue();
     return (!_valueNull ? _value.asShort : 0);
   }
 
-  void setShort(short newValue) {
+  void asShort(short newValue) {
     if (_type != SHORT) {
       return;
     }
@@ -242,16 +243,16 @@ class WProperty {
     if (changed) {
       WValue valueB;
       valueB.asShort = newValue;
-      this->setValue(valueB);
+      this->value(valueB);
     }
   }
 
-  unsigned long getUnsignedLong() {
-    requestValue();
+  unsigned long asUnsignedLong() {
+    _requestValue();
     return (!_valueNull ? _value.asUnsignedLong : 0);
   }
 
-  void setUnsignedLong(unsigned long newValue) {
+  void asUnsignedLong(unsigned long newValue) {
     if (_type != UNSIGNED_LONG) {
       return;
     }
@@ -260,17 +261,17 @@ class WProperty {
     if (changed) {
       WValue valueB;
       valueB.asUnsignedLong = newValue;
-      this->setValue(valueB);
+      this->value(valueB);
     }
   }
 
   bool equalsInteger(int number) {
-    return ((!_valueNull) && (_value.asInteger == number));
+    return ((!_valueNull) && (_value.asInt == number));
   }
 
   bool isIntegerBetween(int lowerLimit, int upperLimit) {
-    return ((!_valueNull) && (_value.asInteger >= lowerLimit) &&
-            (_value.asInteger < upperLimit));
+    return ((!_valueNull) && (_value.asInt >= lowerLimit) &&
+            (_value.asInt < upperLimit));
   }
 
   bool equalsShort(short number) {
@@ -299,12 +300,12 @@ class WProperty {
             (_value.asUnsignedLong < upperLimit));
   }
 
-  byte getByte() {
-    requestValue();
+  byte asByte() {
+    _requestValue();
     return (!_valueNull ? _value.asByte : 0x00);
   }
 
-  void setByte(byte newValue) {
+  void asByte(byte newValue) {
     if (_type != BYTE) {
       return;
     }
@@ -312,24 +313,19 @@ class WProperty {
     if (changed) {
       WValue valueB;
       valueB.asByte = newValue;
-      this->setValue(valueB);
+      this->value(valueB);
     }
   }
 
   bool equalsByte(byte number) {
     return ((!_valueNull) && (_value.asByte == number));
-  }
+  }  
 
-  char* c_str() {
-    requestValue();
-    return _value.string;
-  }
-
-  byte* getByteArray() { 
+  byte* asByteArray() { 
     if (_type != BYTE_ARRAY) {
       return 0;
     } else {
-      byte length = getByteArrayLength();
+      byte length = byteArrayLength();
       if (length > 0) {    
         byte* result = (byte*) malloc(length);
         for (int i = 0; i < length; i++) {
@@ -342,7 +338,7 @@ class WProperty {
     }
   }
 
-  bool setByteArray(byte length, const byte* newValue) {
+  bool asByteArray(byte length, const byte* newValue) {
     if (_type != BYTE_ARRAY) {
       return false;
     }
@@ -361,16 +357,16 @@ class WProperty {
       _valueNull = false;
       _changed = true;
       valueChanged();
-      notify();
+      _notify();
     }
     return changed;
   }
 
-  byte getByteArrayLength() { return (!_valueNull ? _value.asByteArray[0] : 0); }
+  byte byteArrayLength() { return (!_valueNull ? _value.asByteArray[0] : 0); }
 
-  byte getByteArrayValue(byte index) { return _value.asByteArray[index + 1]; }
+  byte byteArrayValue(byte index) { return _value.asByteArray[index + 1]; }
 
-  bool setByteArrayValue(byte index, byte newValue) {
+  bool byteArrayValue(byte index, byte newValue) {
     if (_type != BYTE_ARRAY) {
       return false;
     }
@@ -380,38 +376,47 @@ class WProperty {
       _valueNull = false;
       _changed = true;
       valueChanged();
-      notify();
+      _notify();
     }
     return changed;
   }
 
-  bool getByteArrayBitValue(byte byteIndex, byte bitIndex) {
-    return bitRead(getByteArrayValue(byteIndex), bitIndex);
+  bool byteArrayBitValue(byte byteIndex, byte bitIndex) {
+    return bitRead(byteArrayValue(byteIndex), bitIndex);
   }
 
-  bool setByteArrayBitValue(byte byteIndex, byte bitIndex, bool bitValue) {
+  bool byteArrayBitValue(byte byteIndex, byte bitIndex, bool bitValue) {
     if (_type != BYTE_ARRAY) {
       return false;
     }
-    byte v = getByteArrayValue(byteIndex);
+    byte v = byteArrayValue(byteIndex);
     if (bitValue) {
       bitSet(v, bitIndex);
     } else {
       bitClear(v, bitIndex);
     }
-    return setByteArrayValue(byteIndex, v);
+    return byteArrayValue(byteIndex, v);
   }
 
-  WValue getValue() { return _value; }
+  WValue value() { return _value; }
 
-  bool setString(const char* newValue) {
+  char* c_str() {
+    _requestValue();
+    return _value.string;
+  }
+
+  char* asString() {
+    return c_str();
+  }
+
+  bool asString(const char* newValue) {    
     if (_type != STRING) {
       return false;
     }
     bool changed = ((_valueNull) || (strcmp(_value.string, newValue) != 0));
     if ((changed) && (newValue != nullptr) && (this->hasEnums())) {
       // proceed only at valid enums
-      changed = (getEnumIndex(this, newValue) != 0xFF);
+      changed = (enumIndex(this, newValue) != 0xFF);
     }
     if (changed) {
       if (!_valueNull) {
@@ -431,44 +436,44 @@ class WProperty {
       }
       _changed = true;
       valueChanged();
-      notify();
+      _notify();
     }
     return changed;
   }    
 
-  bool isReadOnly() { return _readOnly; }
+  bool readOnly() { return _readOnly; }
 
-  void setReadOnly(bool readOnly) { _readOnly = readOnly; }
+  void readOnly(bool readOnly) { _readOnly = readOnly; }
 
-  const char* getUnit() { return _unit; }
+  const char* unit() { return _unit; }
 
-  void setUnit(const char* unit) { _unit = unit; }
+  void unit(const char* unit) { _unit = unit; }
 
-  double getMultipleOf() { return _multipleOf; }
+  double multipleOf() { return _multipleOf; }
 
-  void setMultipleOf(double multipleOf) { _multipleOf = multipleOf; }
+  void multipleOf(double multipleOf) { _multipleOf = multipleOf; }
 
   virtual void toJsonValue(WJson* json, bool onlyValue = false) {
-    requestValue();
+    _requestValue();
     const char* memberName = (onlyValue ? nullptr : id());
     switch (_type) {
       case BOOLEAN:
-        json->propertyBoolean(memberName, getBoolean());
+        json->propertyBoolean(memberName, asBool());
         break;
       case DOUBLE:
-        json->propertyDouble(memberName, getDouble());
+        json->propertyDouble(memberName, asDouble());
         break;
       case INTEGER:
-        json->propertyInteger(memberName, getInteger());
+        json->propertyInteger(memberName, asInt());
         break;
       case SHORT:
-        json->propertyShort(memberName, getShort());
+        json->propertyShort(memberName, asShort());
         break;
       case UNSIGNED_LONG:
-        json->propertyUnsignedLong(memberName, getUnsignedLong());
+        json->propertyUnsignedLong(memberName, asUnsignedLong());
         break;
       case BYTE:
-        json->propertyByte(memberName, getByte());
+        json->propertyByte(memberName, asByte());
         break;
       case STRING:
         if (!onlyValue)
@@ -478,7 +483,7 @@ class WProperty {
         break;
       case BYTE_ARRAY:
         // tbi
-        json->propertyByteArray(memberName, getLength(), getByteArray());
+        json->propertyByteArray(memberName, length(), asByteArray());
         break;
     }
     _requested = true;
@@ -511,16 +516,16 @@ class WProperty {
         break;
     }
     // readOnly
-    if (this->isReadOnly()) {
+    if (this->readOnly()) {
       json->propertyBoolean("readOnly", true);
     }
     // unit
-    if (this->getUnit() != "") {
-      json->propertyString("unit", this->getUnit());
+    if (this->unit() != "") {
+      json->propertyString("unit", this->unit());
     }
     // multipleOf
-    if (this->getMultipleOf() > 0.0) {
-      json->propertyDouble("multipleOf", this->getMultipleOf());
+    if (this->multipleOf() > 0.0) {
+      json->propertyDouble("multipleOf", this->multipleOf());
     }
     // enum
     if (this->hasEnums()) {
@@ -528,22 +533,22 @@ class WProperty {
       _enums->forEach([this, json](WProperty* propE){
         switch (_type) {
           case BOOLEAN:
-            json->boolean(propE->getBoolean());
+            json->boolean(propE->asBool());
             break;
           case DOUBLE:
-            json->numberDouble(propE->getDouble());
+            json->numberDouble(propE->asDouble());
             break;
           case SHORT:
-            json->numberShort(propE->getShort());
+            json->numberShort(propE->asShort());
             break;
           case INTEGER:
-            json->numberInteger(propE->getInteger());
+            json->numberInteger(propE->asInt());
             break;
           case UNSIGNED_LONG:
-            json->numberUnsignedLong(propE->getUnsignedLong());
+            json->numberUnsignedLong(propE->asUnsignedLong());
             break;
           case BYTE:
-            json->numberByte(propE->getByte());
+            json->numberByte(propE->asByte());
             break;
           case STRING:
             json->string(propE->c_str());
@@ -570,7 +575,7 @@ class WProperty {
       return;
     }
     WProperty* valueE = new WProperty("", "", _type, "");
-    valueE->setBoolean(enumBoolean);
+    valueE->asBool(enumBoolean);
     this->addEnum(valueE);
   }
 
@@ -579,7 +584,7 @@ class WProperty {
       return;
     }
     WProperty* valueE = new WProperty("", "", _type, "");
-    valueE->setDouble(enumNumber);
+    valueE->asDouble(enumNumber);
     this->addEnum(valueE);
   }
 
@@ -588,7 +593,7 @@ class WProperty {
       return;
     }
     WProperty* valueE = new WProperty("", "", _type, "");
-    valueE->setInteger(enumNumber);
+    valueE->asInt(enumNumber);
     this->addEnum(valueE);
   }
 
@@ -597,7 +602,7 @@ class WProperty {
       return;
     }
     WProperty* valueE = new WProperty("", "", _type, "");
-    valueE->setShort(enumNumber);
+    valueE->asShort(enumNumber);
     this->addEnum(valueE);
   }
 
@@ -606,7 +611,7 @@ class WProperty {
       return;
     }
     WProperty* valueE = new WProperty("", "", _type, "");
-    valueE->setUnsignedLong(enumNumber);
+    valueE->asUnsignedLong(enumNumber);
     this->addEnum(valueE);
   }
 
@@ -615,7 +620,7 @@ class WProperty {
       return;
     }
     WProperty* valueE = new WProperty("", "", _type, "");
-    valueE->setByte(enumByte);
+    valueE->asByte(enumByte);
     this->addEnum(valueE);
   }
 
@@ -624,16 +629,16 @@ class WProperty {
       return;
     }
     WProperty* valueE = new WProperty("", "", _type, "");
-    valueE->setString(enumString);
+    valueE->asString(enumString);
     this->addEnum(valueE);
   }
 
-  byte getEnumIndex() { return getEnumIndex(this, this->getValue().string); }
+  byte enumIndex() { return enumIndex(this, this->value().string); }
 
-  static byte getEnumIndex(WProperty* property, const char* enumString) {
+  static byte enumIndex(WProperty* property, const char* enumString) {
     if ((property->hasEnums()) && (enumString != nullptr) && (property->type() == STRING)) {
       WProperty* en = property->_enums->getIf([property, enumString](WProperty* en) {
-        return (strcmp(en->getValue().string, enumString) == 0);
+        return (strcmp(en->value().string, enumString) == 0);
       });
       return (en != nullptr ? property->_enums->indexOf(en) : 0xFF);
     } else {
@@ -645,14 +650,14 @@ class WProperty {
     }
   }
 
-  const char* getEnumString(byte enumIndex) {
-    return getEnumString(this, enumIndex);
+  const char* enumString(byte enumIndex) {
+    return enumString(this, enumIndex);
   }
 
-  static const char* getEnumString(WProperty* property, byte enumIndex) {
+  static const char* enumString(WProperty* property, byte enumIndex) {
     if ((property->hasEnums()) && (property->type() == STRING)) {
       WProperty* en = property->_enums->get(enumIndex);
-      return (en != nullptr ? en->getValue().string : nullptr);
+      return (en != nullptr ? en->value().string : nullptr);
     } else {  
       return nullptr;
     }
@@ -690,35 +695,35 @@ class WProperty {
 
   WPropertyVisibility visibility() { return _visibility; }
 
-  void setVisibility(WPropertyVisibility visibility) {
+  void visibility(WPropertyVisibility visibility) {
     _visibility = visibility;
   }
 
-  void setVisibility(bool mqtt, bool webthing) {
+  void visibility(bool mqtt, bool webthing) {
     if ((mqtt) && (webthing)) {
-      setVisibility(ALL);
+      visibility(ALL);
     } else if ((!mqtt) && (!webthing)) {
-      setVisibility(NONE);
+      visibility(NONE);
     } else if (mqtt) {
-      setVisibility(MQTT);
+      visibility(MQTT);
     } else {
-      setVisibility(WEBTHING);
+      visibility(WEBTHING);
     } 
   }  
 
-  void setVisibilityMqtt(bool value) {
+  void visibilityMqtt(bool value) {
     if ((value) && (_visibility != MQTT) && (_visibility != ALL)) {
-      setVisibility(_visibility == WEBTHING ? ALL : MQTT);
+      visibility(_visibility == WEBTHING ? ALL : MQTT);
     } else if ((!value) && (_visibility != NONE) && (_visibility != WEBTHING)) {
-      setVisibility(_visibility == ALL ? WEBTHING : NONE);
+      visibility(_visibility == ALL ? WEBTHING : NONE);
     }
   }
 
-  void setVisibilityWebthing(bool value) {
+  void visibilityWebthing(bool value) {
     if ((value) && (_visibility != WEBTHING) && (_visibility != ALL)) {
-      setVisibility(_visibility == MQTT ? ALL : WEBTHING);
+      visibility(_visibility == MQTT ? ALL : WEBTHING);
     } else if ((!value) && (_visibility != NONE) && (_visibility != MQTT)) {
-      setVisibility(_visibility == ALL ? MQTT : NONE);
+      visibility(_visibility == ALL ? MQTT : NONE);
     }
   }
 
@@ -726,7 +731,7 @@ class WProperty {
     return ((_visibility == ALL) || (_visibility == visibility));
   }
 
-  void setId(const char* id) {
+  void id(const char* id) {
     delete _id;
     _id = new char[strlen(id) + 1];
     strcpy(_id, id);
@@ -758,12 +763,12 @@ class WProperty {
     _outputs = nullptr;
   }
 
-  void setValue(WValue newValue) {
-    _value = newValue;
+  void value(WValue value) {
+    _value = value;
     _valueNull = false;
     _changed = true;
     valueChanged();
-    notify();
+    _notify();
   }
 
   virtual void valueChanged() {}
@@ -793,7 +798,7 @@ class WProperty {
   WList<WOutput>* _outputs;  
   WList<WProperty>* _enums;
 
-  void notify() {
+  void _notify() {
     if (!_valueRequesting) {
       _notifying = true;
       if (!_listeners.empty()) {
@@ -812,7 +817,7 @@ class WProperty {
     }
   }
 
-  void requestValue() {
+  void _requestValue() {
     if ((!_notifying) && (_onValueRequest)) {
       _valueRequesting = true;
       _onValueRequest(this);
@@ -834,7 +839,7 @@ public:
 	}
 
   int getMinAsInteger() {
-		return _min.asInteger;
+		return _min.asInt;
 	}
 
 	double getMaxAsDouble() {
@@ -842,18 +847,18 @@ public:
 	}
 
   int getMaxAsInteger() {
-		return _max.asInteger;
+		return _max.asInt;
 	}
 
   byte getScaledToMax0xFF() {
 		int v = 0;
     switch (this->type()) {
       case DOUBLE: {
-        v = (int) round(getDouble() * 0xFF / getMaxAsDouble());
+        v = (int) round(asDouble() * 0xFF / getMaxAsDouble());
         break;
       }
       case INTEGER: {
-        v = getInteger() * 0xFF / getMaxAsInteger();
+        v = asInt() * 0xFF / getMaxAsInteger();
         break;
       }
     }  
@@ -924,7 +929,7 @@ class WColorProperty : public WProperty {
     if (_blue < 0x10) result.print("0");
     result.print(buffer);
     _changeValue = true;
-    setString(result.c_str());
+    asString(result.c_str());
     _changeValue = false;
   }
 
@@ -943,9 +948,9 @@ class WColorProperty : public WProperty {
   }
 
   bool parse(String value) {
-    if ((!isReadOnly()) && (value != nullptr)) {
+    if ((!readOnly()) && (value != nullptr)) {
       if ((value.startsWith("#")) && (value.length() == 7)) {
-        setString(value.c_str());
+        asString(value.c_str());
         return true;
       } else if ((value.startsWith("rgb(")) && (value.endsWith(")"))) {
         value = value.substring(4, value.length() - 1);

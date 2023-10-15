@@ -210,8 +210,8 @@ class WNetwork {
     if ((isWifiConnected()) && (isSupportingMqtt()) &&
         (!_mqttClient->connected()) &&
         ((_lastMqttConnect == 0) || (now - _lastMqttConnect > 300000)) &&
-        (strcmp(getMqttServer(), "") != 0) &&
-        (strcmp(getMqttPort(), "") != 0)) {
+        (strcmp(mqttServer(), "") != 0) &&
+        (strcmp(mqttPort(), "") != 0)) {
       _mqttReconnect();
       _lastMqttConnect = now;
     }
@@ -313,9 +313,9 @@ class WNetwork {
         this->disconnectMqtt();
         return false;
       }
-    } else {
-      if (strcmp(getMqttServer(), "") != 0) {
-        _wlog->notice(F("Can't send MQTT. Not connected to server: %s"), getMqttServer());
+    } else {      
+      if (strcmp(mqttServer(), "") != 0) {
+        _wlog->notice(F("Can't send MQTT. Not connected to server: %s"), mqttServer());
       }
       return false;
     }
@@ -440,7 +440,7 @@ class WNetwork {
     _supportsWebServer = supportsWebServer;
   }
 
-  bool isSupportingMqtt() { return _supportingMqtt->getBoolean(); }
+  bool isSupportingMqtt() { return _supportingMqtt->asBool(); }
 
   bool isInitialMqttSent() { return _initialMqttSent; }
 
@@ -458,19 +458,19 @@ class WNetwork {
 
   const char *getPassword() { return _settings->getString("password"); }
 
-  const char *getMqttServer() { return _settings->getString("mqttServer"); }
+  const char *mqttServer() { return _settings->getString("mqttServer"); }
 
-  const char *getMqttPort() { return _settings->getString("mqttPort"); }
+  const char *mqttPort() { return _settings->getString("mqttPort"); }
 
-  const char *getMqttBaseTopic() { return _mqttBaseTopic->c_str(); }
+  const char* mqttBaseTopic() { return _mqttBaseTopic->c_str(); }
 
-  const char *getMqttSetTopic() { return _mqttSetTopic->c_str(); }
+  const char *mqttSetTopic() { return _mqttSetTopic->c_str(); }
 
-  const char *getMqttStateTopic() { return _mqttStateTopic->c_str(); }
+  const char *mqttStateTopic() { return _mqttStateTopic->c_str(); }
 
-  const char *getMqttUser() { return _settings->getString("mqttUser"); }
+  const char *mqttUser() { return _settings->getString("mqttUser"); }
 
-  const char *getMqttPassword() { return _settings->getString("mqttPassword"); }
+  const char *mqttPassword() { return _settings->getString("mqttPassword"); }
 
   void addDevice(WDevice *device) {
     _devices->add(device);
@@ -580,7 +580,7 @@ class WNetwork {
 
   void _handleDeviceStateChange(WDevice *device, bool complete) {
     _wlog->notice(F("Device state changed -> send device state for device '%s'"), device->id());
-    String topic = String(getMqttBaseTopic()) + SLASH + String(device->id()) + SLASH + String(getMqttStateTopic());
+    String topic = String(mqttBaseTopic()) + SLASH + String(device->id()) + SLASH + String(mqttStateTopic());
     _mqttSendDeviceState(topic, device, complete);
   }
 
@@ -611,7 +611,7 @@ class WNetwork {
         // Send every changed property only
         device->properties()->forEach(
             [this, complete, topic](WProperty *property) {
-              if ((complete) || (property->isChanged())) {
+              if ((complete) || (property->changed())) {
                 if (property->isVisible(MQTT)) {
                   WStringStream *response = getResponseStream();
                   WJson json(response);
@@ -620,14 +620,14 @@ class WNetwork {
                       String(topic + SLASH + String(property->id())).c_str(),
                       response->c_str(), true);
                 }
-                property->setUnChanged();
+                property->changed(false);
               }
             });
         if (complete) {
           _initialMqttSent = true;
         }
       }      
-      device->setLastStateNotify(millis());
+      device->lastStateNotify(millis());
       if ((device->deepSleepMode() != DEEP_SLEEP_NONE) &&
           ((!_supportsWebServer) ||
            (device->areAllPropertiesRequested()))) {
@@ -639,9 +639,9 @@ class WNetwork {
   void _mqttCallback(char *ptopic, uint8_t *payload, unsigned int length) {
     payload[length] = '\0';
     _wlog->notice(F("Received MQTT callback. topic: '%s'; payload: '%s'; length: %d"), ptopic, (char *)payload, length);
-    String baseT = String(getMqttBaseTopic());
-    String stateT = String(getMqttStateTopic());
-    String setT = String(getMqttSetTopic());
+    String baseT = String(mqttBaseTopic());
+    String stateT = String(mqttStateTopic());
+    String setT = String(mqttSetTopic());
 
     String cTopic = String(ptopic);
     if (cTopic.startsWith(baseT)) {
@@ -727,13 +727,13 @@ class WNetwork {
   bool _mqttReconnect() {
     if (this->isSupportingMqtt()) {
       _wlog->notice(F("Connect to MQTT server: %s; user: '%s'; password: '%s'; clientName: '%s'"),
-                   getMqttServer(), getMqttUser(), getMqttPassword(), _getClientName(true).c_str());
+                   mqttServer(), mqttUser(), mqttPassword(), _getClientName(true).c_str());
       // Attempt to connect
-      _mqttClient->setServer(getMqttServer(), String(getMqttPort()).toInt());
+      _mqttClient->setServer(mqttServer(), String(mqttPort()).toInt());
       bool connected = false;
       // Create last will message
       if (this->isLastWillEnabled()) {
-        String lastWillTopic = String(getMqttBaseTopic());
+        String lastWillTopic = String(mqttBaseTopic());
         lastWillTopic.concat(SLASH);
         WStringStream *lastWillMessage = getResponseStream();
         WJson json(lastWillMessage);
@@ -741,7 +741,7 @@ class WNetwork {
         if (device != nullptr) {
           lastWillTopic.concat(device->id());
           lastWillTopic.concat(SLASH);
-          lastWillTopic.concat(getMqttStateTopic());
+          lastWillTopic.concat(mqttStateTopic());
           json.beginObject();
           json.propertyString("idx", getIdx());
           json.propertyString("ip", getDeviceIp().toString().c_str());
@@ -750,14 +750,14 @@ class WNetwork {
         }
         connected = (_mqttClient->connect(
             _getClientName(true).c_str(),
-            getMqttUser(),
-            getMqttPassword(), lastWillTopic.c_str(), 0, true,
+            mqttUser(),
+            mqttPassword(), lastWillTopic.c_str(), 0, true,
             lastWillMessage->c_str()));
       } else {
         connected = (_mqttClient->connect(
             _getClientName(true).c_str(),
-            getMqttUser(),
-            getMqttPassword()));
+            mqttUser(),
+            mqttPassword()));
       }
 
       if (connected) { 
@@ -771,14 +771,14 @@ class WNetwork {
           WJson json(response);
           json.beginObject();
           json.propertyString("url", "http://", getDeviceIp().toString().c_str(), "/things/", device->id());
-          json.propertyString("stateTopic", getMqttBaseTopic(), SLASH, device->id(), SLASH, getMqttStateTopic());
-          json.propertyString("setTopic", getMqttBaseTopic(), SLASH, device->id(), SLASH, getMqttSetTopic());
+          json.propertyString("stateTopic", mqttBaseTopic(), SLASH, device->id(), SLASH, mqttStateTopic());
+          json.propertyString("setTopic", mqttBaseTopic(), SLASH, device->id(), SLASH, mqttSetTopic());
           json.endObject();
           _mqttClient->publish(topic.c_str(), response->c_str(), false);
         });
         _mqttClient->unsubscribe("devices/#");
         // Subscribe to device specific topic
-        _mqttClient->subscribe(String(String(getMqttBaseTopic()) + "/#").c_str());
+        _mqttClient->subscribe(String(String(mqttBaseTopic()) + "/#").c_str());
         _notify(false);
         return true;
       } else {
@@ -874,27 +874,19 @@ class WNetwork {
       page->printf(HTTP_CONFIG_PAGE_BEGIN, "network");
       page->printf(HTTP_TOGGLE_GROUP_STYLE, "ga", HTTP_NONE, "gb", HTTP_NONE);
       page->printf(HTTP_TEXT_FIELD, "Identifier (idx):", "i", "16", getIdx());
-      page->printf(HTTP_TEXT_FIELD, "Wifi ssid (only 2.4G):", "s", "32",
-                   getSsid());
-      page->printf(HTTP_PASSWORD_FIELD, "Wifi password:", "p", "32",
-                   getPassword());
+      page->printf(HTTP_TEXT_FIELD, "Wifi ssid (only 2.4G):", "s", "32", getSsid());
+      page->printf(HTTP_PASSWORD_FIELD, "Wifi password:", "p", "32", getPassword());
       // mqtt
-      page->printf(HTTP_TEXT_FIELD, "MQTT Server:", "ms", "32",
-                   getMqttServer());
-      page->printf(HTTP_TEXT_FIELD, "MQTT Port:", "mo", "4", getMqttPort());
-      page->printf(HTTP_TEXT_FIELD, "MQTT User:", "mu", "16", getMqttUser());
-      page->printf(HTTP_PASSWORD_FIELD, "MQTT Password:", "mp", "32",
-                   getMqttPassword());
+      page->printf(HTTP_TEXT_FIELD, "MQTT Server:", "ms", "32", mqttServer());
+      page->printf(HTTP_TEXT_FIELD, "MQTT Port:", "mo", "4", mqttPort());
+      page->printf(HTTP_TEXT_FIELD, "MQTT User:", "mu", "16", mqttUser());
+      page->printf(HTTP_PASSWORD_FIELD, "MQTT Password:", "mp", "32", mqttPassword());
       // advanced mqtt options
-      page->printf(HTTP_CHECKBOX_OPTION, "sa", "sa", "", "tg()",
-                   "Advanced MQTT options");
+      page->printf(HTTP_CHECKBOX_OPTION, "sa", "sa", "", "tg()", "Advanced MQTT options");
       page->printf(HTTP_DIV_ID_BEGIN, "ga");
-      page->printf(HTTP_TEXT_FIELD, "MQTT Topic:", "mt", "32",
-                   getMqttBaseTopic());
-      page->printf(HTTP_TEXT_FIELD, "Topic for state requests:", "mtg", "16",
-                   getMqttStateTopic());
-      page->printf(HTTP_TEXT_FIELD, "Topic for setting values:", "mts", "16",
-                   getMqttSetTopic());
+      page->printf(HTTP_TEXT_FIELD, "MQTT Topic:", "mt", "32", mqttBaseTopic());
+      page->printf(HTTP_TEXT_FIELD, "Topic for state requests:", "mtg", "16", mqttStateTopic());
+      page->printf(HTTP_TEXT_FIELD, "Topic for setting values:", "mts", "16", mqttSetTopic());
       page->print(FPSTR(HTTP_DIV_END));
       page->printf(HTTP_TOGGLE_FUNCTION_SCRIPT, "tg()", "sa", "ga", "gb");
       page->print(FPSTR(HTTP_CONFIG_SAVE_BUTTON));
@@ -908,10 +900,10 @@ class WNetwork {
     bool equalsOldIdx = _idx->equalsString(mbt.c_str());
     String itx = request->arg("i");
 
-    _idx->setString(itx.c_str());
-    _ssid->setString(request->arg("s").c_str());
+    _idx->asString(itx.c_str());
+    _ssid->asString(request->arg("s").c_str());
     _settings->setString("password", request->arg("p").c_str());
-    _supportingMqtt->setBoolean(true);  
+    _supportingMqtt->asBool(true);  
     _settings->setString("mqttServer", request->arg("ms").c_str());
     String mqtt_port = request->arg("mo");
     _settings->setString("mqttPort",
@@ -919,17 +911,17 @@ class WNetwork {
     _settings->setString("mqttUser", request->arg("mu").c_str());
     _settings->setString("mqttPassword", request->arg("mp").c_str());
     // advanced mqtt options
-    _mqttBaseTopic->setString(equalsOldIdx ? itx.c_str() : mbt.c_str());
+    _mqttBaseTopic->asString(equalsOldIdx ? itx.c_str() : mbt.c_str());
     String subTopic = request->arg("mtg");
     if (subTopic.startsWith(SLASH)) subTopic.substring(1);
     if (subTopic.endsWith(SLASH)) subTopic.substring(0, subTopic.length() - 1);
     if (subTopic.equals("")) subTopic = DEFAULT_TOPIC_STATE;
-    _mqttStateTopic->setString(subTopic.c_str());
+    _mqttStateTopic->asString(subTopic.c_str());
     subTopic = request->arg("mts");
     if (subTopic.startsWith(SLASH)) subTopic.substring(1);
     if (subTopic.endsWith(SLASH)) subTopic.substring(0, subTopic.length() - 1);
     if (subTopic.equals("")) subTopic = DEFAULT_TOPIC_SET;
-    _mqttSetTopic->setString(subTopic.c_str());
+    _mqttSetTopic->asString(subTopic.c_str());
     _settings->save();
     _restart(request, "Settings saved. Subscribe to topic 'devices/#' at your broker to get device information.");
   }
@@ -1234,14 +1226,14 @@ class WNetwork {
     _mqttStateTopic = _settings->setNetworkString("mqttStateTopic", DEFAULT_TOPIC_STATE);
     _mqttSetTopic = _settings->setNetworkString("mqttSetTopic", DEFAULT_TOPIC_SET);
     if (_settings->existsNetworkSettings()) {
-      if (strcmp(getMqttBaseTopic(), "") == 0) {
-        _mqttBaseTopic->setString(_getClientName(true).c_str());
+      if (strcmp(mqttBaseTopic(), "") == 0) {
+        _mqttBaseTopic->asString(_getClientName(true).c_str());
       }
       if ((isSupportingMqtt()) && (_mqttClient != nullptr)) {
         this->disconnectMqtt();
       }
       _wlog->debug(F("SSID: '%s'; MQTT enabled: %T; MQTT server: '%s'; MQTT port: %s; WebServer started: %T"),
-                  getSsid(), isSupportingMqtt(), getMqttServer(), getMqttPort(), isWebServerRunning());
+                  getSsid(), isSupportingMqtt(), mqttServer(), mqttPort(), isWebServerRunning());
     } else {
       _wlog->notice(F("Network settings are missing."));
     }
@@ -1305,7 +1297,7 @@ class WNetwork {
       json.beginObject();
       property->toJsonValue(&json);
       json.endObject();
-      property->setRequested(true);
+      property->requested(true);
       request->send(response);
     }
   }
