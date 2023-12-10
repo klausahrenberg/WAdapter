@@ -32,10 +32,10 @@ class WKY040 : public WSwitch {
   void loop(unsigned long now) {
     WSwitch::loop(now);
     if (_rotatingLeft != nullptr) {
-      _rotatingLeft->setBoolean(knobRotatedLeft);
+      _rotatingLeft->asBool(knobRotatedLeft);
     }
     if (_rotatingRight != nullptr) {
-      _rotatingRight->setBoolean(knobRotatedRight);
+      _rotatingRight->asBool(knobRotatedRight);
     }  
     knobRotatedLeft = false;
     knobRotatedRight = false;
