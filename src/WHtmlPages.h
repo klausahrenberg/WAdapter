@@ -12,17 +12,14 @@ const char* HTTP_FALSE = "false";
 const char* VALUE_GET = "get";
 
 const static char HTTP_TR[] PROGMEM = R"=====(<tr>)=====";
-void tr(Print* page) { page->print(FPSTR(HTTP_TR)); }
 const static char HTTP_TRE[] PROGMEM = R"=====(</tr>)=====";
-void trEnd(Print* page) { page->print(FPSTR(HTTP_TRE)); }
-const static char HTTP_TH[] PROGMEM = R"=====(<th>)=====";
-void th(Print* page) { page->print(FPSTR(HTTP_TH)); }
+const static char HTTP_TH[] PROGMEM = R"=====(<th colspan='%d'>)=====";
 const static char HTTP_THE[] PROGMEM = R"=====(</th>)=====";
-void thEnd(Print* page) { page->print(FPSTR(HTTP_THE)); }
 const static char HTTP_TD[] PROGMEM = R"=====(<td>)=====";
-void td(Print* page) { page->print(FPSTR(HTTP_TD)); }
 const static char HTTP_TDE[] PROGMEM = R"=====(</td>)=====";
-void tdEnd(Print* page) { page->print(FPSTR(HTTP_TDE)); }
+
+const static char HTTP_TABLE[] PROGMEM = R"=====(<table class='%s'>)=====";
+const static char HTTP_TABLE_END[] PROGMEM = R"=====(</table>)=====";
 
 const static char HTTP_HEAD_BEGIN[] PROGMEM = R"=====(
 <!DOCTYPE html>
@@ -228,19 +225,15 @@ const static char HTTP_PASSWORD_FIELD[] PROGMEM = R"=====(
 )=====";
 
 const static char HTTP_CHECKBOX[] PROGMEM = R"=====(
-		<div>
-			<label>
-				<input type='checkbox' name='%s' value='true' %s>%s
-			</label>
-		</div>
+		<label>
+			<input type='checkbox' name='%s' value='true' %s>%s
+		</label>		
 )=====";
 
 const static char HTTP_CHECKBOX_OPTION[] PROGMEM = R"=====(
-	<div>
-		<label>
-			<input type='checkbox' id='%s' name='%s' value='true' %s onclick='%s'>%s
-		</label>
-	</div>
+	<label>
+		<input type='checkbox' id='%s' name='%s' value='true' %s onclick='%s'>%s
+	</label>
 )=====";
 
 const static char HTTP_RADIO_OPTION[] PROGMEM = R"=====(
@@ -283,8 +276,24 @@ class WHtml {
   }
 
   static void textField(Print* page, const char* fieldName, const char* title, byte maxLength, const char* value) {
-	page->printf(HTTP_TEXT_FIELD, title, fieldName, String(maxLength).c_str(), value);
+		page->printf(HTTP_TEXT_FIELD, title, fieldName, String(maxLength).c_str(), value);
   }
+
+	static void tr(Print* page) { page->print(FPSTR(HTTP_TR)); }
+
+	static void trEnd(Print* page) { page->print(FPSTR(HTTP_TRE)); }
+
+	static void th(Print* page, byte colspan = 1) { page->printf(HTTP_TH, colspan); }
+
+	static void thEnd(Print* page) { page->print(FPSTR(HTTP_THE)); }
+
+	static void td(Print* page) { page->print(FPSTR(HTTP_TD)); }
+
+	static void tdEnd(Print* page) { page->print(FPSTR(HTTP_TDE)); }
+
+	static void table(Print* page, const char* id) { page->printf(HTTP_TABLE, id); }
+
+	static void tableEnd(Print* page) { page->print(FPSTR(HTTP_TABLE_END)); }
 
 };
 

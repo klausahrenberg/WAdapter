@@ -348,7 +348,7 @@ class WProperty {
       free(_value.asByteArray);      
     }
     _value.asByteArray = (byte*) malloc(length + 1);
-    _value.asByteArray[0] = length;
+    _value.asByteArray[0] = length;    
     for (int i = 0; i < length; i++) {
       changed = ((changed) || (_value.asByteArray[i] != newValue[i]));
       _value.asByteArray[i + 1] = newValue[i];
@@ -379,7 +379,7 @@ class WProperty {
       _notify();
     }
     return changed;
-  }
+  }  
 
   bool byteArrayBitValue(byte byteIndex, byte bitIndex) {
     return bitRead(byteArrayValue(byteIndex), bitIndex);

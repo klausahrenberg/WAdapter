@@ -180,9 +180,12 @@ class WNetwork {
           // after first startup
           WiFi.disconnect();
           WiFi.hostname(_hostname);
-#elif ESP32
-          WiFi.mode(WIFI_STA);
+#elif ESP32          
+          //Workaround: WiFi.setHostName now only works if: - You call it before calling WiFi.mode(WIFI_STA)
+          //and ensure that the mode is not WIFI_STA already before calling WiFi.setHostName (by first calling WiFi.mode(WIFI_MODE_NULL)
+          WiFi.mode(WIFI_MODE_NULL);
           WiFi.setHostname(_hostname);
+          WiFi.mode(WIFI_STA);
 #endif
           WiFi.begin(getSsid(), getPassword());
 

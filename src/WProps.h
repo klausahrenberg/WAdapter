@@ -18,6 +18,12 @@ class WProps {
     return new WProperty(id, title, BYTE, "");
   }
 
+  static WProperty* createByteArrayProperty(const char* id, const char* title, byte arrayLength, const byte* values) {
+    WProperty* result = new WProperty(id, title, BYTE_ARRAY, "");
+    result->asByteArray(arrayLength, values);
+    return result;
+  }
+
   static WProperty* createDoubleProperty(const char* id, const char* title) {
     return new WProperty(id, title, DOUBLE, "");
   }
