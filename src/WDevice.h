@@ -4,7 +4,7 @@
 #include "WList.h"
 #include "WInput.h"
 #include "WOutput.h"
-#include "WLed.h"
+#include "hw/WLed.h"
 #include "WProps.h"
 
 const char* DEVICE_TYPE_BINARY_SENSOR = "BinarySensor";

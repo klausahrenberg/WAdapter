@@ -10,11 +10,7 @@ class WRelay : public WOutput {
     if (this->isInitialized()) {
       digitalWrite(this->pin(), getOffLevel());
     }
-  }
-
-  void onChanged() {
-    digitalWrite(this->pin(), isOn() ? getOnLevel() : getOffLevel());
-  };
+  }  
 
   void loop(unsigned long now) {}
 
@@ -23,6 +19,10 @@ class WRelay : public WOutput {
   //void setInverted(bool inverted) { this->inverted = inverted; }
 
  protected:
+  void _updateOn() {
+    digitalWrite(this->pin(), isOn() ? getOnLevel() : getOffLevel());
+  };
+
   byte getOnLevel() { return (!_inverted ? HIGH : LOW); }
 
   byte getOffLevel() { return !getOnLevel(); }

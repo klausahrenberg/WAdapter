@@ -6,7 +6,6 @@
 #include "WJson.h"
 #include "WList.h"
 #include "WValue.h"
-#include "WOutput.h"
 #include "WStringStream.h"
 
 // for reference see https://iot.mozilla.org/schemas
@@ -43,7 +42,7 @@ enum WPropertyType {
 
 enum WPropertyVisibility { ALL, NONE, MQTT, WEBTHING };
 
-typedef std::function<void(WProperty* property)> TOnPropertyChange;
+typedef std::function<void()> TOnPropertyChange;
 
 class WProperty {
  public:
@@ -680,19 +679,6 @@ class WProperty {
 
   int enumsCount() { return _enums->size(); }
 
-  void addOutput(WOutput* output) {
-    if (_outputs == nullptr) {
-      _outputs = new WList<WOutput>();
-    }
-    _outputs->add(output);
-  }
-
-  bool hasOutputs() { return (_outputs != nullptr); }
-
-  WList<WOutput>* outputs() {
-    return _outputs;
-  }
-
   WPropertyVisibility visibility() { return _visibility; }
 
   void visibility(WPropertyVisibility visibility) {
@@ -760,7 +746,6 @@ class WProperty {
     _multipleOf = 0.0;
     _deviceNotification = nullptr;
     _enums = nullptr;
-    _outputs = nullptr;
   }
 
   void value(WValue value) {
@@ -795,7 +780,6 @@ class WProperty {
   bool _valueRequesting;
   bool _notifying;
 
-  WList<WOutput>* _outputs;  
   WList<WProperty>* _enums;
 
   void _notify() {
@@ -804,14 +788,11 @@ class WProperty {
       if (!_listeners.empty()) {
         for(std::list<TOnPropertyChange>::iterator f = _listeners.begin(); f != _listeners.end(); ++f ) {
           //f->onChange(this);
-          f->operator()(this);
+          f->operator()();
         }
-      } else if (_outputs != nullptr) {
-        //Let the output handle the change
-        _outputs->forEach([this](WOutput* output){output->handleChangedProperty(_value);});
-	    }
+      }
       if (_deviceNotification) {
-        _deviceNotification(this);
+        _deviceNotification();
       }
       _notifying = false;
     }
@@ -820,7 +801,7 @@ class WProperty {
   void _requestValue() {
     if ((!_notifying) && (_onValueRequest)) {
       _valueRequesting = true;
-      _onValueRequest(this);
+      _onValueRequest();
       _valueRequesting = false;
     }
   }
@@ -831,7 +812,7 @@ public:
 	WRangeProperty(const char* id, const char* title, WPropertyType type, WValue minimum, WValue maximum, const char* atType = TYPE_LEVEL_PROPERTY)
 	: WProperty(id, title, type, atType) {    
 		_min = minimum;
-		_max = maximum;
+		_max = maximum;     
 	}
 
 	double getMinAsDouble() {

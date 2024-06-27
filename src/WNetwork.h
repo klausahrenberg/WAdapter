@@ -7,24 +7,25 @@
 #include <ESP8266mDNS.h>
 #include <Updater.h>
 #define U_PART U_FS
-#elif ESP32 
+#elif ESP32
 #include <ESPmDNS.h>
 #include <Update.h>
 #define U_PART U_SPIFFS
 #endif
 #include <DNSServer.h>
-#include <StreamString.h>
 #include <PubSubClient.h>
+#include <StreamString.h>
+
 #include "WDevice.h"
-#include "WHtmlPages.h"
 #include "WJsonParser.h"
-#include "WLed.h"
 #include "WList.h"
 #include "WLog.h"
-#include "WPage.h"
 #include "WSettings.h"
 #include "WStringStream.h"
 #include "WiFiClient.h"
+#include "html/WHtmlPages.h"
+#include "html/WPage.h"
+#include "hw/WLed.h"
 
 #define SIZE_JSON_PACKET 1280
 #define NO_LED -1
@@ -33,7 +34,6 @@
 #define WIFI_RECONNECTION_TRYS 3
 const char *CONFIG_PASSWORD = "12345678";
 const char *APPLICATION_JSON = "application/json";
-const char *TEXT_HTML = "text/html";
 const char *TEXT_PLAIN = "text/plain";
 const char *DEFAULT_TOPIC_STATE = "properties";
 const char *DEFAULT_TOPIC_SET = "set";
@@ -113,7 +113,7 @@ class WNetwork {
         statusLedOnIfConnected);
   }
 
-  void setStatusLed(WLed* statusLed, bool statusLedOnIfConnected) {
+  void setStatusLed(WLed *statusLed, bool statusLedOnIfConnected) {
     _statusLedOnIfConnected = statusLedOnIfConnected;
     if (_statusLed != nullptr) {
       delete _statusLed;
@@ -157,7 +157,7 @@ class WNetwork {
     _settings->endReadingFirstTime();
     bool result = true;
     if (!isWebServerRunning()) {
-      if (WiFi.status() != WL_CONNECTED) {        
+      if (WiFi.status() != WL_CONNECTED) {
         if ((!_settings->existsNetworkSettings()) ||
             (_settings->forceNetworkAccessPoint()) || (strcmp(getSsid(), "") == 0) ||
             (_wifiConnectTrys == WIFI_RECONNECTION_TRYS)) {
@@ -168,7 +168,7 @@ class WNetwork {
           WiFi.setAutoReconnect(false);
           WiFi.softAP(apSsid.c_str(), this->apPassword().c_str());
           _dnsApServer->setErrorReplyCode(DNSReplyCode::NoError);
-          _dnsApServer->start(53, "*", WiFi.softAPIP());          
+          _dnsApServer->start(53, "*", WiFi.softAPIP());
           this->startWebServer();
         } else if ((_wifiConnectTrys < WIFI_RECONNECTION_TRYS) &&
                    ((_lastWifiConnect == 0) ||
@@ -180,9 +180,9 @@ class WNetwork {
           // after first startup
           WiFi.disconnect();
           WiFi.hostname(_hostname);
-#elif ESP32          
-          //Workaround: WiFi.setHostName now only works if: - You call it before calling WiFi.mode(WIFI_STA)
-          //and ensure that the mode is not WIFI_STA already before calling WiFi.setHostName (by first calling WiFi.mode(WIFI_MODE_NULL)
+#elif ESP32
+          // Workaround: WiFi.setHostName now only works if: - You call it before calling WiFi.mode(WIFI_STA)
+          // and ensure that the mode is not WIFI_STA already before calling WiFi.setHostName (by first calling WiFi.mode(WIFI_MODE_NULL)
           WiFi.mode(WIFI_MODE_NULL);
           WiFi.setHostname(_hostname);
           WiFi.mode(WIFI_STA);
@@ -244,7 +244,7 @@ class WNetwork {
       });
 // WebThingAdapter
 #ifdef ESP8266
-      if ((!isUpdateRunning()) && (MDNS.isRunning()) && (isWifiConnected())) {        
+      if ((!isUpdateRunning()) && (MDNS.isRunning()) && (isWifiConnected())) {
         MDNS.update();
       }
 #endif
@@ -292,9 +292,9 @@ class WNetwork {
 
   ~WNetwork() { delete _wlog; }
 
-  WSettings* settings() { return _settings; }
+  WSettings *settings() { return _settings; }
 
-  void setDebuggingOutput(Print* output) {
+  void setDebuggingOutput(Print *output) {
     _debuggingOutput = output;
     _wlog->setOutput(output, (_debugging ? LOG_LEVEL_NOTICE : LOG_LEVEL_SILENT), true, true);
   }
@@ -305,7 +305,7 @@ class WNetwork {
     _onConfigurationFinished = onConfigurationFinished;
   }
 
-  bool publishMqtt(const char* topic, WStringStream* response, bool retained = false) {
+  bool publishMqtt(const char *topic, WStringStream *response, bool retained = false) {
     _wlog->notice(F("MQTT... '%s'; %s"), topic, response->c_str());
     if (isMqttConnected()) {
       if (_mqttClient->publish(topic, response->c_str(), retained)) {
@@ -316,7 +316,7 @@ class WNetwork {
         this->disconnectMqtt();
         return false;
       }
-    } else {      
+    } else {
       if (strcmp(mqttServer(), "") != 0) {
         _wlog->notice(F("Can't send MQTT. Not connected to server: %s"), mqttServer());
       }
@@ -350,14 +350,7 @@ class WNetwork {
       }
       _webServer->on("/config", HTTP_GET, std::bind(&WNetwork::_handleHttpRootRequest, this, std::placeholders::_1));
       _pages->forEach([this](WPage *page) {
-        String did(SLASH);
-        did.concat(page->getId());
-        _webServer->on(did.c_str(), HTTP_ANY, std::bind(&WNetwork::_handleHttpCustomPage, this, std::placeholders::_1, page));
-        if (page->hasSubmittedPage()) {
-          String dis("/submit");
-          dis.concat(page->getId());
-          _webServer->on(dis.c_str(), HTTP_ANY, std::bind(&WNetwork::_handleHttpSubmittedCustomPage, this, std::placeholders::_1, page));
-        }
+        page->bindWebServer(_webServer);
       });
       _webServer->on("/wifi", HTTP_GET, std::bind(&WNetwork::_handleHttpNetworkConfiguration, this, std::placeholders::_1));
       _webServer->on("/submitnetwork", HTTP_GET, std::bind(&WNetwork::_handleHttpSaveConfiguration, this, std::placeholders::_1));
@@ -369,11 +362,11 @@ class WNetwork {
       // firmware update
       _webServer->on("/firmware", HTTP_GET, std::bind(&WNetwork::_handleHttpFirmwareUpdate, this, std::placeholders::_1));
       _webServer->on("/firmware", HTTP_POST, std::bind(&WNetwork::_handleHttpFirmwareUpdateFinished, this, std::placeholders::_1),
-                    std::bind(&WNetwork::_handleHttpFirmwareUpdateProgress, this,
-                              std::placeholders::_1, std::placeholders::_2,
-                              std::placeholders::_3, std::placeholders::_4,
-                              std::placeholders::_5, std::placeholders::_6));
-      // WebThings      
+                     std::bind(&WNetwork::_handleHttpFirmwareUpdateProgress, this,
+                               std::placeholders::_1, std::placeholders::_2,
+                               std::placeholders::_3, std::placeholders::_4,
+                               std::placeholders::_5, std::placeholders::_6));
+      // WebThings
       if ((aDeviceNeedsWebThings) && (this->isWifiConnected())) {
         // Make the thing discoverable
         String mdnsName = String(_hostname);
@@ -443,7 +436,7 @@ class WNetwork {
     _supportsWebServer = supportsWebServer;
   }
 
-  bool isSupportingMqtt() { return _supportingMqtt->asBool(); }
+  bool isSupportingMqtt() { return ((_supportingMqtt->asBool()) && (strcmp(mqttServer(), "") != 0)); }
 
   bool isInitialMqttSent() { return _initialMqttSent; }
 
@@ -465,7 +458,7 @@ class WNetwork {
 
   const char *mqttPort() { return _settings->getString("mqttPort"); }
 
-  const char* mqttBaseTopic() { return _mqttBaseTopic->c_str(); }
+  const char *mqttBaseTopic() { return _mqttBaseTopic->c_str(); }
 
   const char *mqttSetTopic() { return _mqttSetTopic->c_str(); }
 
@@ -533,51 +526,51 @@ class WNetwork {
   String apPassword() { return CONFIG_PASSWORD; }
 
  private:
-  WLog* _wlog;
+  WLog *_wlog;
   WList<WDevice> *_devices;
   WList<WPage> *_pages;
   THandlerFunction _onNotify;
   THandlerFunction _onConfigurationFinished;
   bool _debugging, _updateRunning;
   String _restartFlag;
-  DNSServer* _dnsApServer;
-  AsyncWebServer* _webServer;
+  DNSServer *_dnsApServer;
+  AsyncWebServer *_webServer;
   int _networkState;
   String _applicationName;
   String _firmwareVersion;
-  const char* _firmwareUpdateError;
-  WProperty* _supportingMqtt;
+  const char *_firmwareUpdateError;
+  WProperty *_supportingMqtt;
   bool _supportsWebServer;
-  WProperty* _ssid;
-  WProperty* _idx;
-  char* _hostname;
-  WProperty* _mqttBaseTopic;
-  WProperty* _mqttSetTopic;
-  WProperty* _mqttStateTopic;
-  WiFiClient* _wifiClient;
-  PubSubClient* _mqttClient;
+  WProperty *_ssid;
+  WProperty *_idx;
+  char *_hostname;
+  WProperty *_mqttBaseTopic;
+  WProperty *_mqttSetTopic;
+  WProperty *_mqttStateTopic;
+  WiFiClient *_wifiClient;
+  PubSubClient *_mqttClient;
   unsigned long _lastMqttConnect, _lastWifiConnect, _lastWifiConnectFirstTry;
   byte _wifiConnectTrys;
-  WStringStream* _responseStream = nullptr;
-  WLed* _statusLed;
+  WStringStream *_responseStream = nullptr;
+  WLed *_statusLed;
   bool _statusLedOnIfConnected;
-  WSettings* _settings;
-  WDevice* _deepSleepFlag;
+  WSettings *_settings;
+  WDevice *_deepSleepFlag;
   unsigned long _startupTime;
   char _body_data[ESP_MAX_PUT_BODY_SIZE];
   bool _b_has_body_data = false;
-  Print* _debuggingOutput;
+  Print *_debuggingOutput;
   bool _initialMqttSent;
   bool _lastWillEnabled;
   bool _waitForWifiConnection;
 
   bool _aDeviceNeedsWebThings() {
     bool result = false;
-    WIterator<WDevice>* it_d = _devices->iterator();
-    while ((!result) && (it_d->hasNext())) {      
-      WDevice* d = it_d->next();
+    WIterator<WDevice> *it_d = _devices->iterator();
+    while ((!result) && (it_d->hasNext())) {
+      WDevice *d = it_d->next();
       result = d->needsWebThings();
-    } 
+    }
     return result;
   }
 
@@ -608,7 +601,7 @@ class WNetwork {
         json.endObject();
 
         _mqttClient->publish(topic.c_str(), (const uint8_t *)response->c_str(),
-                            response->length(), true);
+                             response->length(), true);
         _initialMqttSent = true;
       } else {
         // Send every changed property only
@@ -629,13 +622,13 @@ class WNetwork {
         if (complete) {
           _initialMqttSent = true;
         }
-      }      
+      }
       device->lastStateNotify(millis());
       if ((device->deepSleepMode() != DEEP_SLEEP_NONE) &&
           ((!_supportsWebServer) ||
            (device->areAllPropertiesRequested()))) {
         _deepSleepFlag = device;
-      }      
+      }
     }
   }
 
@@ -672,14 +665,14 @@ class WNetwork {
                 if (property != nullptr) {
                   if (property->isVisible(MQTT)) {
                     _wlog->notice(F("Send state of property '%s'"),
-                                 property->id());
+                                  property->id());
                     WStringStream *response = getResponseStream();
                     WJson json(response);
                     property->toJsonValue(&json, true);
                     _mqttClient->publish(String(baseT + SLASH + deviceId + SLASH + stateT + SLASH + String(property->id())).c_str(), response->c_str(), true);
                   }
                 } else {
-                  device->handleUnknownMqttCallback(true, ptopic, topic, (char*)payload, length);
+                  device->handleUnknownMqttCallback(true, ptopic, topic, (char *)payload, length);
                 }
               }
             }
@@ -730,7 +723,7 @@ class WNetwork {
   bool _mqttReconnect() {
     if (this->isSupportingMqtt()) {
       _wlog->notice(F("Connect to MQTT server: %s; user: '%s'; password: '%s'; clientName: '%s'"),
-                   mqttServer(), mqttUser(), mqttPassword(), _getClientName(true).c_str());
+                    mqttServer(), mqttUser(), mqttPassword(), _getClientName(true).c_str());
       // Attempt to connect
       _mqttClient->setServer(mqttServer(), String(mqttPort()).toInt());
       bool connected = false;
@@ -763,8 +756,8 @@ class WNetwork {
             mqttPassword()));
       }
 
-      if (connected) { 
-        _wlog->notice(F("Connected to MQTT server."));        
+      if (connected) {
+        _wlog->notice(F("Connected to MQTT server."));
         //  Send device structure and status
         _mqttClient->subscribe("devices/#");
         _devices->forEach([this](WDevice *device) {
@@ -821,7 +814,7 @@ class WNetwork {
   void _handleHttpRootRequest(AsyncWebServerRequest *request) {
     if (isWebServerRunning()) {
       if (_restartFlag.equals("")) {
-        AsyncResponseStream *page = request->beginResponseStream(TEXT_HTML);
+        AsyncResponseStream *page = request->beginResponseStream(WC_TEXT_HTML);
         page->printf(HTTP_HEAD_BEGIN, _applicationName.c_str());
         page->print(FPSTR(HTTP_STYLE));
         page->print(FPSTR(HTTP_HEAD_END));
@@ -829,7 +822,7 @@ class WNetwork {
         page->printf(HTTP_BUTTON, "wifi", "get", "Configure network");
         _pages->forEach([this, page](WPage *customPage) {
           if (customPage->isShowInMainMenu()) {
-            page->printf(HTTP_BUTTON, customPage->getId(), "get",
+            page->printf(HTTP_BUTTON, customPage->id(), "get",
                          customPage->getTitle());
           }
         });
@@ -839,7 +832,7 @@ class WNetwork {
         page->print(FPSTR(HTTP_BODY_END));
         request->send(page);
       } else {
-        AsyncResponseStream *page = request->beginResponseStream(TEXT_HTML);
+        AsyncResponseStream *page = request->beginResponseStream(WC_TEXT_HTML);
         page->printf(HTTP_HEAD_BEGIN, "Info");
         page->print(FPSTR(HTTP_STYLE));
         page->print("<meta http-equiv=\"refresh\" content=\"10\">");
@@ -853,28 +846,15 @@ class WNetwork {
     }
   }
 
-  void _handleHttpCustomPage(AsyncWebServerRequest *request, WPage *customPage) {
-    if (isWebServerRunning()) {
-      AsyncResponseStream *response = request->beginResponseStream(TEXT_HTML, 6100U);
-      response->printf(HTTP_HEAD_BEGIN, customPage->getTitle());
-      response->print(FPSTR(HTTP_STYLE));
-      response->print(FPSTR(HTTP_HEAD_END));
-      _printHttpCaption(response);
-      customPage->printPage(request, response);
-      response->print(FPSTR(HTTP_BODY_END));
-      request->send(response);
-    }
-  }
-
   void _handleHttpNetworkConfiguration(AsyncWebServerRequest *request) {
     if (isWebServerRunning()) {
       _wlog->notice(F("Network config page"));
-      AsyncResponseStream *page = request->beginResponseStream(TEXT_HTML);
+      AsyncResponseStream *page = request->beginResponseStream(WC_TEXT_HTML);
       page->printf(HTTP_HEAD_BEGIN, "Network Configuration");
       page->print(FPSTR(HTTP_STYLE));
       page->print(FPSTR(HTTP_HEAD_END));
       _printHttpCaption(page);
-      page->printf(HTTP_CONFIG_PAGE_BEGIN, "network");
+      //HTTP_CONFIG_PAGE_BEGIN(page, "network");
       page->printf(HTTP_TOGGLE_GROUP_STYLE, "ga", HTTP_NONE, "gb", HTTP_NONE);
       page->printf(HTTP_TEXT_FIELD, "Identifier (idx):", "i", "16", getIdx());
       page->printf(HTTP_TEXT_FIELD, "Wifi ssid (only 2.4G):", "s", "32", getSsid());
@@ -886,11 +866,11 @@ class WNetwork {
       page->printf(HTTP_PASSWORD_FIELD, "MQTT Password:", "mp", "32", mqttPassword());
       // advanced mqtt options
       page->printf(HTTP_CHECKBOX_OPTION, "sa", "sa", "", "tg()", "Advanced MQTT options");
-      page->printf(HTTP_DIV_ID_BEGIN, "ga");
+      //HTTP_DIV(page, "ga");
       page->printf(HTTP_TEXT_FIELD, "MQTT Topic:", "mt", "32", mqttBaseTopic());
       page->printf(HTTP_TEXT_FIELD, "Topic for state requests:", "mtg", "16", mqttStateTopic());
       page->printf(HTTP_TEXT_FIELD, "Topic for setting values:", "mts", "16", mqttSetTopic());
-      page->print(FPSTR(HTTP_DIV_END));
+      //HTTP_DIV_END(page);
       page->printf(HTTP_TOGGLE_FUNCTION_SCRIPT, "tg()", "sa", "ga", "gb");
       page->print(FPSTR(HTTP_CONFIG_SAVE_BUTTON));
       page->print(FPSTR(HTTP_BODY_END));
@@ -906,7 +886,7 @@ class WNetwork {
     _idx->asString(itx.c_str());
     _ssid->asString(request->arg("s").c_str());
     _settings->setString("password", request->arg("p").c_str());
-    _supportingMqtt->asBool(true);  
+    _supportingMqtt->asBool(true);
     _settings->setString("mqttServer", request->arg("ms").c_str());
     String mqtt_port = request->arg("mo");
     _settings->setString("mqttPort",
@@ -929,25 +909,9 @@ class WNetwork {
     _restart(request, "Settings saved. Subscribe to topic 'devices/#' at your broker to get device information.");
   }
 
-  void _handleHttpSubmittedCustomPage(AsyncWebServerRequest *request,
-                                     WPage *customPage) {
-    if (customPage->hasSubmittedPage()) {
-      _wlog->notice(F("Save custom page: %s"), customPage->getId());
-      WStringStream *page = new WStringStream(1024);
-      customPage->submittedPage(request, page);
-      if (customPage->getTargetAfterSubmitting() != nullptr) {
-        _handleHttpCustomPage(request, customPage->getTargetAfterSubmitting());
-      } else {
-        _settings->save();
-        _restart(request, (strlen(page->c_str()) == 0 ? "Settings saved." : page->c_str()));
-      }
-      delete page;
-    }
-  }
-
   void _handleHttpInfo(AsyncWebServerRequest *request) {
     if (isWebServerRunning()) {
-      AsyncResponseStream *page = request->beginResponseStream(TEXT_HTML);
+      AsyncResponseStream *page = request->beginResponseStream(WC_TEXT_HTML);
       page->printf(HTTP_HEAD_BEGIN, "Info");
       page->print(FPSTR(HTTP_STYLE));
       page->print(FPSTR(HTTP_HEAD_END));
@@ -1008,18 +972,18 @@ class WNetwork {
 
   void _handleHttpReset(AsyncWebServerRequest *request) {
     if (isWebServerRunning()) {
-      AsyncResponseStream *page = request->beginResponseStream(TEXT_HTML);
+      AsyncResponseStream *page = request->beginResponseStream(WC_TEXT_HTML);
       page->printf(HTTP_HEAD_BEGIN, "Restart options");
       page->print(FPSTR(HTTP_STYLE));
       page->print(FPSTR(HTTP_HEAD_END));
       _printHttpCaption(page);
       page->printf(HTTP_BUTTON, "w4StEi18X6", "post", "Reboot");
-      page->print(FPSTR(HTTP_DIV_BEGIN));
-      page->print(FPSTR(HTTP_DIV_END));
+      //HTTP_DIV(page);
+      //HTTP_DIV_END(page);      
       page->printf(HTTP_BUTTON_ALERT, "w4StEi18X7", "post", "Restart in AccessPoint mode");
       page->printf(HTTP_BUTTON_ALERT, "w4StEi18X8", "post", "Reset all settings");
-      page->print(FPSTR(HTTP_DIV_BEGIN));
-      page->print(FPSTR(HTTP_DIV_END));
+      //HTTP_DIV(page);
+      //HTTP_DIV_END(page);
       page->printf(HTTP_BUTTON, "config", "get", "Cancel");
       page->print(FPSTR(HTTP_BODY_END));
       request->send(page);
@@ -1094,7 +1058,7 @@ class WNetwork {
 
   void _handleHttpFirmwareUpdate(AsyncWebServerRequest *request) {
     if (isWebServerRunning()) {
-      AsyncResponseStream *page = request->beginResponseStream(TEXT_HTML);
+      AsyncResponseStream *page = request->beginResponseStream(WC_TEXT_HTML);
       page->printf(HTTP_HEAD_BEGIN, "Firmware update");
       page->print(FPSTR(HTTP_STYLE));
       page->print(FPSTR(HTTP_HEAD_END));
@@ -1116,8 +1080,8 @@ class WNetwork {
   }
 
   void _handleHttpFirmwareUpdateProgress(AsyncWebServerRequest *request,
-                                        String filename, size_t index,
-                                        uint8_t *data, size_t len, bool final) {
+                                         String filename, size_t index,
+                                         uint8_t *data, size_t len, bool final) {
     // Start firmwareUpdate
     _updateRunning = true;
     // Close existing MQTT connections
@@ -1152,7 +1116,7 @@ class WNetwork {
     }
   }
 
-  const char* _getFirmwareUpdateErrorMessage() {
+  const char *_getFirmwareUpdateErrorMessage() {
     switch (Update.getError()) {
       case UPDATE_ERROR_OK:
         return "No Error";
@@ -1197,7 +1161,7 @@ class WNetwork {
     _restartFlag = reasonMessage;
     if (request != nullptr) {
       request->client()->setNoDelay(true);
-      AsyncResponseStream *page = request->beginResponseStream(TEXT_HTML);
+      AsyncResponseStream *page = request->beginResponseStream(WC_TEXT_HTML);
       page->printf(HTTP_HEAD_BEGIN, reasonMessage);
       page->print(FPSTR(HTTP_STYLE));
       page->print(FPSTR(HTTP_HEAD_END));
@@ -1236,7 +1200,7 @@ class WNetwork {
         this->disconnectMqtt();
       }
       _wlog->debug(F("SSID: '%s'; MQTT enabled: %T; MQTT server: '%s'; MQTT port: %s; WebServer started: %T"),
-                  getSsid(), isSupportingMqtt(), mqttServer(), mqttPort(), isWebServerRunning());
+                   getSsid(), isSupportingMqtt(), mqttServer(), mqttPort(), isWebServerRunning());
     } else {
       _wlog->notice(F("Network settings are missing."));
     }
@@ -1369,9 +1333,7 @@ class WNetwork {
           String propertyBase = deviceBase + "/properties/" + property->id();
           _webServer->on(propertyBase.c_str(), HTTP_GET, std::bind(&WNetwork::_getPropertyValue, this, std::placeholders::_1, property));
           _webServer->on(propertyBase.c_str(), HTTP_PUT, std::bind(&WNetwork::_setPropertyValue, this, std::placeholders::_1, device),
-              NULL, std::bind(&WNetwork::_handleBody, this, std::placeholders::_1,
-                        std::placeholders::_2, std::placeholders::_3,
-                        std::placeholders::_4, std::placeholders::_5));
+                         NULL, std::bind(&WNetwork::_handleBody, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
         }
       });
       String propertiesBase = deviceBase + "/properties";
@@ -1381,7 +1343,7 @@ class WNetwork {
     }
   }
 
-  WDevice* _getDeviceById(const char *deviceId) {
+  WDevice *_getDeviceById(const char *deviceId) {
     return _devices->getIf([deviceId](WDevice *d) { return (strcmp(d->id(), deviceId) == 0); });
   }
 };

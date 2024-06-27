@@ -74,7 +74,8 @@ class WProps {
   }
 
   static WRangeProperty* createBrightnessProperty(const char* id, const char* title, byte min = 0, byte max = 100) {
-    WRangeProperty* p = new WRangeProperty(id, title, INTEGER, WValue::ofInt(min), WValue::ofInt(max), TYPE_BRIGHTNESS_PROPERTY);    
+    WRangeProperty* p = new WRangeProperty(id, title, INTEGER, WValue::ofInt(min), WValue::ofInt(max), TYPE_BRIGHTNESS_PROPERTY);          
+    p->asInt(max);
     return p;
   }
 

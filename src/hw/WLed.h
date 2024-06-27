@@ -13,12 +13,14 @@ const byte LED_OFF = LOW;
 
 class WLed : public WOutput {
  public:
-  WLed(int ledPin) : WOutput(ledPin) {
+  WLed(int ledPin, IWExpander* expander = nullptr) : WOutput(ledPin, OUTPUT, expander) {
     _blinkMillis = 0;    
     _inverted = false;
     if (this->isInitialized()) {
-      digitalWrite(this->pin(), getOffLevel());
+      writeOutput(getOffLevel());
     }
+    _blinkOn = false;
+    _lastBlinkOn = 0;
   }  
 
   void onChanged() {
@@ -42,14 +44,14 @@ class WLed : public WOutput {
         if ((_lastBlinkOn == 0) || (now - _lastBlinkOn > _blinkMillis)) {
           _blinkOn = !_blinkOn;
           _lastBlinkOn = now;
-          digitalWrite(this->pin(), _blinkOn ? getOnLevel() : getOffLevel());
+          writeOutput(_blinkOn ? getOnLevel() : getOffLevel());          
         }
       } else {
-        digitalWrite(this->pin(), getOnLevel());
+        writeOutput(getOnLevel());
       }
     } else {
       // switchoff
-      digitalWrite(this->pin(), getOffLevel());
+      writeOutput(getOffLevel());
     }
   }
 
@@ -61,6 +63,11 @@ class WLed : public WOutput {
   byte getOnLevel() { return (!_inverted ? LED_ON : LED_OFF); }
 
   byte getOffLevel() { return !getOnLevel(); }
+
+  virtual void _updateOn() {
+    WOutput::_updateOn();
+
+	}
 
  private:
   bool _blinkOn, _inverted;

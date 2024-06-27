@@ -16,7 +16,7 @@
 #include "WAdapterMqtt.h"
 #include "WStringStream.h"
 #include "WDevice.h"
-#include "WLed.h"
+#include "hw/WLed.h"
 #include "WSettings.h"
 #include "WJsonParser.h"
 #include "WLog.h"

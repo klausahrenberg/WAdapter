@@ -7,10 +7,12 @@
 
 const int COUNT_LED_PROGRAMS = 3;
 const float PI180 = 0.01745329;
+const neoPixelType LED_TYPE_WS2812 = NEO_GRB + NEO_KHZ800;
+const neoPixelType LED_TYPE_PL9823 = NEO_RGB + NEO_KHZ800;
 
 class W2812Led : public WOutput {
  public:
-  W2812Led(WNetwork* network, int ledPin, byte numberOfLeds) : WOutput(ledPin) {        
+  W2812Led(WNetwork* network, int ledPin, byte numberOfLeds, neoPixelType ledType = LED_TYPE_WS2812) : WOutput(ledPin) {        
     _network = network;
     _numberOfLeds = numberOfLeds;
     _ledProgram = 2;
@@ -21,10 +23,10 @@ class W2812Led : public WOutput {
     _brightness = WProps::createLevelIntProperty("brightness", "Brightness", 10, 255);
     _brightness->asInt(160);
     // network->getSettings()->add(this->brightness);
-    _brightness->addListener([this](WProperty* property) {
-      _strip->setBrightness(property->asInt());
+    _brightness->addListener([this]() {
+      _strip->setBrightness(_brightness->asInt());
     });
-    _strip = new Adafruit_NeoPixel(numberOfLeds, ledPin, NEO_GRB + NEO_KHZ800);
+    _strip = new Adafruit_NeoPixel(numberOfLeds, ledPin, ledType);
     //_strip = new Adafruit_NeoPixel(numberOfLeds, ledPin, NEO_GRBW + NEO_KHZ800);
     _strip->begin();  // INITIALIZE NeoPixel strip object (REQUIRED)    
     _strip->show();   // Turn OFF all pixels ASAP
@@ -65,6 +67,16 @@ class W2812Led : public WOutput {
   WColorProperty* color() { return _color; }
 
   WRangeProperty* brightness() { return _brightness; }
+
+  void pixelColor(uint16_t ledNumber, uint8_t red, uint8_t green, uint8_t blue) {
+    _strip->setPixelColor(ledNumber, red, green, blue);
+    _strip->show();
+  }
+
+  void pixelColor(uint16_t ledNumber, uint32_t color) {
+    _strip->setPixelColor(ledNumber, color);
+    _strip->show();
+  }  
 
   void loop(unsigned long now) {
     if (isOn()) {

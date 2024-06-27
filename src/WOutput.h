@@ -1,7 +1,8 @@
 #ifndef W_OUTPUT_H
 #define W_OUTPUT_H
 
-#include "WValue.h"
+#include "WProperty.h"
+#include "IWExpander.h"
 
 const int NO_PIN = -1;
 const int NO_MODE = -1;
@@ -10,29 +11,24 @@ class WProperty;
 
 class WOutput {
  public:
-  WOutput(int pin, uint8_t mode = OUTPUT) {
+  WOutput(int pin, uint8_t mode = OUTPUT, IWExpander* expander = nullptr) {
     _pin = pin;
+    _expander = expander;
     _id = nullptr;
     _isOn = false;
     if ((_pin != NO_PIN) && (mode != NO_MODE)) {
-      pinMode(_pin, mode);
+      _pinMode(_pin, mode);      
     }
   }
 
-  bool isOn() { return _isOn; }
+  bool isOn() { return (_on != nullptr ? _on->asBool() : _isOn); }
 
   void setOn(bool isOn) {
-    if (isOn != _isOn) {
+    if ((_on == nullptr) && (isOn != _isOn)) {
       _isOn = isOn;
-      this->onChanged();      
+      _updateOn();      
     }
-  }  
-
-  void on() { setOn(true); }
-
-  void off() { setOn(false); }
-
-  void toggle() { setOn(isOn() ? false : true); }
+  }    
 
   const char* id() { return _id; }
 
@@ -49,10 +45,6 @@ class WOutput {
 
   bool equalsId(const char* id) {
     return ((id != nullptr) && (_id != nullptr) && (strcmp(_id, id) == 0));
-  }
-
-  virtual void handleChangedProperty(WValue value) {    
-    this->setOn(value.asBool);
   }
 
   virtual void loop(unsigned long now) {}
@@ -74,14 +66,39 @@ class WOutput {
     }    
   }
 
+  WProperty* on() { return _on; }
+
+	void on(WProperty* on) { 
+		_on = on; 
+		_on->addListener([this]() { _updateOn();});
+	}  
+
+  void writeOutput(bool value) {
+    if (_expander == nullptr) {
+      digitalWrite(_pin, value);
+    } else {
+      _expander->writeOutput(_pin, value);
+    } 
+  }
+
  protected:
+  WProperty* _on = nullptr;
+  IWExpander* _expander;
+
   virtual bool isInitialized() { return (_pin != NO_PIN); }
 
   int pin() { return _pin; }  
 
-  virtual void onChanged() {};  
 
- private:
+  void _pinMode(uint8_t pin, uint8_t mode) {
+    (_expander == nullptr ? pinMode(pin, mode) : _expander->mode(pin, mode));
+  }
+
+  virtual void _updateOn() {
+
+  };
+
+ private:  
   int _pin;
   bool _isOn;
   char* _id;

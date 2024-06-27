@@ -11,15 +11,71 @@ const char* HTTP_TRUE = "true";
 const char* HTTP_FALSE = "false";
 const char* VALUE_GET = "get";
 
-const static char HTTP_TR[] PROGMEM = R"=====(<tr>)=====";
-const static char HTTP_TRE[] PROGMEM = R"=====(</tr>)=====";
-const static char HTTP_TH[] PROGMEM = R"=====(<th colspan='%d'>)=====";
-const static char HTTP_THE[] PROGMEM = R"=====(</th>)=====";
-const static char HTTP_TD[] PROGMEM = R"=====(<td>)=====";
-const static char HTTP_TDE[] PROGMEM = R"=====(</td>)=====";
+/*const static __FlashStringHelper* TEXT_HTML = F("text/html");
+const static __FlashStringHelper* b_O = F("<");
+const static __FlashStringHelper* b_C = F(">");
+const static __FlashStringHelper* b_S = F("/");
+const static __FlashStringHelper* b_N = F("");
+const static __FlashStringHelper* b_B = F("\n");
+const static __FlashStringHelper* b_Q = F("'");
+const static __FlashStringHelper* b_div = F("div");
+const static __FlashStringHelper* b_table = F("table");
+const static __FlashStringHelper* b_tr = F("tr");
+const static __FlashStringHelper* b_th = F("th");
+const static __FlashStringHelper* b_td = F("td");
+const static char b_colspan[] PROGMEM = R"=====( colspan='%d')=====";
+const static char b_class[] PROGMEM = R"=====( class='%s')=====";
+const static char b_style[] PROGMEM = R"=====( style='%s')=====";*/
 
-const static char HTTP_TABLE[] PROGMEM = R"=====(<table class='%s'>)=====";
-const static char HTTP_TABLE_END[] PROGMEM = R"=====(</table>)=====";
+/*static void HTTP_COMMAND(Print* stream, const __FlashStringHelper* c, bool end, const char* key1 = nullptr, const char* value1 = nullptr, const char* key2 = nullptr, const char* value2 = nullptr) {
+  stream->print(b_O);
+  stream->print(end ? b_S : b_N);
+  stream->print(c);
+	if (key1 != nullptr) stream->printf(key1, value1);
+	if (key2 != nullptr) stream->printf(key2, value2);
+  stream->print(b_C);
+}
+
+const static void HTTP_CONFIG_PAGE_BEGIN(Print* stream, const char* pageName) {
+  stream->print(b_O);
+  stream->printf(PSTR("form method='get' class='mc' action='submit%s'"), pageName);
+  stream->print(b_C);
+}*/
+/*
+static void HTTP_DIV_ID(Print* stream, const char* id) { HTTP_COMMAND(stream, b_div, false, b_class, id); }
+
+static void HTTP_DIV(Print* stream, const char* key1 = nullptr, const char* value1 = nullptr, const char* key2 = nullptr, const char* value2 = nullptr) { HTTP_COMMAND(stream, b_div, false, key1, value1, key2, value2); }
+
+static void HTTP_DIV_END(Print* stream) { HTTP_COMMAND(stream, b_div, true); }
+
+static void HTTP_TABLE(Print* stream, const char* tableId) {
+  stream->print(b_O);
+  stream->print(b_table);
+  stream->printf(PSTR(" class='%s'"), tableId);
+  stream->print(b_C);
+}
+
+static void HTTP_TABLE_END(Print* stream) { HTTP_COMMAND(stream, b_table, true); }
+
+static void HTTP_TR(Print* stream, bool end = false) { HTTP_COMMAND(stream, b_tr, end); }
+
+static void HTTP_TD(Print* stream, byte colspan = 1) { 
+  stream->print(b_O);
+  stream->print(b_td);
+  stream->printf(b_colspan, colspan);
+  stream->print(b_C);
+}
+
+static void HTTP_TD_END(Print* stream) { HTTP_COMMAND(stream, b_td, true); }
+
+static void HTTP_TH(Print* stream, byte colspan = 1) { 
+  stream->print(b_O);
+  stream->print(b_th);
+  stream->printf(b_colspan, colspan);
+  stream->print(b_C);
+}
+
+static void HTTP_TH_END(Print* stream) { HTTP_COMMAND(stream, b_th, true); }*/
 
 const static char HTTP_HEAD_BEGIN[] PROGMEM = R"=====(
 <!DOCTYPE html>
@@ -67,6 +123,16 @@ button:hover{
 	opacity: 1.0;
 }
 
+.vd {
+	border:0;
+	border-radius:1.5rem;
+	background-color:#007000;	
+	line-height:2.4rem;
+	font-size:1.2rem;
+	width:100%;
+	text-align: center;
+}
+
 .mc {
 	display:inline-block;
 	background-color: #fefefe;
@@ -93,6 +159,51 @@ button:hover{
 
 .st input[type='text']{
 	width: 40px;
+}
+
+.switch {
+	position: relative; 
+	display: inline-block; 
+	width: 120px; 
+	height: 68px
+} 
+
+.switch input {
+	display: none
+}
+
+.slider {
+	position: absolute; 
+	top: 0; 
+	left: 0; 
+	right: 0; 
+	bottom: 0; 
+	background-color: #ccc; 
+	border-radius: 34px
+}
+
+.slider:before {
+	position: absolute; 
+	content: ""; 
+	height: 52px; 
+	width: 52px; 
+	left: 8px; 
+	bottom: 8px; 
+	background-color: #fff; 
+	-webkit-transition: .4s; 
+	transition: .4s; 
+	border-radius: 68px
+}
+
+input:checked+.slider {
+	background-color: #2196F3
+}
+
+input:checked+.slider:before {
+	-webkit-transform: 
+	translateX(52px); 
+	-ms-transform: translateX(52px); 
+	transform: translateX(52px)
 }
 
 </style>
@@ -138,18 +249,6 @@ const static char HTTP_CONFIG_SAVE_BUTTON[] PROGMEM = R"=====(
 			<button type='submit'>Save configuration</button>
 		</div>
 </form>
-)=====";
-
-const static char HTTP_DIV_BEGIN[] PROGMEM = R"=====(
-	<div>
-)=====";
-
-const static char HTTP_DIV_ID_BEGIN[] PROGMEM = R"=====(
-	<div id='%s'>
-)=====";
-
-const static char HTTP_DIV_END[] PROGMEM = R"=====(
-	</div>
 )=====";
 
 const static char HTTP_TOGGLE_FUNCTION_SCRIPT[] PROGMEM = R"=====(
@@ -202,9 +301,9 @@ const static char HTTP_FORM_FIRMWARE[] PROGMEM = R"=====(
 </form>
 )=====";
 
-const static char HTTP_CONFIG_PAGE_BEGIN[] PROGMEM = R"=====(
+/*const static char HTTP_CONFIG_PAGE_BEGIN[] PROGMEM = R"=====(
 <form method='get' class='mc' action='submit%s'>
-)=====";
+)=====";*/
 
 const static char HTTP_INPUT_FIELD[] PROGMEM = R"=====(
 	<input type='text' name='%s' maxlength='%s' value='%s'>
@@ -256,44 +355,27 @@ const static char HTTP_COMBOBOX_END[] PROGMEM = R"=====(
         </div>
 )=====";
 
-class WHtml {
+class WHtml_old {
  public:
+  static void checkBox(Print* page, const char* id, const char* title, bool checked) {
+    page->printf(HTTP_CHECKBOX_OPTION, id, id, (checked ? HTTP_CHECKED : ""), "", title);
+  }
 
-	static void checkBox(Print* page, const char* id, const char* title, bool checked) {
-		page->printf(HTTP_CHECKBOX_OPTION, id, id, (checked ? HTTP_CHECKED : ""), "", title);
-	}
+  static void comboBoxBegin(Print* page, const char* id, const char* title) {
+    page->printf(HTTP_COMBOBOX_BEGIN, title, id);
+  }
 
-	static void comboBoxBegin(Print* page, const char* id, const char* title) {
-		page->printf(HTTP_COMBOBOX_BEGIN, title, id);
-	}
+  static void comboBoxEnd(Print* page) {
+    page->print(FPSTR(HTTP_COMBOBOX_END));
+  }
 
-	static void comboBoxEnd(Print* page) {
-		page->print(FPSTR(HTTP_COMBOBOX_END));
-	}
-
-	static void comboBoxItem(Print* page, const char* title, const char* value, bool selected) {
+  static void comboBoxItem(Print* page, const char* title, const char* value, bool selected) {
     page->printf(HTTP_COMBOBOX_ITEM, value, (selected ? HTTP_SELECTED : ""), title);
   }
 
   static void textField(Print* page, const char* fieldName, const char* title, byte maxLength, const char* value) {
-		page->printf(HTTP_TEXT_FIELD, title, fieldName, String(maxLength).c_str(), value);
+    page->printf(HTTP_TEXT_FIELD, title, fieldName, String(maxLength).c_str(), value);
   }
-
-	static void tr(Print* page) { page->print(FPSTR(HTTP_TR)); }
-
-	static void trEnd(Print* page) { page->print(FPSTR(HTTP_TRE)); }
-
-	static void th(Print* page, byte colspan = 1) { page->printf(HTTP_TH, colspan); }
-
-	static void thEnd(Print* page) { page->print(FPSTR(HTTP_THE)); }
-
-	static void td(Print* page) { page->print(FPSTR(HTTP_TD)); }
-
-	static void tdEnd(Print* page) { page->print(FPSTR(HTTP_TDE)); }
-
-	static void table(Print* page, const char* id) { page->printf(HTTP_TABLE, id); }
-
-	static void tableEnd(Print* page) { page->print(FPSTR(HTTP_TABLE_END)); }
 
 };
 
