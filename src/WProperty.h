@@ -278,7 +278,7 @@ class WProperty {
   }
 
   bool equalsId(const char* id) {
-    return ((id != nullptr) && (_id != nullptr) && (strcmp(_id, id) == 0));
+    return ((id != nullptr) && (_id != nullptr) && (strcmp_P(_id, id) == 0));
   }
 
   bool equalsString(const char* toCompare) {
@@ -529,7 +529,7 @@ class WProperty {
     // enum
     if (this->hasEnums()) {
       json->beginArray("enum");
-      _enums->forEach([this, json](WProperty* propE){
+      _enums->forEach([this, json](WProperty* propE, const char* id){
         switch (_type) {
           case BOOLEAN:
             json->boolean(propE->asBool());
@@ -719,8 +719,8 @@ class WProperty {
 
   void id(const char* id) {
     delete _id;
-    _id = new char[strlen(id) + 1];
-    strcpy(_id, id);
+    _id = new char[strlen_P(id) + 1];
+    strcpy_P(_id, id);
   }
 
  protected:
@@ -728,10 +728,10 @@ class WProperty {
 
   void initialize(const char* id, const char* title, WPropertyType type,
                   const char* atType) {
-    _id = new char[strlen(id) + 1];
-    strcpy(_id, id);
-    _title = new char[strlen(title) + 1];
-    strcpy(_title, title);
+    _id = new char[strlen_P(id) + 1];
+    strcpy_P(_id, id);
+    _title = new char[strlen_P(title) + 1];
+    strcpy_P(_title, title);
     _type = type;
     _visibility = ALL;
     _supportingWebthing = true;

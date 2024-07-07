@@ -16,7 +16,19 @@
 
 template <class T>
 struct WListNode {
+  WListNode(const char* id) {
+    if (id) {
+      this->id = new char[strlen_P(id) + 1];
+      strcpy_P(this->id, id);
+    }
+  }
+
+  ~WListNode() {
+    if (id) delete id;
+  }
+
   T* value;
+  char* id = nullptr;
   WListNode<T>* next = nullptr; 
 };
 
@@ -26,7 +38,7 @@ class WIterator;
 template <typename T>
 class WList {
  public:
-  typedef std::function<void(T* value)> TOnValue;
+  typedef std::function<void(T* value, const char* id)> TOnValue;
   typedef std::function<bool(T* value)> TOnCompare;
   typedef std::function<void(WListNode<T>* listNode)> TOnListNode;
 
@@ -36,11 +48,15 @@ class WList {
     _resetCaching();
   };
 
-  void add(T* value) { this->insert(value, _size); }
+  ~WList() {
+    clear();
+  }
 
-  void insert(T* value, int index) {    
+  void add(T* value, const char* id = nullptr) { this->insert(value, _size, id); }
+
+  void insert(T* value, int index, const char* id = nullptr) {    
     // create new node
-    WListNode<T>* newNode = new WListNode<T>();
+    WListNode<T>* newNode = new WListNode<T>(id);    
     newNode->value = value;
 
     if (index == 0) {
@@ -59,11 +75,11 @@ class WList {
 
   void clear() {
     while (_size > 0) {
-      this->remove(0);
+      this->remove(0, true);
     }
   }
 
-  void remove(int index) {
+  void remove(int index, bool freeMemoryForValues = false) {
     if ((index >= 0) && (index < _size)) {
       WListNode<T>* nodePrev = _getNode(index - 1);
       WListNode<T>* nodeToDelete = _getNode(index);
@@ -72,6 +88,7 @@ class WList {
       } else {
         nodePrev->next = nodeToDelete->next;
       }
+      if (freeMemoryForValues) delete nodeToDelete->value;
       delete nodeToDelete;
       _size--;
       _resetCaching();
@@ -107,7 +124,7 @@ class WList {
     if (consumer) {
       WListNode<T>* node = _firstNode;
       while (node != nullptr) {
-        consumer(node->value);
+        consumer(node->value, node->id);
         node = node->next;
       }
     }
@@ -131,6 +148,17 @@ class WList {
     return (node != nullptr ? node->value : nullptr);
   }
 
+  T* getById(const char* id) {
+    WListNode<T>* node = _firstNode;
+    while (node != nullptr) {        
+      if ((node->id != nullptr) && (strcmp_P(node->id, id) == 0)) {
+        return node->value;
+      }
+      node = node->next;        
+    }
+    return nullptr;
+  }
+
   bool exists(T* value) {    
     return (indexOf(value) > -1);
   }  
@@ -151,6 +179,8 @@ class WList {
   }  
 
   int size() { return _size; }
+
+  bool empty() { return (_size == 0); }
 
   WIterator<T>* iterator() {
     return new WIterator<T>(this);

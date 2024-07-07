@@ -249,7 +249,7 @@ class WSettings {
     return setting;
   }
 
-  const char* getString(const char* id) {
+  const char* getString(const char* id) {    
     WProperty* setting = getSetting(id);
     return (setting != nullptr ? setting->c_str() : "");
   }
@@ -314,7 +314,7 @@ class WSettings {
     return setting;
   }
 
-  WProperty* setString(const char* id, const char* value, bool networkSetting) {
+  WProperty* setString(const char* id, const char* value, bool networkSetting) {        
     WProperty* setting = getSetting(id);
     if (setting == nullptr) {
       setting = WProps::createStringProperty(id, id);
@@ -423,7 +423,7 @@ class WSettings {
   void _saveEEPROM(int networkSettingsFlag, WProperty* specificSetting = nullptr) {
     EEPROM.begin(EEPROM_SIZE);
     _address = 2;
-    _items->forEach([this, specificSetting](WProperty* setting) { 
+    _items->forEach([this, specificSetting](WProperty* setting, const char* id) { 
 			if ((specificSetting == nullptr) || (specificSetting == setting)) {
 				_save(_address, setting); 
 			}

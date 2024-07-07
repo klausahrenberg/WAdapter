@@ -91,7 +91,7 @@ static void _addJog(WKY040 *jog) {
 
 static void _jogEventHandler(void) {
     if (_jogs != nullptr) {
-        _jogs->forEach([](WKY040 *jog) { 
+        _jogs->forEach([](WKY040 *jog, const char* id) { 
           bool clk = digitalRead(jog->_pinClk);
           jog->_irqEventLeft = (digitalRead(jog->_pinDt) == clk);
           jog->_irqEventRight = !jog->_irqEventLeft;          

@@ -76,7 +76,7 @@ class WDevice {
   }
 
   virtual void toJsonValues(WJson* json, WPropertyVisibility visibility) {    
-    _properties->forEach([this, json, visibility](WProperty* property) {    
+    _properties->forEach([this, json, visibility](WProperty* property, const char* id) {    
       if (property->isVisible(visibility)) {
         property->toJsonValue(json, false);
       }
@@ -103,7 +103,7 @@ class WDevice {
     json->endArray();
     // properties
     json->beginObject("properties");
-    _properties->forEach([this, json, result, visibility](WProperty* property) {        
+    _properties->forEach([this, json, result, visibility](WProperty* property, const char* id) {        
       if (property->isVisible(visibility)) {
         property->toJsonStructure(json, property->id(), result.c_str());
       }      
@@ -114,10 +114,10 @@ class WDevice {
 
   virtual void loop(unsigned long now) {
     if (_inputs != nullptr) {
-      _inputs->forEach([this, now](WInput* input){input->loop(now);});
+      _inputs->forEach([this, now](WInput* input, const char* id){input->loop(now);});
     }
     if (_outputs != nullptr) {
-      _outputs->forEach([this, now](WOutput* output){output->loop(now);});
+      _outputs->forEach([this, now](WOutput* output, const char* id){output->loop(now);});
     }  
   }
 

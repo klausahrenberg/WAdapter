@@ -4,11 +4,13 @@
 #include "../WList.h"
 #include "Arduino.h"
 
-  const static char WC_BASE[] PROGMEM = " =<>/\"{}";
+const static char WC_ACTION[] PROGMEM = "action";
+const static char WC_BASE[] PROGMEM = " =<>/\"{}()";
 const static char WC_BODY[] PROGMEM = R"=====(body)=====";
 const static char WC_BUTTON[] PROGMEM = R"=====(button)=====";
 const static char WC_CLASS[] PROGMEM = R"=====(class)=====";
 const static char WC_CONTENT[] PROGMEM = R"=====(content)=====";
+const static char WC_CONFIG[] PROGMEM = "config";
 const static char WC_CSS_BUTTON_HOVER[] PROGMEM = "button:hover";
 const static char WC_CSS_FORM_WHITE_BOX[] PROGMEM = "form, .wb";
 const static char WC_CSS_CHECK_BOX[] PROGMEM = ".cb input[type='checkbox']";
@@ -17,33 +19,56 @@ const static char WC_CSS_CHECK_BOX_LABEL_BEFORE[] PROGMEM = ".cb input[type='che
 const static char WC_CSS_CHECK_BOX_CHECKED_LABEL_BEFORE[] PROGMEM = ".cb input[type='checkbox']:checked+label:before";
 const static char WC_DIV[] PROGMEM = "div";
 const static char WC_DOCTYPE_HTML[] PROGMEM = "!DOCTYPE";
-const static char WC_FOR[] PROGMEM = R"=====(for)=====";
-const static char WC_FORM[] PROGMEM = R"=====(form)=====";
+const static char WC_FOR[] PROGMEM = "for";
+const static char WC_FORM[] PROGMEM = "form";
+const static char WC_FUNCTION[] PROGMEM = "function";
+const static char WC_GET[] PROGMEM = "get";
 const static char WC_HEAD[] PROGMEM = R"=====(head)=====";
+const static char WC_HIDDEN[] PROGMEM = "hidden";
 const static char WC_HISTORY_BACK[] PROGMEM = "history.back()";
 const static char WC_HTML[] PROGMEM = R"=====(html)=====";
 const static char WC_HREF[] PROGMEM = R"=====(href)=====";
-const static char WC_ID[] PROGMEM = R"=====(id)=====";
+const static char WC_ID[] PROGMEM = "id";
+const static char WC_INFO[] PROGMEM = "info";
 const static char WC_INPUT[] PROGMEM = R"=====(input)=====";
 const static char WC_LABEL[] PROGMEM = R"=====(label)=====";
 const static char WC_LANG[] PROGMEM = R"=====(lang)=====";
 const static char WC_LINK[] PROGMEM = R"=====(link)=====";
 const static char WC_LOCATION_HREF[] PROGMEM = "document.location='%s'";
+const static char WC_MAXLENGTH[] PROGMEM = "maxlength";
 const static char WC_META[] PROGMEM = R"=====(meta)=====";
+const static char WC_METHOD[] PROGMEM = "method";
+const static char WC_MQTT_PASSWORD[] PROGMEM = "mqttpassword";
+const static char WC_MQTT_PORT[] PROGMEM = "mqttport";
+const static char WC_MQTT_SERVER[] PROGMEM = "mqttserver";
+const static char WC_MQTT_USER[] PROGMEM = "mqttuser";
 const static char WC_NAME[] PROGMEM = R"=====(name)=====";
 const static char WC_ON_CHANGE[] PROGMEM = "onchange";
-const static char WC_ON_CLICK[] PROGMEM = R"=====(onclick)=====";
-const static char WC_REL[] PROGMEM = R"=====(rel)=====";
+const static char WC_ON_CLICK[] PROGMEM = "onclick";
+const static char WC_PASSWORD[] PROGMEM = "password";
+const static char WC_POST[] PROGMEM = "post";
+const static char WC_REL[] PROGMEM = "rel";
+const static char WC_RESET[] PROGMEM = "reset";
+const static char WC_SCRIPT[] PROGMEM = "script";
 const static char WC_SPAN[] PROGMEM = "span";
+const static char WC_SSID[] PROGMEM = "ssid";
 const static char WC_STYLE[] PROGMEM = R"=====(style)=====";
+const static char WC_SUBMIT[] PROGMEM = "submit";
+const static char WC_TABLE[] PROGMEM = "table";
+const static char WC_TABLE_DATA[] PROGMEM = "td";
+const static char WC_TABLE_HEADER[] PROGMEM = "th";
+const static char WC_TABLE_ROW[] PROGMEM = "tr";
+const static char WC_TEXT[] PROGMEM = "text";
 const static char WC_TEXT_HTML[] PROGMEM = R"=====(text/html)=====";
-const static char WC_TYPE[] PROGMEM = R"=====(type)=====";
-const static char WC_TITLE[] PROGMEM = R"=====(title)=====";
+const static char WC_TYPE[] PROGMEM = "type";
+const static char WC_TITLE[] PROGMEM = "title";
+const static char WC_VALUE[] PROGMEM = "value";
 const static char WC_WHITE_BOX[] PROGMEM = "wb";
+const static char WC_WIFI[] PROGMEM = "wifi";
 const static char WC_ICON_KAMSA[] PROGMEM = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxMDAgMTAwJz48cGF0aCBkPSdNIDUwIDAgQSA1MCA1MCAwIDAgMCAwIDUwIEEgNTAgNTAgMCAwIDAgNTAgMTAwIEEgNTAgNTAgMCAwIDAgMTAwIDUwIEEgNTAgNTAgMCAwIDAgNTAgMCBBIDUwIDUwIDAgMCAwIDUwIDAgeiBNIDUwIDUgQSA0NSA0NSAwIDAgMSA1MCA1IEEgNDUgNDUgMCAwIDEgOTUgNTAgQSA0NSA0NSAwIDAgMSA1MCA5NSBBIDQ1IDQ1IDAgMCAxIDUgNTAgQSA0NSA0NSAwIDAgMSA1MCA1IHogTSA0NSw2IDQzLDM3IDY0LDU4IDQxLjUsNzAuNSB2IDAgbCA0Miw4IC0xOSwtMjAgMCwwIHogTSA0MywzNyAyMCw4MiA0MS4zLDcwLjcgNDMsMzcgWicgZmlsbD0nIzI0QjNBOCcgLz48L3N2Zz4=";
 const static char WC_STYLE_BODY[] PROGMEM = "text-align: center; font-family: sans-serif; font-size: 1.2rem; background-color: #474e5d; color: white;";    
 const static char WC_STYLE_FORM_WHITE_BOX[] PROGMEM = "display: inline-block;	border-radius: 0.3rem; padding: 1rem; background-color: white; color: #404040;";      
-const static char WC_STYLE_BUTTON[] PROGMEM = "border:none; color:white; font-size:1.2rem; padding:0.5rem 1.0rem; text-align:center; text-decoration:none; display:inline-block; margin:4px 2px; cursor:pointer; background-color:#04AA6D; border-radius:0.5rem;";      
+const static char WC_STYLE_BUTTON[] PROGMEM = "width:100%; border:none; color:white; font-size:1.2rem; padding:0.5rem 1.0rem; text-align:center; text-decoration:none; display:inline-block; margin:4px 2px; cursor:pointer; background-color:#04AA6D; border-radius:0.5rem;";      
 const static char WC_STYLE_BUTTON_HOVER[] PROGMEM = "background-color:blueviolet;";
 const static char WC_STYLE_CHECK_BOX[] PROGMEM = R"=====(
 display:none;
@@ -118,7 +143,43 @@ const static char WC_STYLE_INPUT_CHECKED_SLIDER_BEFORE[] PROGMEM = R"=====(
 	transform: translateX(1.7rem)
 )=====";
 
+/*
+https://stackoverflow.com/questions/4388102/can-you-style-an-active-form-inputs-label-with-just-css
 
+.form-field {
+  display: grid;
+  gap: 4px;
+}
+
+.form-field label {
+  grid-row: 1;
+  font-size: 12px;
+  color: #737373;
+}
+
+.form-field input {
+  outline: unset;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 14px;
+  border: 1px solid #737373;
+}
+
+.form-field input:focus {
+  border-color: #328dd2;
+}
+
+.form-field input:focus + label {
+  color: #328dd2;
+}
+
+<div class="form-field">
+  <input id="myinput" />
+  <label for="myinput">
+    My Input
+  </label>
+</div>
+*/
 
 class WKeyValue {
  public:
@@ -161,7 +222,11 @@ class WKeyValues {
     }
   }
 
-  typedef std::function<void(WKeyValue* value)> TOnValue;
+  int size() { return _values->size(); }
+
+  bool empty() { return _values->empty(); }
+
+  typedef std::function<void(WKeyValue* value, const char* id)> TOnValue;
   void forEach(TOnValue consumer) {
     _values->forEach(consumer);
   }  
@@ -206,7 +271,7 @@ class WHtml {
     if (!start) stream->print(WC_BASE[4]);
     stream->print(FPSTR(tag));
     if (keyValues != nullptr) {
-      keyValues->forEach([stream](WKeyValue* kv) {
+      keyValues->forEach([stream](WKeyValue* kv, const char* id) {
         stream->print(WC_BASE[0]);
         stream->print(kv->key());
         if (kv->value()) {          
@@ -227,6 +292,35 @@ class WHtml {
     stream->print(value);
     stream->print(WC_BASE[7]);
   }  
+
+  static void scriptToString(Print* stream, const char* key, const char* value) {
+    stream->print(WC_BASE[0]);
+    stream->print(FPSTR(WC_FUNCTION));
+    stream->print(WC_BASE[0]);
+    stream->print(key);
+    stream->print(WC_BASE[8]);
+    stream->print("elem");
+    stream->print(WC_BASE[9]);
+    stream->print(WC_BASE[6]);
+    stream->print(value);
+    stream->print(WC_BASE[7]);
+  }
+};
+
+class WUtils {
+ public: 
+  static const char* getChipId() {
+#ifdef ESP8266
+    uint32_t ci = ESP.getChipId();
+#elif ESP32
+    uint64_t macAddress = ESP.getEfuseMac();
+    uint64_t macAddressTrunc = macAddress << 40;
+    uint32_t ci = (macAddressTrunc >> 40);
+#endif
+    char* textToWrite =  new char[16];
+    sprintf(textToWrite,"%lu", ci);
+    return textToWrite;
+  }
 };
 
 #endif

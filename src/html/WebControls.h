@@ -3,9 +3,11 @@
 
 #include "WebResources.h"
 
+typedef std::function<void()> OnWebControlChange;
+
 class WebControl {
  protected:
-  char* _tag;
+  char* _tag = nullptr;
   char* _content = nullptr;
   bool _closing = true;
   WList<WKeyValue>* _params = nullptr;
@@ -42,14 +44,8 @@ class WebControl {
   ~WebControl() {
     if (_tag) delete _tag;
     if (_content) delete _content;
-    if (_params) {
-      _params->clear();
-      delete _params;
-    }
-    if (_items) {
-      _items->clear();
-      delete _items;
-    }
+    if (_params) delete _params;
+    if (_items) delete _items;    
   }
 
   void content(const char* content) {
@@ -65,8 +61,10 @@ class WebControl {
   bool closing() { return _closing; }
 
   void add(WebControl* kv) {
-    if (_items == nullptr) _items = new WList<WebControl>();
-    _items->add(kv);
+    if (kv != nullptr) {
+      if (_items == nullptr) _items = new WList<WebControl>();
+      _items->add(kv);
+    }
   }
 
   // void addParam(WKeyValue* kv) {
@@ -90,16 +88,55 @@ class WebControl {
   }
 
   virtual void createStyles(WKeyValues* styles) {
-    if (_items) _items->forEach([this, styles](WebControl* wc) { wc->createStyles(styles); });
+    if (_items) _items->forEach([this, styles](WebControl* wc, const char* id) { wc->createStyles(styles); });
+  }
+
+  virtual void createScripts(WKeyValues* scripts) {
+    if (_items) _items->forEach([this, scripts](WebControl* wc, const char* id) { wc->createScripts(scripts); });
   }
 
   virtual void toString(Print* stream) {
     WHtml::command(stream, _tag, true, _params);
     stream->print(_content);
-    if (_items) _items->forEach([this, stream](WebControl* wc) { wc->toString(stream); });
+    if (_items) _items->forEach([this, stream](WebControl* wc, const char* id) { wc->toString(stream); });
     if (_closing) WHtml::command(stream, _tag, false, nullptr);
   }
 };
+
+class WebDiv : public WebControl {
+ public:
+  WebDiv(WebControl* child) : WebControl(WC_DIV, nullptr) {    
+    this->add(child);
+  }
+};
+
+class WebForm : public WebControl {
+ public:
+  WebForm(const char* id, WebControl* child = nullptr) : WebControl(WC_FORM, WC_METHOD, WC_POST, WC_ACTION, "events", nullptr) {   
+    this->add((new WebControl(WC_INPUT, WC_TYPE, WC_HIDDEN, WC_NAME, WC_FORM, WC_VALUE, id, nullptr)));
+    this->add(child);
+  } 
+};  
+
+const static char WC_SCRIPT_TEST[] PROGMEM = R"=====(
+const xhr = new XMLHttpRequest();
+xhr.open("POST", "/events");
+xhr.setRequestHeader("Content-Type", "application/json; charset=UTF-8");
+const body = JSON.stringify({
+  userId: 1,
+  title: "Fix my bugs",
+  completed: false
+});
+xhr.onload = () => {
+  if (xhr.readyState == 4 && xhr.status == 201) {
+    console.log(JSON.parse(xhr.responseText));
+  } else {
+    console.log(`Error: ${xhr.status}`);
+  }
+  document.location='config';
+};
+xhr.send(body);
+)=====";
 
 class WebButton : public WebControl {
  public:
@@ -108,17 +145,44 @@ class WebButton : public WebControl {
   }
   ~WebButton() {}
 
+
   virtual void createStyles(WKeyValues* styles) {
     styles->add(WC_BUTTON, WC_STYLE_BUTTON);
     styles->add(WC_CSS_BUTTON_HOVER, WC_STYLE_BUTTON_HOVER);
     WebControl::createStyles(styles);
   }
 
+  virtual void createScripts(WKeyValues* scripts) {
+    if (_onClick) {
+      scripts->add("onButtonClick", WC_SCRIPT_TEST);
+    }
+    WebControl::createScripts(scripts);
+  }
+
+
   void onClickNavigateBack() { addParam(WC_ON_CLICK, WC_HISTORY_BACK); }
 
-  void onClickNavigateTo(const char* target) { addParam(WC_ON_CLICK, WC_LOCATION_HREF, target, nullptr); }
+  WebButton* onClickNavigateTo(const char* target) { addParam(WC_ON_CLICK, WC_LOCATION_HREF, target, nullptr); return this; }
 
-  virtual void toString(Print* stream) { WebControl::toString(stream); }
+  WebButton* onClick(OnWebControlChange onClick) {
+    _onClick = onClick;
+    this->addParam(WC_ON_CLICK, PSTR("onButtonClick(this)"));
+    return this;
+  }
+
+  virtual void toString(Print* stream) { 
+    WebControl::toString(stream); 
+  }
+
+ protected:
+  OnWebControlChange _onClick = nullptr; 
+};
+
+class WebSubmitButton : public WebControl {
+ public:
+  WebSubmitButton(const char* title) : WebControl(WC_BUTTON, WC_TYPE, WC_SUBMIT, nullptr) {
+    content(title);
+  }
 };
 
 class WebCheckbox : public WebControl {
@@ -167,6 +231,47 @@ class WebSwitch : public WebControl {
     styles->add(WC_CSS_INPUT_CHECKED_SLIDER_BEFORE, WC_STYLE_INPUT_CHECKED_SLIDER_BEFORE);
     WebControl::createStyles(styles);
   }
+};
+
+class WebTextField : public WebControl {
+ public:
+  WebTextField(const char* id, const char* title, const char* text, byte maxLength = 32, bool passwordField = false) : WebControl(WC_DIV, nullptr) {
+    WebControl* label = new WebControl(WC_LABEL, WC_FOR, id, nullptr);
+    label->content(title);
+    this->add(label);
+    WebControl* input = new WebControl(WC_INPUT, WC_ID, id, WC_NAME, id, WC_MAXLENGTH, String(maxLength).c_str(), WC_TYPE, (passwordField ? WC_PASSWORD : WC_TEXT), nullptr);
+    if (text != nullptr) {
+      input->addParam(WC_VALUE, text);
+    }
+    input->closing(false);
+    this->add(input);
+  }
+
+};
+
+class WebTable : public WebControl {
+ public:
+  WebTable(WList<const char>* datas) : WebControl(WC_TABLE, nullptr) {
+    _datas = datas;
+  }  
+
+  virtual void toString(Print* stream) {    
+    WHtml::command(stream, _tag, true, _params);    
+    _datas->forEach([this, stream](const char* item, const char* id) { 
+      WHtml::command(stream, WC_TABLE_ROW, true, nullptr);    
+      WHtml::command(stream, WC_TABLE_HEADER, true, nullptr);          
+      if (id) stream->print(id); 
+      WHtml::command(stream, WC_TABLE_HEADER, false, nullptr);   
+      WHtml::command(stream, WC_TABLE_DATA, true, nullptr);    
+      if (item) stream->print(item);      
+      WHtml::command(stream, WC_TABLE_DATA, false, nullptr);   
+      WHtml::command(stream, WC_TABLE_ROW, false, nullptr);    
+    });      
+    if (_closing) WHtml::command(stream, _tag, false, nullptr);    
+  }
+
+ private:
+  WList<const char>* _datas; 
 };
 
 #endif

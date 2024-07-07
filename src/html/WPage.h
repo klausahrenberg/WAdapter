@@ -3,24 +3,41 @@
 
 #include "WebControls.h"
 
-class WNetwork;
+class WPage;
+typedef std::function<WPage* ()> WPageInitializer;
+
+struct WPageItem {
+  WPageItem(WPageInitializer initializer, bool showInMainMenu = true) {
+    this->initializer = initializer;
+    this->showInMainMenu = showInMainMenu;
+  }
+
+  ~WPageItem() {
+   
+  }
+
+  WPageInitializer initializer; 
+  bool showInMainMenu;
+};
 
 class WPage {
  public:
-  WPage(WNetwork* network, const char* id, const char* title) {
-    _network = network;
-    _id = id;
-    _title = title;
+  WPage(/*WNetwork* network, const char* id, const char* title*/) {
+    //_network = network;
+    /*_id = new char[strlen_P(id) + 1];
+    strcpy_P(_id, id);    
+    _title = new char[strlen_P(title) + 1];
+    strcpy_P(_title, title);        */
     _stream = nullptr;
-    _showInMainMenu = true;
+    //_showInMainMenu = true;
     _targetAfterSubmitting = nullptr;
     _onPrintPage = nullptr;
     _onSubmitPage = nullptr;
   }
 
   ~WPage() {
-    delete _id;
-    delete _title;
+    //delete _id;
+    //delete _title;
   }
 
   typedef std::function<void(WPage*)> TPrintPage;
@@ -28,16 +45,31 @@ class WPage {
   void onPrintPage(TPrintPage onPrintPage) { _onPrintPage = onPrintPage; }
   void onSubmitPage(TSubmitPage onSubmitPage) { _onSubmitPage = onSubmitPage; }
 
-  void bindWebServer(AsyncWebServer* webServer) {
+  /*void bindWebServer(AsyncWebServer* webServer) {
     String did(WC_BASE[4]);
     did.concat(_id);
     webServer->on(did.c_str(), HTTP_GET, std::bind(&WPage::_handleHttp, this, std::placeholders::_1));
     String dis(F("/submit"));
     dis.concat(_id);
     webServer->on(dis.c_str(), HTTP_GET, std::bind(&WPage::_handleHttpSubmit, this, std::placeholders::_1));
+  }*/
+
+  static void bind(AsyncWebServer* webServer, const char* id, WPageItem* pi) {    
+    String target = "/" + String(id);    
+    webServer->on(target.c_str(), HTTP_GET, std::bind(&WPage::handleGet, std::placeholders::_1, id, pi));    
   }
 
-  void _handleHttpOld(AsyncWebServerRequest* request) {
+  static void handleGet(AsyncWebServerRequest* request, const char* id, WPageItem* pi) {
+    Serial.print("handle get for ");
+    Serial.println(id);
+    AsyncResponseStream* stream = request->beginResponseStream(WC_TEXT_HTML);
+    WPage* page = pi->initializer();
+    page->toString(stream);
+    delete page;
+    request->send(stream);
+  }
+
+  /*void _handleHttpOld(AsyncWebServerRequest* request) {
     AsyncResponseStream* response = request->beginResponseStream(WC_TEXT_HTML, 6100U);
     response->printf(HTTP_HEAD_BEGIN, _title);
     response->print(FPSTR(HTTP_STYLE));
@@ -48,7 +80,7 @@ class WPage {
     stream(nullptr);
     response->print(FPSTR(HTTP_BODY_END));
     request->send(response);
-  }
+  }*/
 
   void _handleHttp(AsyncWebServerRequest* request) {
     AsyncResponseStream* stream = request->beginResponseStream(WC_TEXT_HTML, 6100U);    
@@ -60,13 +92,19 @@ class WPage {
 
   }
 
+  virtual const char* submitForm(WList<const char>* args) {
+    return nullptr;
+  }
+
   void toString(Print* stream) {
-    WebControl* parentNode = new WebControl(WC_BODY, nullptr);
+    WebControl* parentNode = new WebControl(WC_DIV, nullptr);
     this->createControls(parentNode);
     WKeyValues* styles = new WKeyValues();   
     styles->add(WC_BODY, WC_STYLE_BODY);
     styles->add(WC_CSS_FORM_WHITE_BOX, WC_STYLE_FORM_WHITE_BOX);        
     parentNode->createStyles(styles);
+    WKeyValues* scripts = new WKeyValues();        
+    parentNode->createScripts(scripts);
     //Print
     WHtml::commandParamsAndNullptr(stream, WC_DOCTYPE_HTML, true, WC_HTML, nullptr);
     WHtml::commandParamsAndNullptr(stream, WC_HTML, true, WC_LANG, F("en"), nullptr);
@@ -74,25 +112,31 @@ class WPage {
     WHtml::command(stream, WC_HEAD, true);
     WHtml::commandParamsAndNullptr(stream, WC_META, true, WC_NAME, F("viewport"), WC_CONTENT, F("width=device-width, initial-scale=1, user-scalable=no"), nullptr);
     WHtml::command(stream, WC_TITLE, true);
-    stream->print(_title);    
+    stream->print("tbd");//_title);    
     WHtml::command(stream, WC_TITLE, false);  // Title end  
     WHtml::commandParamsAndNullptr(stream, WC_LINK, true, WC_REL, F("shortcut icon"), WC_TYPE, F("image/svg"), WC_HREF, WC_ICON_KAMSA, nullptr);        
     // Style
     WHtml::command(stream, WC_STYLE, true);    
-    styles->forEach([this, stream] (WKeyValue* style) { WHtml::styleToString(stream, style->key(), style->value()); });
+    styles->forEach([this, stream] (WKeyValue* style, const char* id) { WHtml::styleToString(stream, style->key(), style->value()); });
     WHtml::command(stream, WC_STYLE, false);  // Style end    
     WHtml::command(stream, WC_HEAD, false);   // Head end    
     // Body
-    //WHtml::command(stream, WC_BODY, true);    
-    parentNode->toString(stream);    
-    //WHtml::command(stream, WC_BODY, false);  // Body end    
+    WHtml::command(stream, WC_BODY, true);    
+    parentNode->toString(stream);
+    // Scripts
+    if (!scripts->empty()) {
+      WHtml::command(stream, WC_SCRIPT, true);  
+      scripts->forEach([this, stream] (WKeyValue* script, const char* id) { WHtml::scriptToString(stream, script->key(), script->value()); });
+      WHtml::command(stream, WC_SCRIPT, false);  
+    }
+    WHtml::command(stream, WC_BODY, false);  // Body end    
     WHtml::command(stream, WC_HTML, false);  // Page end    
     //Cleanup
     delete styles;
     delete parentNode;
   }
 
-  void _handleHttpSubmit(AsyncWebServerRequest* request) {
+  /*void _handleHttpSubmit(AsyncWebServerRequest* request) {
     // if (customPage->hasSubmittedPage()) {
     //_wlog->notice(F("Save custom page: %s"), customPage->id());
     WStringStream* page = new WStringStream(1024);
@@ -105,23 +149,19 @@ class WPage {
     }
     delete page;
     //}
-  }
+  }*/
 
   virtual void printPage() {
     if (_onPrintPage) _onPrintPage(this);
   }
 
-  virtual void submitPage(AsyncWebServerRequest* request) {
+  /*virtual void submitPage(AsyncWebServerRequest* request) {
     if (_onSubmitPage) _onSubmitPage(request);
-  }
+  }*/
 
-  const char* id() { return _id; }
+  //const char* id() { return _id; }
 
-  const char* getTitle() { return _title; }
-
-  bool isShowInMainMenu() { return _showInMainMenu; }
-
-  void showInMainMenu(bool showInMainMenu) { _showInMainMenu = showInMainMenu; }
+  //const char* getTitle() { return _title; }
 
   WPage* targetAfterSubmitting() { return _targetAfterSubmitting; }
 
@@ -162,11 +202,11 @@ class WPage {
   void thEnd() { HTTP_TH_END(_stream); }*/
 
  protected:
-  void _printHttpCaption() {
+  /*void _printHttpCaption() {
     _stream->print(F("<h2>"));
     _stream->print(_title);
     _stream->print(F("</h2>"));
-  }
+  }*/
 
   /*void _restart(AsyncWebServerRequest* request, const char* reasonMessage) {
     //_network->restart(reasonMessage);
@@ -183,13 +223,14 @@ class WPage {
     }
   }*/
 
+  //WNetwork* _network;
+  
  private:
-  WNetwork* _network;
-  const char* _id;
-  const char* _title;
+  
+  //char* _id;
+  //char* _title;
   Print* _stream;
-  WPage* _targetAfterSubmitting;
-  bool _showInMainMenu;
+  WPage* _targetAfterSubmitting;  
   TPrintPage _onPrintPage;
   TSubmitPage _onSubmitPage;
 };
