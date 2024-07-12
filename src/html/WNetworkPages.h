@@ -9,7 +9,7 @@ class WRootPage : public WPage {
     _customPages = customPages;
   }
 
-  ~WRootPage() {
+  virtual ~WRootPage() {
 
   }  
 
@@ -31,15 +31,13 @@ class WRootPage : public WPage {
 
 };
 
-
-
 class WNetworkPage : public WPage {
  public: 
   WNetworkPage(WSettings* settings) : WPage() {
     _settings = settings;
   }
 
-  ~WNetworkPage() {
+  virtual ~WNetworkPage() {
 
   }  
 
@@ -112,7 +110,7 @@ class WResetPage : public WPage {
     
   }
 
-  ~WResetPage() {
+  virtual ~WResetPage() {
 
   }  
 
@@ -153,7 +151,7 @@ class WRestartPage : public WPage {
     _restartMessage = restartMessage;
   }
 
-  ~WRestartPage() {
+  virtual ~WRestartPage() {
 
   }  
 
@@ -175,30 +173,34 @@ class WRestartPage : public WPage {
 
 class WInfoPage : public WPage {
  public: 
-  WInfoPage() : WPage() {
-    
+  WInfoPage(unsigned long running) : WPage() {    \
+    _running = running;
   }
 
-  ~WInfoPage() {
-
+  virtual ~WInfoPage() {    
   }  
 
   virtual void createControls(WebControl* parentNode) {
     WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
     parentNode->add(div);
-    
-    WebControl* label2 = new WebControl(WC_LABEL, nullptr);
-    label2->content(PSTR("ESP reboots now..."));
-    div->add(label2);
-    
-
-    WList<const char>* datas = new WList<const char>();
-#ifdef ESP8266
-    datas->add("ESP 8266", "Chip:");      
+    WList<WProperty>* datas = new WList<WProperty>();
+#ifdef ESP8266    
+    datas->add(WProps::createStringProperty()->asString("ESP8266"), PSTR("Chip"));      
 #elif ESP32
-    datas->add(PSTR("ESP 32"), PSTR("Chip:"));
+    datas->add(WProps::createStringProperty()->asString("ESP 32"), PSTR("Chip"));      
 #endif
-    datas->add(WUtils::getChipId(), "Chip ID:");      
+    datas->add(WProps::createIntegerProperty()->asInt(WUtils::getChipId()), PSTR("Chip ID"));      
+    datas->add(WProps::createIntegerProperty()->asInt(ESP.getFlashChipSize()), PSTR("IDE Flash Size"));      
+    datas->add(WProps::createIntegerProperty()->asInt(ESP.getFlashChipRealSize()), PSTR("Real Flash Size")); 
+    //datas->add(WProps::create..., PSTR("IP address"));      
+    //datas->add(WProps::createStringProperty()->asString(WiFi.macAddress()), PSTR("MAC address"));
+    datas->add(WProps::createIntegerProperty()->asInt(ESP.getSketchSize()), PSTR("Current sketch size"));      
+    datas->add(WProps::createIntegerProperty()->asInt(ESP.getFreeSketchSpace()), PSTR("Available sketch size"));      
+    datas->add(WProps::createIntegerProperty()->asInt(ESP.getFreeHeap()), PSTR("Free heap size"));    
+#ifdef ESP8266            
+    datas->add(WProps::createIntegerProperty()->asInt(ESP.getMaxFreeBlockSize()), PSTR("Largest heap block"));        
+#endif           
+    datas->add(WProps::createUnsignedLongProperty()->asUnsignedLong(_running)->unit(PSTR(" minutes")), PSTR("Running since"));        
 
     div->add(new WebTable(datas));
     div->add(new WebDiv((new WebButton(PSTR("wb"), PSTR("Back to configuration")))->onClickNavigateTo(WC_CONFIG)));
@@ -263,6 +265,7 @@ class WInfoPage : public WPage {
     */
   }
  private:
+  unsigned long _running;
   
 };
 

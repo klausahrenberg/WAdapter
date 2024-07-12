@@ -41,11 +41,11 @@ class WebControl {
     va_end(arg);
   }
 
-  ~WebControl() {
+  virtual ~WebControl() {
     if (_tag) delete _tag;
     if (_content) delete _content;
     if (_params) delete _params;
-    if (_items) delete _items;    
+    if (_items) delete _items; 
   }
 
   void content(const char* content) {
@@ -251,19 +251,26 @@ class WebTextField : public WebControl {
 
 class WebTable : public WebControl {
  public:
-  WebTable(WList<const char>* datas) : WebControl(WC_TABLE, nullptr) {
+  WebTable(WList<WProperty>* datas) : WebControl(WC_TABLE, nullptr) {
     _datas = datas;
   }  
 
-  virtual void toString(Print* stream) {    
+  virtual ~WebTable() {
+    if (_datas) {
+      delete _datas;
+    }
+  }
+
+  virtual void toString(Print* stream) {             
     WHtml::command(stream, _tag, true, _params);    
-    _datas->forEach([this, stream](const char* item, const char* id) { 
+    _datas->forEach([this, stream](WProperty* property, const char* id) { 
       WHtml::command(stream, WC_TABLE_ROW, true, nullptr);    
       WHtml::command(stream, WC_TABLE_HEADER, true, nullptr);          
       if (id) stream->print(id); 
       WHtml::command(stream, WC_TABLE_HEADER, false, nullptr);   
       WHtml::command(stream, WC_TABLE_DATA, true, nullptr);    
-      if (item) stream->print(item);      
+      property->toString(stream);
+      //if (item) stream->print();      
       WHtml::command(stream, WC_TABLE_DATA, false, nullptr);   
       WHtml::command(stream, WC_TABLE_ROW, false, nullptr);    
     });      
@@ -271,7 +278,7 @@ class WebTable : public WebControl {
   }
 
  private:
-  WList<const char>* _datas; 
+  WList<WProperty>* _datas; 
 };
 
 #endif

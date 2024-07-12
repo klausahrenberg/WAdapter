@@ -23,7 +23,7 @@ struct WListNode {
     }
   }
 
-  ~WListNode() {
+  virtual ~WListNode() {
     if (id) delete id;
   }
 
@@ -93,6 +93,27 @@ class WList {
       _size--;
       _resetCaching();
     }
+  }
+
+  bool removeById(const char* id) {
+    bool result = false;
+    WListNode<T>* nodePrev = nullptr;
+    WListNode<T>* node = _firstNode;
+    while (node != nullptr) {        
+      if ((node->id != nullptr) && (strcmp_P(node->id, id) == 0)) {
+        WListNode<T>* nodeToDelete = node;
+          if (nodePrev == nullptr) {
+            _firstNode = nodeToDelete->next;
+          } else {
+            nodePrev->next = nodeToDelete->next;
+          }
+          node = nodeToDelete->next;
+          delete nodeToDelete;          
+          result = true;
+      }
+      node = node->next;        
+    }
+    return result;
   }
 
   bool removeIf(TOnCompare comparator) {
@@ -234,7 +255,7 @@ class WIterator {
     _initial = true;
   }
 
-  ~WIterator() {
+  virtual ~WIterator() {
     _list = nullptr;
     _currentNode = nullptr;   
   }

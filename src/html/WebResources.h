@@ -5,7 +5,6 @@
 #include "Arduino.h"
 
 const static char WC_ACTION[] PROGMEM = "action";
-const static char WC_BASE[] PROGMEM = " =<>/\"{}()";
 const static char WC_BODY[] PROGMEM = R"=====(body)=====";
 const static char WC_BUTTON[] PROGMEM = R"=====(button)=====";
 const static char WC_CLASS[] PROGMEM = R"=====(class)=====";
@@ -191,7 +190,8 @@ class WKeyValue {
       strcpy_P(_value, value);
     }   
   }
-  ~WKeyValue() {
+
+  virtual ~WKeyValue() {
     if (_key) delete _key;
     if (_value) delete _value;
   }
@@ -208,7 +208,7 @@ class WKeyValues {
   WKeyValues() {
     _values = new WList<WKeyValue>();
   }
-  ~WKeyValues() {
+  virtual ~WKeyValues() {
     _values->clear();
     delete _values;
   }
@@ -304,22 +304,6 @@ class WHtml {
     stream->print(WC_BASE[6]);
     stream->print(value);
     stream->print(WC_BASE[7]);
-  }
-};
-
-class WUtils {
- public: 
-  static const char* getChipId() {
-#ifdef ESP8266
-    uint32_t ci = ESP.getChipId();
-#elif ESP32
-    uint64_t macAddress = ESP.getEfuseMac();
-    uint64_t macAddressTrunc = macAddress << 40;
-    uint32_t ci = (macAddressTrunc >> 40);
-#endif
-    char* textToWrite =  new char[16];
-    sprintf(textToWrite,"%lu", ci);
-    return textToWrite;
   }
 };
 

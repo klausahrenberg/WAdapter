@@ -2,10 +2,8 @@
 #define _WJSON_H__
 
 #include "Arduino.h"
+#include "WUtils.h"
 
-const static char BBEGIN = '[';
-const static char BEND = ']';
-const static char COMMA = ',';
 const static char DPOINT = ':';
 const static char SBEGIN = '{';
 const static char SEND = '}';
@@ -36,14 +34,14 @@ public:
 
 	WJson& memberName(const char *name) {
 		if (name != nullptr) {
-			string(name);
+			string(name, nullptr);
 			_stream->print(DPOINT);
 		}
 		return *this;
 	}
 
 	WJson& separator() {
-		_stream->print(COMMA);
+		_stream->print(WC_BASE[12]);
 		return *this;
 	}
 
@@ -57,7 +55,7 @@ public:
 			_ifSeparator();
 		}
 		_firstElement = true;
-		_stream->print(BBEGIN);
+		_stream->print(WC_BASE[10]);
 		return *this;
 	}
 
@@ -70,12 +68,12 @@ public:
 		_firstElement = true;
 		memberName(name);
 		_separatorAlreadyCalled = false;
-		_stream->print(BBEGIN);
+		_stream->print(WC_BASE[10]);
 		return *this;
 	}
 
 	WJson& endArray() {
-		_stream->print(BEND);
+		_stream->print(WC_BASE[11]);
 		return *this;
 	}
 
@@ -142,34 +140,39 @@ public:
 		return *this;
 	}	
 
-	WJson& propertyString(const char* name, const char *value1 = nullptr, const char *value2 = nullptr, const char *value3 = nullptr, const char *value4 = nullptr, const char *value5 = nullptr, const char *value6 = nullptr, const char *value7 = nullptr, const char *value8 = nullptr, const char *value9 = nullptr, const char *value10 = nullptr) {
+	WJson& propertyString(const char* name, const char* value, ...) {
 		_ifSeparator();
-		_separatorAlreadyCalled = true;
+		_separatorAlreadyCalled = true;		
 		memberName(name);
-		string(value1, value2, value3, value4, value5, value6, value7, value8, value9, value10);
+		_stream->print(QUOTE);
+		va_list arg;        
+    va_start(arg, value);    
+    while (value) {
+			WUtils::string(_stream, value, nullptr);
+      value = va_arg(arg, const char*);
+    }
+    va_end(arg);		
+		_stream->print(QUOTE);
 		_separatorAlreadyCalled = false;
 		return *this;
 	}	
 
-	WJson& string(const char *text1 = nullptr, const char *text2 = nullptr, const char *text3 = nullptr, const char *text4 = nullptr, const char *text5 = nullptr, const char *text6 = nullptr, const char *text7 = nullptr, const char *text8 = nullptr, const char *text9 = nullptr, const char *text10 = nullptr) {
+	WJson& string(const char* text, ...) {
 		if (!_separatorAlreadyCalled)
 			_ifSeparator();
 		_stream->print(QUOTE);
-		if (text1 != nullptr) _stream->print(text1);
-		if (text2 != nullptr) _stream->print(text2);
-		if (text3 != nullptr) _stream->print(text3);
-		if (text4 != nullptr) _stream->print(text4);
-		if (text5 != nullptr) _stream->print(text5);
-		if (text6 != nullptr) _stream->print(text6);
-		if (text7 != nullptr) _stream->print(text7);
-		if (text8 != nullptr) _stream->print(text8);
-		if (text9 != nullptr) _stream->print(text9);
-		if (text10 != nullptr) _stream->print(text10);
+		va_list arg;        
+    va_start(arg, text);    
+    while (text) {
+			WUtils::string(_stream, text, nullptr);
+      text = va_arg(arg, const char*);
+    }
+    va_end(arg);
 		_stream->print(QUOTE);
 		return *this;
 	}
 
-	WJson& onlyString(const char *text1) {
+	WJson& onlyString(const char* text1) {
 		if (text1 != nullptr) _stream->print(text1);
 		return *this;
 	}
@@ -184,40 +187,35 @@ public:
 	WJson& numberShort(short number) {
 		if (!_separatorAlreadyCalled)
 			_ifSeparator();
-		_stream->print(number, DEC);
+		WUtils::numberShort(_stream, number);
 		return *this;
 	}
 
 	WJson& numberUnsignedLong(unsigned long number) {
 		if (!_separatorAlreadyCalled)
 			_ifSeparator();
-		_stream->print(number, DEC);
+		WUtils::numberUnsignedLong(_stream, number);
 		return *this;
 	}
 
 	WJson& numberByte(byte number) {
 		if (!_separatorAlreadyCalled)
 			_ifSeparator();
-		_stream->print(number, DEC);
+		WUtils::numberByte(_stream, number);
 		return *this;
 	}
 
 	WJson& numberByteArray(byte length, byte* value) {
 		if (!_separatorAlreadyCalled)
 			_ifSeparator();
-		_stream->print(BBEGIN);
-		for (byte i = 0; i < length; i++) {
-			if (i != 0) _stream->print(COMMA);
-			_stream->print(value[i], DEC);
-		}
-		_stream->print(BEND);
+		WUtils::numberByteArray(_stream, length, value);
 		return *this;
 	}
 
 	WJson& numberDouble(double number) {
 		if (!_separatorAlreadyCalled)
 			_ifSeparator();
-		_stream->print(number);
+		WUtils::numberDouble(_stream, number);
 		return *this;
 	}
 
@@ -230,7 +228,7 @@ public:
 	WJson& boolean(bool value) {
 		if (!_separatorAlreadyCalled)
 			_ifSeparator();
-		_stream->print(value ? "true" : "false");
+		WUtils::boolean(_stream, value);
 		return *this;
 	}
 

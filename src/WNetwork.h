@@ -109,7 +109,8 @@ class WNetwork {
     _wlog->debug(F("firmware: %s"), firmwareVersion.c_str());
     this->addCustomPage(WC_CONFIG, PSTR("Configuration"), [this](){ return new WRootPage(this, this->_pages); }, false);
     this->addCustomPage(WC_WIFI, PSTR("Restart options"), [this](){ return new WNetworkPage(_settings); });
-    this->addCustomPage(WC_INFO, PSTR("Info"), [this](){ return new WInfoPage(); });
+    //((millis() - _startupTime) / 1000 / 60)
+    this->addCustomPage(WC_INFO, PSTR("Info"), [this](){ return new WInfoPage(0); });
     this->addCustomPage(WC_RESET, PSTR("Restart options"), [this](){ return new WResetPage(this); });
   }
 
@@ -336,7 +337,7 @@ class WNetwork {
       WStringStream *response = getResponseStream();
       WJson json(response);
       json.beginObject();
-      json.propertyString(key, value);
+      json.propertyString(key, value, nullptr);
       json.endObject();
       return publishMqtt(topic, response);
     } else {
@@ -603,12 +604,12 @@ class WNetwork {
         WJson json(response);
         json.beginObject();
         if (device->isMainDevice()) {
-          json.propertyString("idx", getIdx());
-          json.propertyString("ip", getDeviceIp().toString().c_str());
+          json.propertyString("idx", getIdx(), nullptr);
+          json.propertyString("ip", getDeviceIp().toString().c_str(), nullptr);
           if (this->isLastWillEnabled()) {
             json.propertyBoolean("alive", true);
           }
-          json.propertyString("firmware", _firmwareVersion.c_str());
+          json.propertyString("firmware", _firmwareVersion.c_str(), nullptr);
         }
         device->toJsonValues(&json, MQTT);
         json.endObject();
@@ -624,9 +625,9 @@ class WNetwork {
                 if (property->isVisible(MQTT)) {
                   WStringStream *response = getResponseStream();
                   WJson json(response);
-                  property->toJsonValue(&json, true);
+                  property->toJsonValue(&json);
                   _mqttClient->publish(
-                      String(topic + SLASH + String(property->id())).c_str(),
+                      String(topic + SLASH + String(id)).c_str(),
                       response->c_str(), true);
                 }
                 property->changed(false);
@@ -678,11 +679,11 @@ class WNetwork {
                 if (property != nullptr) {
                   if (property->isVisible(MQTT)) {
                     _wlog->notice(F("Send state of property '%s'"),
-                                  property->id());
+                                  topic);
                     WStringStream *response = getResponseStream();
                     WJson json(response);
-                    property->toJsonValue(&json, true);
-                    _mqttClient->publish(String(baseT + SLASH + deviceId + SLASH + stateT + SLASH + String(property->id())).c_str(), response->c_str(), true);
+                    property->toJsonValue(&json);
+                    _mqttClient->publish(String(baseT + SLASH + deviceId + SLASH + stateT + SLASH + topic).c_str(), response->c_str(), true);
                   }
                 } else {
                   device->handleUnknownMqttCallback(true, ptopic, topic, (char *)payload, length);
@@ -709,7 +710,7 @@ class WNetwork {
                 if (property != nullptr) {
                   if (property->isVisible(MQTT)) {
                     // Set Property
-                    _wlog->notice(F("Try to set property %s for device %s"), property->id(), device->id());
+                    _wlog->notice(F("Try to set property %s for device %s"), topic, device->id());
                     if (!property->parse((char *)payload)) {
                       _wlog->notice(F("Property not updated."));
                     } else {
@@ -752,8 +753,8 @@ class WNetwork {
           lastWillTopic.concat(SLASH);
           lastWillTopic.concat(mqttStateTopic());
           json.beginObject();
-          json.propertyString("idx", getIdx());
-          json.propertyString("ip", getDeviceIp().toString().c_str());
+          json.propertyString("idx", getIdx(), nullptr);
+          json.propertyString("ip", getDeviceIp().toString().c_str(), nullptr);
           json.propertyBoolean("alive", false);
           json.endObject();
         }
@@ -779,9 +780,9 @@ class WNetwork {
           WStringStream *response = getResponseStream();
           WJson json(response);
           json.beginObject();
-          json.propertyString("url", "http://", getDeviceIp().toString().c_str(), "/things/", device->id());
-          json.propertyString("stateTopic", mqttBaseTopic(), SLASH, device->id(), SLASH, mqttStateTopic());
-          json.propertyString("setTopic", mqttBaseTopic(), SLASH, device->id(), SLASH, mqttSetTopic());
+          json.propertyString("url", "http://", getDeviceIp().toString().c_str(), "/things/", device->id(), nullptr);
+          json.propertyString("stateTopic", mqttBaseTopic(), SLASH, device->id(), SLASH, mqttStateTopic(), nullptr);
+          json.propertyString("setTopic", mqttBaseTopic(), SLASH, device->id(), SLASH, mqttSetTopic(), nullptr);
           json.endObject();
           _mqttClient->publish(topic.c_str(), response->c_str(), false);
         });
@@ -1282,9 +1283,9 @@ class WNetwork {
       WJson json(response);
       json.beginObject();
       if (device->isMainDevice()) {
-        json.propertyString("idx", getIdx());
-        json.propertyString("ip", getDeviceIp().toString().c_str());
-        json.propertyString("firmware", _firmwareVersion.c_str());
+        json.propertyString("idx", getIdx(), nullptr);
+        json.propertyString("ip", getDeviceIp().toString().c_str(), nullptr);
+        json.propertyString("firmware", _firmwareVersion.c_str(), nullptr);
       }
       device->toJsonValues(&json, WEBTHING);
       json.endObject();
@@ -1327,12 +1328,12 @@ class WNetwork {
       WJsonParser parser;
       WProperty *property = parser.parse(_body_data, device);
       if (property != nullptr) {
-        // response new value
-        _wlog->notice(F("Set property value: %s (web request) %s"), property->id(), _body_data);
+        // response new value        
+        _wlog->notice(F("Set property value: %s (web request) %s"), property->title(), _body_data);
         AsyncResponseStream *response = request->beginResponseStream(APPLICATION_JSON);
         WJson json(response);
         json.beginObject();
-        property->toJsonValue(&json);
+        property->toJsonValue(&json/*tbi id, id!!!*/);
         json.endObject();
         request->send(response);
       } else {
@@ -1351,7 +1352,7 @@ class WNetwork {
           request->beginResponseStream(APPLICATION_JSON);
       WJson json(response);
       json.beginObject();
-      json.propertyString("error", msg);
+      json.propertyString("error", msg, nullptr);
       json.propertyInteger("status", status);
       json.endObject();
       request->send(response);
@@ -1366,7 +1367,7 @@ class WNetwork {
       device->properties()->forEach([this, device,
                                      deviceBase](WProperty *property, const char* id) {
         if (property->isVisible(WEBTHING)) {
-          String propertyBase = deviceBase + "/properties/" + property->id();
+          String propertyBase = deviceBase + "/properties/" + id;
           _webServer->on(propertyBase.c_str(), HTTP_GET, std::bind(&WNetwork::_getPropertyValue, this, std::placeholders::_1, property));
           _webServer->on(propertyBase.c_str(), HTTP_PUT, std::bind(&WNetwork::_setPropertyValue, this, std::placeholders::_1, device),
                          NULL, std::bind(&WNetwork::_handleBody, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));

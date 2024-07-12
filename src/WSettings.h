@@ -55,25 +55,23 @@ class WSettings {
     return (_networkByte == FLAG_OPTIONS_NETWORK_FORCE_AP);
   }
 
-  WProperty* getSetting(const char* id) {
-    return _items->getIf([this, id](WProperty* p) { return p->equalsId(id); });
-  }
+  WProperty* getSetting(const char* id) { return _items->getById(id); }
 
   bool exists(WProperty* property) { return _items->exists(property); }
 
-  void add(WProperty* property) { this->add(property, false); }
+  void add(WProperty* property, const char* id) { this->add(property, id, false); }
 
-  void insert(WProperty* property, int index) {
-    this->add(property, index, false);
+  void insert(WProperty* property, int index, const char* id) {
+    add(property, index, id, false);
   }
 
-  void add(WProperty* property, bool networkSetting) {
-    add(property, _items->size(), networkSetting);
+  void add(WProperty* property, const char* id, bool networkSetting) {
+    add(property, _items->size(), id, networkSetting);
   }
 
-  void add(WProperty* property, int index, bool networkSetting) {
+  void add(WProperty* property, int index, const char* id, bool networkSetting) {
     if (!exists(property)) {
-      _items->insert(property, index);
+      _items->insert(property, index, id);
       // read stored values
       if ((isReadingFirstTime()) &&
           (((networkSetting) && (this->existsNetworkSettings())) ||
@@ -138,9 +136,7 @@ class WSettings {
     }
   }
 
-  void remove(const char* id) {
-    _items->removeIf([this, id](WProperty* p) { return p->equalsId(id); });
-  }
+  void remove(const char* id) { _items->removeById(id); }
 
   byte size() { return _items->size(); };
 
@@ -169,9 +165,9 @@ class WSettings {
   WProperty* setByte(const char* id, byte value, byte max) {
     WProperty* setting = getSetting(id);
     if (setting == nullptr) {
-      setting = WProps::createByteProperty(id, id);
+      setting = WProps::createByteProperty(id);
       setting->asByte(value);
-      add(setting);
+      add(setting, id);
       if ((max > 0) && (setting->asByte() > max)) {
         setting->asByte(value);
       }
@@ -189,9 +185,9 @@ class WSettings {
   WProperty* setInteger(const char* id, int value) {
     WProperty* setting = getSetting(id);
     if (setting == nullptr) {
-      setting = WProps::createIntegerProperty(id, id);
+      setting = WProps::createIntegerProperty(id);
       setting->asInt(value);
-      add(setting);
+      add(setting, id);
     } else {
       setting->asInt(value);
     }
@@ -206,9 +202,9 @@ class WSettings {
   WProperty* setShort(const char* id, short value) {
     WProperty* setting = getSetting(id);
     if (setting == nullptr) {
-      setting = WProps::createShortProperty(id, id);
+      setting = WProps::createShortProperty(id);
       setting->asShort(value);
-      add(setting);
+      add(setting, id);
     } else {
       setting->asShort(value);
     }
@@ -223,9 +219,9 @@ class WSettings {
   WProperty* setUnsignedLong(const char* id, unsigned long value) {
     WProperty* setting = getSetting(id);
     if (setting == nullptr) {
-      setting = WProps::createUnsignedLongProperty(id, id);
+      setting = WProps::createUnsignedLongProperty(id);
       setting->asUnsignedLong(value);
-      add(setting);
+      add(setting, id);
     } else {
       setting->asUnsignedLong(value);
     }
@@ -240,9 +236,9 @@ class WSettings {
   WProperty* setDouble(const char* id, double value) {
     WProperty* setting = getSetting(id);
     if (setting == nullptr) {
-      setting = WProps::createDoubleProperty(id, id);
+      setting = WProps::createDoubleProperty(id);
       setting->asDouble(value);
-      add(setting);
+      add(setting, id);
     } else {
       setting->asDouble(value);
     }
@@ -265,10 +261,10 @@ class WSettings {
   WProperty* setByteArray(const char* id, byte length, const byte* value) {
     WProperty* setting = getSetting(id);
     if (setting == nullptr) {
-      setting = new WProperty(id, id, BYTE_ARRAY, "");
+      setting = new WProperty(id, BYTE_ARRAY, "");
       setting->asByteArray(length, value);
       setting->visibility(NONE);
-      add(setting);
+      add(setting, id);
     } else {
       setting->asByteArray(length, value);
     }
@@ -305,9 +301,9 @@ class WSettings {
   WProperty* setBoolean(const char* id, bool value, bool networkSetting) {
     WProperty* setting = getSetting(id);
     if (setting == nullptr) {
-      setting = WProps::createBooleanProperty(id, id);
+      setting = WProps::createBooleanProperty(id);
       setting->asBool(value);
-      add(setting, networkSetting);
+      add(setting, id, networkSetting);
     } else {
       setting->asBool(value);
     }
@@ -317,9 +313,9 @@ class WSettings {
   WProperty* setString(const char* id, const char* value, bool networkSetting) {        
     WProperty* setting = getSetting(id);
     if (setting == nullptr) {
-      setting = WProps::createStringProperty(id, id);
+      setting = WProps::createStringProperty(id);
       setting->asString(value);
-      add(setting, networkSetting);
+      add(setting, id, networkSetting);
     } else {
       setting->asString(value);
     }

@@ -12,7 +12,7 @@ struct WPageItem {
     this->showInMainMenu = showInMainMenu;
   }
 
-  ~WPageItem() {
+  virtual ~WPageItem() {
    
   }
 
@@ -23,9 +23,7 @@ struct WPageItem {
 class WPage {
  public:
   WPage(/*WNetwork* network, const char* id, const char* title*/) {
-    //_network = network;
-    /*_id = new char[strlen_P(id) + 1];
-    strcpy_P(_id, id);    
+    /*_network = network;
     _title = new char[strlen_P(title) + 1];
     strcpy_P(_title, title);        */
     _stream = nullptr;
@@ -35,8 +33,7 @@ class WPage {
     _onSubmitPage = nullptr;
   }
 
-  ~WPage() {
-    //delete _id;
+  virtual ~WPage() {
     //delete _title;
   }
 
@@ -60,8 +57,6 @@ class WPage {
   }
 
   static void handleGet(AsyncWebServerRequest* request, const char* id, WPageItem* pi) {
-    Serial.print("handle get for ");
-    Serial.println(id);
     AsyncResponseStream* stream = request->beginResponseStream(WC_TEXT_HTML);
     WPage* page = pi->initializer();
     page->toString(stream);
@@ -133,6 +128,7 @@ class WPage {
     WHtml::command(stream, WC_HTML, false);  // Page end    
     //Cleanup
     delete styles;
+    delete scripts;
     delete parentNode;
   }
 

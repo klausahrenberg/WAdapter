@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-union WValue {
+union WValue { 
   bool asBool;
   double asDouble;
   short asShort;
@@ -24,6 +24,7 @@ union WValue {
     r.asInt = d;
     return r;
   }
+
 };
 
 #endif

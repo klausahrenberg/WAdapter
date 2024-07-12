@@ -50,9 +50,9 @@ class WDevice {
 
   const char* type() { return _type; }
 
-  void addProperty(WProperty* property) {
+  void addProperty(WProperty* property, const char* id) {
     property->deviceNotification(std::bind(&WDevice::onPropertyChange, this));
-    _properties->add(property);
+    _properties->add(property, id);
   }
 
   void addInput(WInput* input) {
@@ -69,16 +69,12 @@ class WDevice {
     _outputs->add(output);
   }
 
-  WProperty* getPropertyById(const char* propertyId) {
-    return _properties->getIf([this, propertyId](WProperty* p){
-      return p->equalsId(propertyId);
-    });
-  }
+  WProperty* getPropertyById(const char* propertyId) { return _properties->getById(propertyId); }
 
   virtual void toJsonValues(WJson* json, WPropertyVisibility visibility) {    
     _properties->forEach([this, json, visibility](WProperty* property, const char* id) {    
       if (property->isVisible(visibility)) {
-        property->toJsonValue(json, false);
+        property->toJsonValue(json, id);
       }
       property->changed(false);      
     });
@@ -87,25 +83,25 @@ class WDevice {
   virtual void toJsonStructure(WJson* json, const char* deviceHRef,
                                WPropertyVisibility visibility) {
     json->beginObject();
-    json->propertyString("id", this->id());
-    json->propertyString("title", this->title());
+    json->propertyString("id", this->id(), nullptr);
+    json->propertyString("title", this->title(), nullptr);
     String result(deviceHRef);
     result.concat("/things/");
     result.concat(this->id());
-    json->propertyString("href", result.c_str());
-    json->propertyString("@context", "https://iot.mozilla.org/schemas");
+    json->propertyString("href", result.c_str(), nullptr);
+    json->propertyString("@context", "https://iot.mozilla.org/schemas", nullptr);
     // type
     json->beginArray("@type");
-    json->string(type());
+    json->string(type(), nullptr);
     if (_alternativeType != nullptr) {
-      json->string(_alternativeType);
+      json->string(_alternativeType, nullptr);
     }
     json->endArray();
     // properties
     json->beginObject("properties");
     _properties->forEach([this, json, result, visibility](WProperty* property, const char* id) {        
       if (property->isVisible(visibility)) {
-        property->toJsonStructure(json, property->id(), result.c_str());
+        property->toJsonStructure(json, id, result.c_str());
       }      
     });
     json->endObject();

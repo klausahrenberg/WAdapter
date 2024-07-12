@@ -123,7 +123,7 @@ private:
 			}
 			break;
 		case STATE_IN_ARRAY:
-			if (c == BEND) {
+			if (c == WC_BASE[11]) {
 				_endArray();
 			} else {
 				_startValue(c);
@@ -166,15 +166,15 @@ private:
 			if (within == STACK_OBJECT) {
 				if (c == SEND) {
 					_endObject();
-				} else if (c == COMMA) {
+				} else if (c == WC_BASE[12]) {
 					_state = STATE_IN_OBJECT;
 				} else {
 					//throw new RuntimeException("Expected ',' or '}' while parsing object. Got: " + c + ". " + characterCounter);
 				}
 			} else if (within == STACK_ARRAY) {
-				if (c == BEND) {
+				if (c == WC_BASE[11]) {
 					_endArray();
-				} else if (c == COMMA) {
+				} else if (c == WC_BASE[12]) {
 					_state = STATE_IN_ARRAY;
 				} else {
 					//throw new RuntimeException("Expected ',' or ']' while parsing array. Got: " + c + ". " + characterCounter);
@@ -239,7 +239,7 @@ private:
 			break;
 		case STATE_START_DOCUMENT:
 			//myListener->startDocument();
-			if (c == BBEGIN) {
+			if (c == WC_BASE[10]) {
 				_startArray();
 			} else if (c == SBEGIN) {
 				_startObject();

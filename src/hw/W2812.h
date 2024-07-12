@@ -18,9 +18,9 @@ class W2812Led : public WOutput {
     _ledProgram = 2;
     _programStatusCounter = 0;
     _lastUpdate = 0;
-    _color = new WColorProperty("color", "Color", 255, 0, 0);
+    _color = new WColorProperty("Color", 255, 0, 0);
     // network->getSettings()->add(this->color);
-    _brightness = WProps::createLevelIntProperty("brightness", "Brightness", 10, 255);
+    _brightness = WProps::createLevelIntProperty("Brightness", 10, 255);
     _brightness->asInt(160);
     // network->getSettings()->add(this->brightness);
     _brightness->addListener([this]() {
