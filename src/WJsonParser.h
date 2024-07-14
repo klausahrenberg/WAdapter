@@ -41,6 +41,21 @@ public:
 		_kvFunction = nullptr;
 	}
 
+	static WStringList* asList(const char *payload) {
+		WJsonParser jp = WJsonParser();
+		return jp.parse(payload);
+	}	
+
+	WStringList* parse(const char *payload) {
+		WStringList* result = new WStringList();
+		parse(payload, [this, result](const char* key, const char* value) { 
+			char* v = new char[strlen_P(value) + 1];
+      strcpy_P(v, value);
+			result->add(v, key); 
+		});
+		return result;
+	}
+
 	void parse(const char *payload, TProcessKeyValueFunction kvFunction) {
 		_kvFunction = kvFunction;
 		for (int i = 0; i < strlen(payload); i++) {

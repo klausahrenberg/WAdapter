@@ -42,40 +42,47 @@ class WList {
   typedef std::function<bool(T* value)> TOnCompare;
   typedef std::function<void(WListNode<T>* listNode)> TOnListNode;
 
-  WList() {
+  WList(bool noDoubleIds = false) {
+    _noDoubleIds = noDoubleIds;
     _size = 0;
     _firstNode = nullptr;
     _resetCaching();
   };
 
-  ~WList() {
+  virtual ~WList() {
     clear();
   }
 
   void add(T* value, const char* id = nullptr) { this->insert(value, _size, id); }
 
-  void insert(T* value, int index, const char* id = nullptr) {    
-    // create new node
-    WListNode<T>* newNode = new WListNode<T>(id);    
-    newNode->value = value;
+  virtual void insert(T* value, int index, const char* id = nullptr) {    
+    WListNode<T>* newNode = (_noDoubleIds ? _getListNodeById(id) : nullptr);    
+    if (newNode == nullptr) {      
+      WListNode<T>* newNode = new WListNode<T>(id);    
 
-    if (index == 0) {
-        newNode->next = _firstNode;
-        _firstNode = newNode;
+      bool isString = std::is_same<T, const char>::value;
+      newNode->value = value;        
+      if (index == 0) {
+          newNode->next = _firstNode;
+          _firstNode = newNode;
+      } else {
+          WListNode<T>* prevNode = _getNode(index - 1);
+          newNode->next  = prevNode->next;
+          prevNode->next = newNode;
+      }
+      _isCached = true;
+      _lastIndexGot = index;
+      _lastNodeGot = newNode;
+      _size++;
     } else {
-        WListNode<T>* prevNode = _getNode(index - 1);
-        newNode->next  = prevNode->next;
-        prevNode->next = newNode;
+      //if (newNode->value) delete newNode->value;
+      newNode->value = value;
     }
-    _isCached = true;
-    _lastIndexGot = index;
-    _lastNodeGot = newNode;
-    _size++;
   };
 
   void clear() {
     while (_size > 0) {
-      this->remove(0, true);
+      this->remove(0, true);      
     }
   }
 
@@ -88,7 +95,7 @@ class WList {
       } else {
         nodePrev->next = nodeToDelete->next;
       }
-      if (freeMemoryForValues) delete nodeToDelete->value;
+      if ((freeMemoryForValues) && (nodeToDelete) && (nodeToDelete->value)) delete nodeToDelete->value;
       delete nodeToDelete;
       _size--;
       _resetCaching();
@@ -141,7 +148,7 @@ class WList {
     return result;
   }
 
-  void forEach(TOnValue consumer) {
+  virtual void forEach(TOnValue consumer) {
     if (consumer) {
       WListNode<T>* node = _firstNode;
       while (node != nullptr) {
@@ -170,12 +177,19 @@ class WList {
   }
 
   T* getById(const char* id) {
-    WListNode<T>* node = _firstNode;
-    while (node != nullptr) {        
-      if ((node->id != nullptr) && (strcmp_P(node->id, id) == 0)) {
-        return node->value;
+    WListNode<T>* ln = _getListNodeById(id);
+    return (ln != nullptr ? ln->value : nullptr);
+  }
+
+  WListNode<T>* _getListNodeById(const char* id) {
+    if (id != nullptr) {
+      WListNode<T>* node = _firstNode;
+      while (node != nullptr) {    
+        if ((node->id != nullptr) && (strcmp_P(node->id, id) == 0)) {
+          return node;
+        }
+        node = node->next;        
       }
-      node = node->next;        
     }
     return nullptr;
   }
@@ -232,6 +246,7 @@ class WList {
 
  protected:
   int _size;
+  bool _noDoubleIds;
   WListNode<T>* _firstNode;
   // caching for get() method
   bool _isCached;
@@ -277,7 +292,22 @@ class WIterator {
  private:
   WList<T>* _list; 
   WListNode<T>* _currentNode;
-  bool _initial;
+  bool _initial;  
+};
+
+class WStringList : public WList<const char> {
+ public:
+  WStringList() : WList<const char>(true) {
+
+  }  
+
+  virtual void insert(const char* value, int index, const char* id = nullptr) { 
+    if (value) {
+      char* temp = new char[strlen_P(value) + 1];
+      strcpy_P(temp, value);
+      WList::insert(temp, index, id);
+    }
+  }  
 };
 
 #endif

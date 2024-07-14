@@ -12,15 +12,13 @@ const int EEPROM_SIZE = 1024;  // SPI_FLASH_SEC_SIZE;
 
 class WSettings {
  public:
-  WSettings(WLog* log, byte appSettingsFlag = 0x68) {
+  WSettings() {
     _items = new WList<WProperty>();
-    _log = log;
-    _appSettingsFlag = appSettingsFlag;
     _address = 2;
     _readingFirstTime = true;
     EEPROM.begin(EEPROM_SIZE);
     _networkByte = EEPROM.read(0);
-    _existsSettingsApplication = (EEPROM.read(1) == _appSettingsFlag);
+    _existsSettingsApplication = (EEPROM.read(1) == FLAG_SETTINGS);
   }
 
   void endReadingFirstTime() {
@@ -361,10 +359,8 @@ class WSettings {
   }
 
  private:
-  WLog* _log;
   bool _existsSettingsApplication;
   int _networkByte;
-  byte _appSettingsFlag;
   WList<WProperty>* _items;
   int _address;
   bool _readingFirstTime;
@@ -427,10 +423,12 @@ class WSettings {
 		});
     // 1. Byte - settingsStored flag
     EEPROM.write(0, networkSettingsFlag);
-    EEPROM.write(1, _appSettingsFlag);
+    EEPROM.write(1, FLAG_SETTINGS);
     EEPROM.commit();
     EEPROM.end();
   }
 };
+
+WSettings* SETTINGS = new WSettings();
 
 #endif

@@ -3,14 +3,12 @@
 
 #include "WebResources.h"
 
-typedef std::function<void()> OnWebControlChange;
-
 class WebControl {
  protected:
   char* _tag = nullptr;
   char* _content = nullptr;
   bool _closing = true;
-  WList<WKeyValue>* _params = nullptr;
+  WStringList* _params = nullptr;
   WList<WebControl>* _items = nullptr;
 
  public:
@@ -56,7 +54,7 @@ class WebControl {
 
   const char* content() { return _content; }
 
-  void closing(bool closing) { _closing = closing; }
+  WebControl* closing(bool closing) { _closing = closing; return this; }
 
   bool closing() { return _closing; }
 
@@ -69,29 +67,34 @@ class WebControl {
 
   // void addParam(WKeyValue* kv) {
 
-  void addParam(const char* key, const char* param) {
-    addParam(key, param, nullptr);
+  WebControl* addParam(const char* key, const char* param) {
+    return addParam(key, param, nullptr);
   }
 
-  void addParam(const char* key, const char* pattern, const char* params, ...) {
-    if (_params == nullptr) _params = new WList<WKeyValue>();    
+  WebControl* addParam(const char* key, const char* pattern, const char* params, ...) {    
+    if (_params == nullptr) _params = new WStringList();    
     if ((pattern != nullptr) && (params != nullptr)) {
       va_list args;
       va_start(args, params);
       char buffer[128];
       snprintf(buffer, sizeof(buffer), pattern, params, args);
       va_end(args);
-      _params->add(new WKeyValue(key, buffer));
+      _params->add(buffer, key);
     } else {
-      _params->add(new WKeyValue(key, pattern));
+      _params->add(pattern, key);
     }
+    return this;
   }
 
-  virtual void createStyles(WKeyValues* styles) {
+  bool hasParam(const char* key) {
+    return ((_params != nullptr) && (_params->getById(key) != nullptr));
+  }
+
+  virtual void createStyles(WStringList* styles) {
     if (_items) _items->forEach([this, styles](WebControl* wc, const char* id) { wc->createStyles(styles); });
   }
 
-  virtual void createScripts(WKeyValues* scripts) {
+  virtual void createScripts(WStringList* scripts) {
     if (_items) _items->forEach([this, scripts](WebControl* wc, const char* id) { wc->createScripts(scripts); });
   }
 
@@ -113,7 +116,7 @@ class WebDiv : public WebControl {
 class WebForm : public WebControl {
  public:
   WebForm(const char* id, WebControl* child = nullptr) : WebControl(WC_FORM, WC_METHOD, WC_POST, WC_ACTION, "events", nullptr) {   
-    this->add((new WebControl(WC_INPUT, WC_TYPE, WC_HIDDEN, WC_NAME, WC_FORM, WC_VALUE, id, nullptr)));
+    this->add((new WebControl(WC_INPUT, WC_TYPE, WC_HIDDEN, WC_NAME, WC_FORM, WC_VALUE, id, nullptr))->closing(false));
     this->add(child);
   } 
 };  
@@ -123,39 +126,36 @@ const xhr = new XMLHttpRequest();
 xhr.open("POST", "/events");
 xhr.setRequestHeader("Content-Type", "application/json; charset=UTF-8");
 const body = JSON.stringify({
-  userId: 1,
-  title: "Fix my bugs",
-  completed: false
+  form: window.location.href.substring(window.location.href.lastIndexOf('/') + 1),
+  id: elem.id,
+  value: elem.value
 });
 xhr.onload = () => {
-  if (xhr.readyState == 4 && xhr.status == 201) {
-    console.log(JSON.parse(xhr.responseText));
+  if (xhr.readyState == 4 && xhr.status == 200) {    
+    document.write(xhr.responseText);
   } else {
     console.log(`Error: ${xhr.status}`);
   }
-  document.location='config';
 };
 xhr.send(body);
 )=====";
 
 class WebButton : public WebControl {
  public:
-  WebButton(const char* id, const char* title) : WebControl(WC_BUTTON, WC_ID, id, nullptr) {
+  WebButton(const char* title, const char* id = nullptr) : WebControl(WC_BUTTON, nullptr) {
+    if (id) addParam(WC_ID, id);
     content(title);
   }
   ~WebButton() {}
 
-
-  virtual void createStyles(WKeyValues* styles) {
-    styles->add(WC_BUTTON, WC_STYLE_BUTTON);
-    styles->add(WC_CSS_BUTTON_HOVER, WC_STYLE_BUTTON_HOVER);
+  virtual void createStyles(WStringList* styles) {
+    styles->add(WC_STYLE_BUTTON, WC_BUTTON);
+    styles->add(WC_STYLE_BUTTON_HOVER, WC_CSS_BUTTON_HOVER);
     WebControl::createStyles(styles);
   }
 
-  virtual void createScripts(WKeyValues* scripts) {
-    if (_onClick) {
-      scripts->add("onButtonClick", WC_SCRIPT_TEST);
-    }
+  virtual void createScripts(WStringList* scripts) {     
+    if (hasParam(WC_ON_CLICK)) scripts->add(WC_SCRIPT_TEST, "onButtonClick");  
     WebControl::createScripts(scripts);
   }
 
@@ -164,8 +164,8 @@ class WebButton : public WebControl {
 
   WebButton* onClickNavigateTo(const char* target) { addParam(WC_ON_CLICK, WC_LOCATION_HREF, target, nullptr); return this; }
 
-  WebButton* onClick(OnWebControlChange onClick) {
-    _onClick = onClick;
+  WebButton* onClickSendValue(const char* value) {
+    this->addParam(WC_VALUE, value);
     this->addParam(WC_ON_CLICK, PSTR("onButtonClick(this)"));
     return this;
   }
@@ -175,7 +175,7 @@ class WebButton : public WebControl {
   }
 
  protected:
-  OnWebControlChange _onClick = nullptr; 
+
 };
 
 class WebSubmitButton : public WebControl {
@@ -183,26 +183,41 @@ class WebSubmitButton : public WebControl {
   WebSubmitButton(const char* title) : WebControl(WC_BUTTON, WC_TYPE, WC_SUBMIT, nullptr) {
     content(title);
   }
+
+  virtual void createStyles(WStringList* styles) {
+    styles->add(WC_STYLE_BUTTON, WC_BUTTON);
+    styles->add(WC_STYLE_BUTTON_HOVER, WC_CSS_BUTTON_HOVER);
+    WebControl::createStyles(styles);
+  }
+};
+
+class WebLabel : public WebControl {
+ public: 
+  WebLabel(const char* title, const char* forId = nullptr) : WebControl(WC_LABEL, nullptr) {  
+    if (forId) addParam(WC_FOR, forId);
+    content(title);
+  }    
+
+  virtual void createStyles(WStringList* styles) {
+    styles->add(PSTR("display:block;"), WC_LABEL);
+    WebControl::createStyles(styles);
+  }
 };
 
 class WebCheckbox : public WebControl {
  public:
-  WebCheckbox(const char* id, const char* title) : WebControl(WC_DIV, WC_CLASS, "cb", nullptr) {
-    WebControl* input = new WebControl(WC_INPUT, WC_ID, id, WC_TYPE, "checkbox", nullptr);
-    input->closing(false);
-    this->add(input);
-    WebControl* label = new WebControl(WC_LABEL, WC_FOR, id, nullptr);
-    label->content(title);
-    this->add(label);
+  WebCheckbox(const char* id, const char* title) : WebControl(WC_DIV, WC_CLASS, "cb", nullptr) {    
+    this->add((new WebControl(WC_INPUT, WC_ID, id, WC_TYPE, "checkbox", nullptr))->closing(false));    
+    this->add(new WebLabel(title, id));
   }
 
-  virtual void createStyles(WKeyValues* styles) {
-    styles->add(WC_CSS_CHECK_BOX, WC_STYLE_CHECK_BOX);
-    styles->add(WC_CSS_CHECK_BOX_LABEL, WC_STYLE_CHECK_BOX_LABEL);
-    styles->add(WC_CSS_CHECK_BOX_LABEL_BEFORE, WC_STYLE_CHECK_BOX_LABEL_BEFORE);
-    styles->add(WC_CSS_CHECK_BOX_CHECKED_LABEL_BEFORE, WC_STYLE_CHECK_BOX_CHECKED_LABEL_BEFORE);
-    styles->add(WC_CSS_INPUT_CHECKED_SLIDER, WC_STYLE_INPUT_CHECKED_SLIDER);
-    styles->add(WC_CSS_INPUT_CHECKED_SLIDER_BEFORE, WC_STYLE_INPUT_CHECKED_SLIDER_BEFORE);
+  virtual void createStyles(WStringList* styles) {
+    styles->add(WC_STYLE_CHECK_BOX, WC_CSS_CHECK_BOX);
+    styles->add(WC_STYLE_CHECK_BOX_LABEL, WC_CSS_CHECK_BOX_LABEL);
+    styles->add(WC_STYLE_CHECK_BOX_LABEL_BEFORE, WC_CSS_CHECK_BOX_LABEL_BEFORE);
+    styles->add(WC_STYLE_CHECK_BOX_CHECKED_LABEL_BEFORE, WC_CSS_CHECK_BOX_CHECKED_LABEL_BEFORE);
+    styles->add(WC_STYLE_INPUT_CHECKED_SLIDER, WC_CSS_INPUT_CHECKED_SLIDER);
+    styles->add(WC_STYLE_INPUT_CHECKED_SLIDER_BEFORE, WC_CSS_INPUT_CHECKED_SLIDER_BEFORE);
     WebControl::createStyles(styles);
   }
 };
@@ -222,23 +237,21 @@ class WebSwitch : public WebControl {
     
   }
 
-  virtual void createStyles(WKeyValues* styles) {
-    styles->add(WC_CSS_SWITCH, WC_STYLE_SWITCH);
-    styles->add(WC_CSS_SWITCH_INPUT, WC_STYLE_SWITCH_INPUT);
-    styles->add(WC_CSS_SLIDER, WC_STYLE_SLIDER);
-    styles->add(WC_CSS_SLIDER_BEFORE, WC_STYLE_SLIDER_BEFORE);
-    styles->add(WC_CSS_INPUT_CHECKED_SLIDER, WC_STYLE_INPUT_CHECKED_SLIDER);
-    styles->add(WC_CSS_INPUT_CHECKED_SLIDER_BEFORE, WC_STYLE_INPUT_CHECKED_SLIDER_BEFORE);
+  virtual void createStyles(WStringList* styles) {
+    styles->add(WC_STYLE_SWITCH, WC_CSS_SWITCH);
+    styles->add(WC_STYLE_SWITCH_INPUT, WC_CSS_SWITCH_INPUT);
+    styles->add(WC_STYLE_SLIDER, WC_CSS_SLIDER);
+    styles->add(WC_STYLE_SLIDER_BEFORE, WC_CSS_SLIDER_BEFORE);
+    styles->add(WC_STYLE_INPUT_CHECKED_SLIDER, WC_CSS_INPUT_CHECKED_SLIDER);
+    styles->add(WC_STYLE_INPUT_CHECKED_SLIDER_BEFORE, WC_CSS_INPUT_CHECKED_SLIDER_BEFORE);
     WebControl::createStyles(styles);
   }
 };
 
 class WebTextField : public WebControl {
  public:
-  WebTextField(const char* id, const char* title, const char* text, byte maxLength = 32, bool passwordField = false) : WebControl(WC_DIV, nullptr) {
-    WebControl* label = new WebControl(WC_LABEL, WC_FOR, id, nullptr);
-    label->content(title);
-    this->add(label);
+  WebTextField(const char* id, const char* title, const char* text, byte maxLength = 32, bool passwordField = false) : WebControl(WC_DIV, nullptr) {    
+    this->add(new WebLabel(title, id));
     WebControl* input = new WebControl(WC_INPUT, WC_ID, id, WC_NAME, id, WC_MAXLENGTH, String(maxLength).c_str(), WC_TYPE, (passwordField ? WC_PASSWORD : WC_TEXT), nullptr);
     if (text != nullptr) {
       input->addParam(WC_VALUE, text);
@@ -247,6 +260,23 @@ class WebTextField : public WebControl {
     this->add(input);
   }
 
+};
+
+class WebInputFile : public WebControl {
+ public: 
+  WebInputFile(const char* id) : WebControl(WC_DIV, nullptr) {    
+    this->add(new WebLabel(PSTR("Add file"), id));
+    WebControl* input = new WebControl(WC_INPUT, WC_ID, id, WC_NAME, id, WC_TYPE, WC_FILE, WC_ACCEPT, PSTR(".bin"), nullptr);
+    input->closing(false);
+    this->add(input);
+    this->addParam(WC_CLASS, WC_BUTTON);
+  }
+
+  virtual void createStyles(WStringList* styles) {
+    //styles->add(WC_STYLE_BUTTON, PSTR("input::file-selector-button"));    
+    //styles->add("width:fit-content", PSTR("input::file-selector-button"));    
+    WebControl::createStyles(styles);
+  }
 };
 
 class WebTable : public WebControl {

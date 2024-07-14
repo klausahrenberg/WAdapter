@@ -171,4 +171,6 @@ private:
 
 };
 
+WLog* LOG = new WLog();
+
 #endif

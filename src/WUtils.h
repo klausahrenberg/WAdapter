@@ -4,6 +4,10 @@
 #include "Arduino.h"
 
 const static char WC_BASE[] PROGMEM = " =<>/\"{}()[],";
+const static char* APPLICATION = nullptr;
+const static char* VERSION = nullptr;
+static byte FLAG_SETTINGS = 0x23;
+static bool DEBUG = true;
 
 class WUtils {
  public: 

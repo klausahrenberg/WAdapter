@@ -5,6 +5,15 @@
 
 class WPage;
 typedef std::function<WPage* ()> WPageInitializer;
+enum WFormOperation { FO_NONE, FO_RESTART, FO_FORCE_AP, FO_RESET_ALL };
+struct WFormResponse { 
+  WFormResponse(WFormOperation operation = FO_NONE, const char* message = nullptr) {
+    this->operation = operation;
+    this->message = message;
+  }  
+  const char* message;
+  WFormOperation operation; 
+};
 
 struct WPageItem {
   WPageItem(WPageInitializer initializer, bool showInMainMenu = true) {
@@ -22,34 +31,20 @@ struct WPageItem {
 
 class WPage {
  public:
-  WPage(/*WNetwork* network, const char* id, const char* title*/) {
-    /*_network = network;
-    _title = new char[strlen_P(title) + 1];
-    strcpy_P(_title, title);        */
+  WPage() {    
     _stream = nullptr;
-    //_showInMainMenu = true;
     _targetAfterSubmitting = nullptr;
     _onPrintPage = nullptr;
     _onSubmitPage = nullptr;
   }
 
   virtual ~WPage() {
-    //delete _title;
   }
 
   typedef std::function<void(WPage*)> TPrintPage;
   typedef std::function<void(AsyncWebServerRequest*)> TSubmitPage;
   void onPrintPage(TPrintPage onPrintPage) { _onPrintPage = onPrintPage; }
   void onSubmitPage(TSubmitPage onSubmitPage) { _onSubmitPage = onSubmitPage; }
-
-  /*void bindWebServer(AsyncWebServer* webServer) {
-    String did(WC_BASE[4]);
-    did.concat(_id);
-    webServer->on(did.c_str(), HTTP_GET, std::bind(&WPage::_handleHttp, this, std::placeholders::_1));
-    String dis(F("/submit"));
-    dis.concat(_id);
-    webServer->on(dis.c_str(), HTTP_GET, std::bind(&WPage::_handleHttpSubmit, this, std::placeholders::_1));
-  }*/
 
   static void bind(AsyncWebServer* webServer, const char* id, WPageItem* pi) {    
     String target = "/" + String(id);    
@@ -64,19 +59,6 @@ class WPage {
     request->send(stream);
   }
 
-  /*void _handleHttpOld(AsyncWebServerRequest* request) {
-    AsyncResponseStream* response = request->beginResponseStream(WC_TEXT_HTML, 6100U);
-    response->printf(HTTP_HEAD_BEGIN, _title);
-    response->print(FPSTR(HTTP_STYLE));
-    response->print(FPSTR(HTTP_HEAD_END));
-    stream(response);
-    _printHttpCaption();
-    printPage();
-    stream(nullptr);
-    response->print(FPSTR(HTTP_BODY_END));
-    request->send(response);
-  }*/
-
   void _handleHttp(AsyncWebServerRequest* request) {
     AsyncResponseStream* stream = request->beginResponseStream(WC_TEXT_HTML, 6100U);    
     this->toString(stream);    
@@ -87,18 +69,18 @@ class WPage {
 
   }
 
-  virtual const char* submitForm(WList<const char>* args) {
-    return nullptr;
+  virtual WFormResponse submitForm(WStringList* args) {
+    return WFormResponse();
   }
 
   void toString(Print* stream) {
     WebControl* parentNode = new WebControl(WC_DIV, nullptr);
     this->createControls(parentNode);
-    WKeyValues* styles = new WKeyValues();   
-    styles->add(WC_BODY, WC_STYLE_BODY);
-    styles->add(WC_CSS_FORM_WHITE_BOX, WC_STYLE_FORM_WHITE_BOX);        
+    WStringList* styles = new WStringList();   
+    styles->add(WC_STYLE_BODY, WC_BODY);
+    styles->add(WC_STYLE_FORM_WHITE_BOX, WC_CSS_FORM_WHITE_BOX);        
     parentNode->createStyles(styles);
-    WKeyValues* scripts = new WKeyValues();        
+    WStringList* scripts = new WStringList();        
     parentNode->createScripts(scripts);
     //Print
     WHtml::commandParamsAndNullptr(stream, WC_DOCTYPE_HTML, true, WC_HTML, nullptr);
@@ -107,30 +89,60 @@ class WPage {
     WHtml::command(stream, WC_HEAD, true);
     WHtml::commandParamsAndNullptr(stream, WC_META, true, WC_NAME, F("viewport"), WC_CONTENT, F("width=device-width, initial-scale=1, user-scalable=no"), nullptr);
     WHtml::command(stream, WC_TITLE, true);
-    stream->print("tbd");//_title);    
+    stream->print(APPLICATION);
     WHtml::command(stream, WC_TITLE, false);  // Title end  
     WHtml::commandParamsAndNullptr(stream, WC_LINK, true, WC_REL, F("shortcut icon"), WC_TYPE, F("image/svg"), WC_HREF, WC_ICON_KAMSA, nullptr);        
     // Style
     WHtml::command(stream, WC_STYLE, true);    
-    styles->forEach([this, stream] (WKeyValue* style, const char* id) { WHtml::styleToString(stream, style->key(), style->value()); });
+    styles->forEach([this, stream] (const char* style, const char* id) { WHtml::styleToString(stream, id, style); });
     WHtml::command(stream, WC_STYLE, false);  // Style end    
     WHtml::command(stream, WC_HEAD, false);   // Head end    
     // Body
-    WHtml::command(stream, WC_BODY, true);    
+    WHtml::command(stream, WC_BODY, true);
+    if (APPLICATION) {    
+      WHtml::command(stream, WC_H1, true);
+      stream->print(APPLICATION);
+      WHtml::command(stream, WC_H1, false);
+    }
+    const char* id = SETTINGS->getString(WC_ID);
+    if (id != nullptr) {
+      WHtml::command(stream, WC_H2, true);      
+      stream->print(F("Id: "));
+      stream->print(id);
+      WHtml::command(stream, WC_H2, false);
+    }
+    if (VERSION) {
+      WHtml::command(stream, WC_H2, true);
+      stream->print(F("Rev: "));
+      stream->print(VERSION);
+      if (DEBUG) stream->print(F(" (debug)"));
+      WHtml::command(stream, WC_H2, false);
+    }
     parentNode->toString(stream);
     // Scripts
     if (!scripts->empty()) {
       WHtml::command(stream, WC_SCRIPT, true);  
-      scripts->forEach([this, stream] (WKeyValue* script, const char* id) { WHtml::scriptToString(stream, script->key(), script->value()); });
+      scripts->forEach([this, stream] (const char* script, const char* id) { WHtml::scriptToString(stream, id, script); });
       WHtml::command(stream, WC_SCRIPT, false);  
     }
     WHtml::command(stream, WC_BODY, false);  // Body end    
-    WHtml::command(stream, WC_HTML, false);  // Page end    
+    WHtml::command(stream, WC_HTML, false);  // Page end   
     //Cleanup
     delete styles;
     delete scripts;
     delete parentNode;
   }
+
+  /*void _printHttpCaption(Print *page) {
+    page->print(F("<h2>"));
+    //page->print(_applicationName);
+    page->print(F("</h2><h3>Idx: "));
+    page->print(getIdx());
+    page->print(F("</h3><h3>Rev: "));
+    page->print(VERSION);
+    page->print(DEBUG ? " (debug)" : "");
+    page->print(F("</h3>"));
+  }*/
 
   /*void _handleHttpSubmit(AsyncWebServerRequest* request) {
     // if (customPage->hasSubmittedPage()) {
