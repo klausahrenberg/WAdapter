@@ -54,7 +54,7 @@ class WNetworkPage : public WPage {
     form->add((new WebSubmitButton(PSTR("Save configuration"))));
   }  
 
-  virtual WFormResponse submitForm(WStringList* args) {
+  virtual WFormResponse* submitForm(WStringList* args) {
     SETTINGS->setString(WC_ID, args->getById(WC_ID));
     SETTINGS->setString(WC_SSID, args->getById(WC_SSID));
     SETTINGS->setString(WC_PASSWORD, args->getById(WC_PASSWORD));
@@ -63,8 +63,8 @@ class WNetworkPage : public WPage {
     SETTINGS->setString(WC_MQTT_USER, args->getById(WC_MQTT_USER));
     SETTINGS->setString(WC_MQTT_PASSWORD, args->getById(WC_MQTT_PASSWORD));
     SETTINGS->save();
-		delay(300);
-    return WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));   
+		//delay(300);
+    return new WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));   
   }
 
  protected:
@@ -90,20 +90,20 @@ class WResetPage : public WPage {
     div->add(new WebDiv((new WebButton(WC_BACK_TO_MAINMENU))->onClickNavigateTo(WC_CONFIG)));
   }
 
-  virtual WFormResponse submitForm(WStringList* args) {
+  virtual WFormResponse* submitForm(WStringList* args) {
     const char* sender = args->getById(WC_ID);
     const char* v = args->getById(WC_VALUE);
     LOG->debug("value of sender '%s' is '%s'", sender, v);
     switch (v[0]) {
-      case '0' : return WFormResponse(FO_RESTART, PSTR("Restart was caused by web interface"));        
-      case '1' : return WFormResponse(FO_FORCE_AP, PSTR("Restart device in AccessPoint mode"));        
-      case '2' : return WFormResponse(FO_RESET_ALL, PSTR("All settings are resetted, device restarts"));        
+      case '0' : return new WFormResponse(FO_RESTART, PSTR("Restart was caused by web interface"));        
+      case '1' : return new WFormResponse(FO_FORCE_AP, PSTR("Restart device in AccessPoint mode"));        
+      case '2' : return new WFormResponse(FO_RESET_ALL, PSTR("All settings are resetted, device restarts"));        
       default : {
         LOG->debug("Unknown value: '%'", v);
-        return WFormResponse(FO_NONE);
+        return new WFormResponse(FO_NONE);
       }
     }
-    return WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));   
+    return new WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));   
   }
 
  private:
@@ -146,10 +146,10 @@ class WFirmwarePage : public WPage {
   
   }  
 
-  virtual WFormResponse submitForm(WStringList* args) {
+  virtual WFormResponse* submitForm(WStringList* args) {
     LOG->debug("Update finished.");
     SETTINGS->save();
-    return WFormResponse(FO_RESTART, (Update.hasError() ? PSTR("Some error during update") : PSTR("Update successful")));
+    return new WFormResponse(FO_RESTART, (Update.hasError() ? PSTR("Some error during update") : PSTR("Update successful")));
   }  
 
 };  

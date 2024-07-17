@@ -32,15 +32,10 @@ struct WPageItem {
 class WPage {
  public:
   WPage() {    
-    Serial.println("page a");
     _stream = nullptr;
-    Serial.println("page b");
     _targetAfterSubmitting = nullptr;
-    Serial.println("page c");
     _onPrintPage = nullptr;
-    Serial.println("page d");
     _onSubmitPage = nullptr;
-    Serial.println("page e");
   }
 
   virtual ~WPage() {
@@ -74,9 +69,9 @@ class WPage {
 
   }
 
-  virtual WFormResponse submitForm(WStringList* args) {
+  virtual WFormResponse* submitForm(WStringList* args) {
     LOG->debug("handle sf in page");
-    return WFormResponse();
+    return new WFormResponse();
   }
 
   void toString(Print* stream) {

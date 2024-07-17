@@ -67,7 +67,6 @@ class WNetwork {
 
     this->setDebuggingOutput(debuggingOutput);
     _updateRunning = false;
-    _restartFlag = "";
     _deepSleepFlag = nullptr;
     _waitForWifiConnection = false;
     _startupTime = millis();
@@ -249,7 +248,7 @@ class WNetwork {
 #endif
     }
     // Restart required?
-    if (!_restartFlag.equals("")) {
+    if (_restartFlag) {
       _updateRunning = false;
       delay(1000);
       if (_onConfigurationFinished) {
@@ -518,7 +517,7 @@ class WNetwork {
   THandlerFunction _onNotify;
   THandlerFunction _onConfigurationFinished;
   bool _updateRunning;
-  String _restartFlag;
+  bool _restartFlag = false;
   DNSServer *_dnsApServer;
   AsyncWebServer *_webServer;
   int _networkState;
@@ -823,41 +822,32 @@ class WNetwork {
   }
 
   void _handleHttpEventArgs(AsyncWebServerRequest *request, WStringList* args) {
-    LOG->debug("handle a");
     WPageItem *pi = _pages->getById(args->getById(WC_FORM));
-    
-    LOG->debug("handle b");
-    //request->client()->setNoDelay(true);
     if (pi != nullptr) {
-      LOG->debug("handle c");
       WPage* p = pi->initializer();
-      LOG->debug("handle c");
-      WFormResponse result = p->submitForm(args);
-      LOG->debug("handle d");
-      switch (result.operation) {
+      WFormResponse* result = p->submitForm(args);
+      switch (result->operation) {
         case FO_RESTART : {
-          _restart(request, result.message);
+          _restart(request, result->message);
           break;
         }          
         case FO_FORCE_AP : {
           SETTINGS->forceAPNextStart();
-          _restart(request, result.message);
+          _restart(request, result->message);
           break;
         }
         case FO_RESET_ALL : {
           SETTINGS->resetAll();
-          _restart(request, result.message);
+          _restart(request, result->message);
           break;
         }
         default :
           request->send(200);
-      }        
-      LOG->debug("handle e");
+      }
+      delete result;        
     } else {
-      LOG->debug("handle f");
       request->send(404);
     }     
-    //request->client()->setNoDelay(false);
   }
 
   String _getClientName(bool lowerCase) {
@@ -910,7 +900,7 @@ class WNetwork {
   }
 
   void _restart(AsyncWebServerRequest *request, const char *reasonMessage) {
-    _restartFlag = reasonMessage;
+    _restartFlag = true;
     if (request != nullptr) {
       request->client()->setNoDelay(true);
       WRestartPage *rp = new WRestartPage(reasonMessage);
