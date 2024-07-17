@@ -262,6 +262,20 @@ class WebTextField : public WebControl {
 
 };
 
+class WebTextArea : public WebControl {
+ public:
+  WebTextArea(const char* id, const char* title, const char* text, byte rows = 20) : WebControl(WC_DIV, nullptr) {    
+    this->add(new WebLabel(title, id));
+    WebControl* input = new WebControl(WC_TEXTAREA, WC_ID, id, WC_NAME, id, WC_ROWS, String(rows).c_str(), nullptr);
+    if (text != nullptr) {
+      input->content(text);
+    }
+    this->add(input);
+    
+  }
+
+};
+
 class WebInputFile : public WebControl {
  public: 
   WebInputFile(const char* id) : WebControl(WC_DIV, nullptr) {    

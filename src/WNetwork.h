@@ -803,8 +803,11 @@ class WNetwork {
       LOG->debug("..POST[%s]: %s", p->name().c_str(), p->value().c_str());
       args->add(p->value().c_str(), p->name().c_str());
     }
+    LOG->debug("handle form action ... b"); 
     _handleHttpEventArgs(request, args);         
+    LOG->debug("handle form action ... c"); 
     delete args;    
+    LOG->debug("handle form action ... d"); 
   }
 
   void _handleHttpFinishEvent(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
@@ -820,9 +823,17 @@ class WNetwork {
   }
 
   void _handleHttpEventArgs(AsyncWebServerRequest *request, WStringList* args) {
+    LOG->debug("handle a");
     WPageItem *pi = _pages->getById(args->getById(WC_FORM));
+    
+    LOG->debug("handle b");
+    //request->client()->setNoDelay(true);
     if (pi != nullptr) {
-      WFormResponse result = pi->initializer()->submitForm(args);
+      LOG->debug("handle c");
+      WPage* p = pi->initializer();
+      LOG->debug("handle c");
+      WFormResponse result = p->submitForm(args);
+      LOG->debug("handle d");
       switch (result.operation) {
         case FO_RESTART : {
           _restart(request, result.message);
@@ -841,9 +852,12 @@ class WNetwork {
         default :
           request->send(200);
       }        
+      LOG->debug("handle e");
     } else {
+      LOG->debug("handle f");
       request->send(404);
     }     
+    //request->client()->setNoDelay(false);
   }
 
   String _getClientName(bool lowerCase) {
@@ -862,6 +876,7 @@ class WNetwork {
   }
 
   void _handleHttpProgressEvent(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+    LOG->debug("handle update progress...");    
     // Start firmwareUpdate
     _updateRunning = true;
     // Close existing MQTT connections
