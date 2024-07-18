@@ -41,7 +41,7 @@ public:
 		_kvFunction = nullptr;
 	}
 
-	static WStringList* asList(const char *payload) {
+	static WStringList* asMap(const char *payload) {
 		WJsonParser jp = WJsonParser();
 		return jp.parse(payload);
 	}	

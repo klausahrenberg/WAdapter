@@ -42,6 +42,10 @@ class WSettings {
     EEPROM.end();
   }
 
+  void changeId(const char* id, const char* newId) {
+    Serial.println("changeId tbi");
+  }
+
   bool existsSetting(const char* id) { return (getSetting(id) != nullptr); }
 
   bool existsNetworkSettings() {

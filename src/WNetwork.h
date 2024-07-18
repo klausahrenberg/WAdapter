@@ -816,7 +816,7 @@ class WNetwork {
       ss->write(data[i]);
     }
     LOG->debug("Received post data: '%s'", ss->c_str());    
-    WStringList* args = WJsonParser::asList(ss->c_str());
+    WStringList* args = WJsonParser::asMap(ss->c_str());
     _handleHttpEventArgs(request, args);   
     delete args;
   }
@@ -900,14 +900,15 @@ class WNetwork {
   }
 
   void _restart(AsyncWebServerRequest *request, const char *reasonMessage) {
-    _restartFlag = true;
     if (request != nullptr) {
       request->client()->setNoDelay(true);
       WRestartPage *rp = new WRestartPage(reasonMessage);
       AsyncResponseStream *stream = request->beginResponseStream(WC_TEXT_HTML);
       rp->toString(stream);
       request->send(stream);
+      //delay(500);
     }
+    _restartFlag = true;
   }
 
   void _loadNetworkSettings() {
