@@ -136,43 +136,9 @@ class WPage {
     delete parentNode;
   }
 
-  /*void _printHttpCaption(Print *page) {
-    page->print(F("<h2>"));
-    //page->print(_applicationName);
-    page->print(F("</h2><h3>Idx: "));
-    page->print(getIdx());
-    page->print(F("</h3><h3>Rev: "));
-    page->print(VERSION);
-    page->print(DEBUG ? " (debug)" : "");
-    page->print(F("</h3>"));
-  }*/
-
-  /*void _handleHttpSubmit(AsyncWebServerRequest* request) {
-    // if (customPage->hasSubmittedPage()) {
-    //_wlog->notice(F("Save custom page: %s"), customPage->id());
-    WStringStream* page = new WStringStream(1024);
-    submitPage(request);
-    if (_targetAfterSubmitting != nullptr) {
-      _targetAfterSubmitting->_handleHttp(request);
-    } else {
-      //_network->settings()->save();
-      //_network->_restart(request, (strlen(page->c_str()) == 0 ? "Settings saved." : page->c_str()));
-    }
-    delete page;
-    //}
-  }*/
-
   virtual void printPage() {
     if (_onPrintPage) _onPrintPage(this);
   }
-
-  /*virtual void submitPage(AsyncWebServerRequest* request) {
-    if (_onSubmitPage) _onSubmitPage(request);
-  }*/
-
-  //const char* id() { return _id; }
-
-  //const char* title() { return _title; }
 
   WPage* targetAfterSubmitting() { return _targetAfterSubmitting; }
 
@@ -197,48 +163,9 @@ class WPage {
     _stream->println(cv);
   }
 
-  /*void divId(const char* id = "") { HTTP_DIV_ID(_stream, id); }
-  void div(const char* key1 = nullptr, const char* value1 = nullptr, const char* key2 = nullptr, const char* value2 = nullptr) { HTTP_DIV(_stream, key1, value1, key2, value2); }
-  void divEnd() { HTTP_DIV_END(_stream); }
-
-  void configPageBegin(const char* pageName) { HTTP_CONFIG_PAGE_BEGIN(_stream, pageName); }
-
-  void table(const char* tableId) { HTTP_TABLE(_stream, tableId); }
-  void tableEnd() { HTTP_TABLE_END(_stream); }
-  void tr() { HTTP_TR(_stream, false); }
-  void trEnd() { HTTP_TR(_stream, true); }
-  void td(byte colspan = 1) { HTTP_TD(_stream, colspan); }
-  void tdEnd() { HTTP_TD_END(_stream); }
-  void th(byte colspan = 1) { HTTP_TH(_stream, colspan); }
-  void thEnd() { HTTP_TH_END(_stream); }*/
-
  protected:
-  /*void _printHttpCaption() {
-    _stream->print(F("<h2>"));
-    _stream->print(_title);
-    _stream->print(F("</h2>"));
-  }*/
-
-  /*void _restart(AsyncWebServerRequest* request, const char* reasonMessage) {
-    //_network->restart(reasonMessage);
-    if (request != nullptr) {
-      request->client()->setNoDelay(true);
-      AsyncResponseStream* page = request->beginResponseStream(TEXT_HTML);
-      page->printf(HTTP_HEAD_BEGIN, reasonMessage);
-      page->print(FPSTR(HTTP_STYLE));
-      page->print(FPSTR(HTTP_HEAD_END));
-      _printHttpCaption();
-      page->printf(HTTP_SAVED, reasonMessage);
-      page->print(FPSTR(HTTP_BODY_END));
-      request->send(page);
-    }
-  }*/
-
-  //WNetwork* _network;
   
  private:
-  
-  //char* _id;
   const char* _title;
   Print* _stream;
   WPage* _targetAfterSubmitting;  
