@@ -5,14 +5,15 @@
 
 class WStringStream : public Stream {
 public:
-  WStringStream(unsigned int maxLength) {
+  WStringStream(unsigned int maxLength, bool deleteCharInDestructor = true) {
   	_maxLength = maxLength;
+    _deleteCharInDestructor = deleteCharInDestructor;
   	_string = new char[maxLength + 1];
   	this->flush();
   }
 
   ~WStringStream() {
-  	if (_string) {
+  	if ((_deleteCharInDestructor) && (_string)) {
   		delete[] _string;
   	}
   }
@@ -103,6 +104,7 @@ private:
   char* _string;
   unsigned int _maxLength;
   unsigned int _position;
+  bool _deleteCharInDestructor;
 
   size_t printFormat(const char c, va_list *args) {
     size_t n = 0;

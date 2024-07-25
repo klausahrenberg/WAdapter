@@ -4,11 +4,6 @@
 #include "Arduino.h"
 #include "WUtils.h"
 
-const static char DPOINT = ':';
-const static char SBEGIN = '{';
-const static char SEND = '}';
-const static char QUOTE = '\"';
-
 class WJson {
 public:
 	WJson(Print* stream) {
@@ -27,7 +22,7 @@ public:
 		if (name != "") {
 			memberName(name);
 		}
-		_stream->print(SBEGIN);
+		_stream->print(WC_SBEGIN);
 		_firstElement = true;
 		return *this;
 	}
@@ -35,18 +30,18 @@ public:
 	WJson& memberName(const char *name) {
 		if (name != nullptr) {
 			string(name, nullptr);
-			_stream->print(DPOINT);
+			_stream->print(WC_DPOINT);
 		}
 		return *this;
 	}
 
 	WJson& separator() {
-		_stream->print(WC_BASE[12]);
+		_stream->print(WC_COMMA);
 		return *this;
 	}
 
 	WJson& endObject() {
-		_stream->print(SEND);
+		_stream->print(WC_SEND);
 		return *this;
 	}
 
@@ -55,7 +50,7 @@ public:
 			_ifSeparator();
 		}
 		_firstElement = true;
-		_stream->print(WC_BASE[10]);
+		_stream->print(WC_RBEGIN);
 		return *this;
 	}
 
@@ -68,12 +63,12 @@ public:
 		_firstElement = true;
 		memberName(name);
 		_separatorAlreadyCalled = false;
-		_stream->print(WC_BASE[10]);
+		_stream->print(WC_RBEGIN);
 		return *this;
 	}
 
 	WJson& endArray() {
-		_stream->print(WC_BASE[11]);
+		_stream->print(WC_REND);
 		return *this;
 	}
 
@@ -144,7 +139,7 @@ public:
 		_ifSeparator();
 		_separatorAlreadyCalled = true;		
 		memberName(name);
-		_stream->print(QUOTE);
+		_stream->print(WC_QUOTE);
 		va_list arg;        
     va_start(arg, value);    
     while (value) {
@@ -152,7 +147,7 @@ public:
       value = va_arg(arg, const char*);
     }
     va_end(arg);		
-		_stream->print(QUOTE);
+		_stream->print(WC_QUOTE);
 		_separatorAlreadyCalled = false;
 		return *this;
 	}	
@@ -160,7 +155,7 @@ public:
 	WJson& string(const char* text, ...) {
 		if (!_separatorAlreadyCalled)
 			_ifSeparator();
-		_stream->print(QUOTE);
+		_stream->print(WC_QUOTE);
 		va_list arg;        
     va_start(arg, text);    
     while (text) {
@@ -168,7 +163,7 @@ public:
       text = va_arg(arg, const char*);
     }
     va_end(arg);
-		_stream->print(QUOTE);
+		_stream->print(WC_QUOTE);
 		return *this;
 	}
 

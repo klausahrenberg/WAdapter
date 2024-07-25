@@ -47,7 +47,7 @@ class WebControl {
   }
 
   void content(const char* content) {
-    delete _content;
+    if (_content) delete _content;
     _content = new char[strlen_P(content) + 1];
     strcpy_P(_content, content);
   }
@@ -74,12 +74,12 @@ class WebControl {
   WebControl* addParam(const char* key, const char* pattern, const char* params, ...) {    
     if (_params == nullptr) _params = new WStringList();    
     if ((pattern != nullptr) && (params != nullptr)) {
-      va_list args;
-      va_start(args, params);
+      va_list args2;
+      va_start(args2, params);
       char buffer[128];
-      snprintf(buffer, sizeof(buffer), pattern, params, args);
-      va_end(args);
-      _params->add(buffer, key);
+      snprintf(buffer, sizeof(buffer), pattern, params, args2);
+      va_end(args2);
+      _params->add(buffer, key);      
     } else {
       _params->add(pattern, key);
     }
@@ -110,6 +110,9 @@ class WebDiv : public WebControl {
  public:
   WebDiv(WebControl* child) : WebControl(WC_DIV, nullptr) {    
     this->add(child);
+  }
+
+  virtual ~WebDiv() {
   }
 };
 
@@ -144,9 +147,11 @@ class WebButton : public WebControl {
  public:
   WebButton(const char* title, const char* id = nullptr) : WebControl(WC_BUTTON, nullptr) {
     if (id) addParam(WC_ID, id);
-    content(title);
+    content(title);    
   }
-  ~WebButton() {}
+
+  virtual ~WebButton() {
+  }
 
   virtual void createStyles(WStringList* styles) {
     styles->add(WC_STYLE_BUTTON, WC_BUTTON);
@@ -295,7 +300,7 @@ class WebInputFile : public WebControl {
 
 class WebTable : public WebControl {
  public:
-  WebTable(WList<WProperty>* datas) : WebControl(WC_TABLE, nullptr) {
+  WebTable(WList<WValue>* datas) : WebControl(WC_TABLE, nullptr) {
     _datas = datas;
   }  
 
@@ -307,7 +312,7 @@ class WebTable : public WebControl {
 
   virtual void toString(Print* stream) {             
     WHtml::command(stream, _tag, true, _params);    
-    _datas->forEach([this, stream](WProperty* property, const char* id) { 
+    _datas->forEach([this, stream](WValue* property, const char* id) { 
       WHtml::command(stream, WC_TABLE_ROW, true, nullptr);    
       WHtml::command(stream, WC_TABLE_HEADER, true, nullptr);          
       if (id) stream->print(id); 
@@ -322,7 +327,7 @@ class WebTable : public WebControl {
   }
 
  private:
-  WList<WProperty>* _datas; 
+  WList<WValue>* _datas; 
 };
 
 #endif

@@ -4,15 +4,16 @@
 #include <inttypes.h>
 #include <stdarg.h>
 #include "Arduino.h"
+#include "WUtils.h"
 
 #define LOG_LEVEL_SILENT 0
 #define LOG_LEVEL_ERROR  1
 #define LOG_LEVEL_DEBUG  2
 #define LOG_LEVEL_NOTICE 3
 
-const char* LOG_LEVEL_STRING_ERROR = "error";
-const char* LOG_LEVEL_STRING_DEBUG = "debug";
-const char* LOG_LEVEL_STRING_NOTICE = "notice";
+const static char LOG_LEVEL_STRING_ERROR[] PROGMEM = "error";
+const static char LOG_LEVEL_STRING_DEBUG[] PROGMEM = "debug";
+const static char LOG_LEVEL_STRING_NOTICE[] PROGMEM = "notice";
 
 /**
  * Logging is a helper class to output informations over
@@ -162,9 +163,9 @@ private:
 			}
 		} else if (format == 'T') {
 			if (va_arg(*args, int) == 1) {
-				this->output->print(F("true"));
+				this->output->print(WC_TRUE);
 			} else {
-				this->output->print(F("false"));
+				this->output->print(WC_FALSE);
 			}
 		}
 	}

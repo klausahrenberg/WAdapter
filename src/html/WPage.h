@@ -16,8 +16,9 @@ struct WFormResponse {
 };
 
 struct WPageItem {
-  WPageItem(WPageInitializer initializer, bool showInMainMenu = true) {
+  WPageItem(WPageInitializer initializer, const char* title, bool showInMainMenu = true) {
     this->initializer = initializer;
+    this->title = title;
     this->showInMainMenu = showInMainMenu;
   }
 
@@ -25,7 +26,8 @@ struct WPageItem {
    
   }
 
-  WPageInitializer initializer; 
+  WPageInitializer initializer;
+  const char* title; 
   bool showInMainMenu;
 };
 
@@ -69,7 +71,7 @@ class WPage {
 
   }
 
-  virtual WFormResponse* submitForm(WStringList* args) {
+  virtual WFormResponse* submitForm(WList<WValue>* args) {
     LOG->debug("handle sf in page");
     return new WFormResponse();
   }
@@ -170,7 +172,7 @@ class WPage {
 
   //const char* id() { return _id; }
 
-  //const char* getTitle() { return _title; }
+  //const char* title() { return _title; }
 
   WPage* targetAfterSubmitting() { return _targetAfterSubmitting; }
 
@@ -237,7 +239,7 @@ class WPage {
  private:
   
   //char* _id;
-  //char* _title;
+  const char* _title;
   Print* _stream;
   WPage* _targetAfterSubmitting;  
   TPrintPage _onPrintPage;

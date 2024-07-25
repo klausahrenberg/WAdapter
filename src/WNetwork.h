@@ -98,11 +98,11 @@ class WNetwork {
     _statusLed = nullptr;
     setStatusLedPin(statusLedPin, false);
     LOG->debug(F("firmware: %s"), VERSION);
-    this->addCustomPage(WC_CONFIG, [this]() { return new WRootPage(_pages); }, false);
-    this->addCustomPage(WC_WIFI, [this]() { return new WNetworkPage(); });
-    this->addCustomPage(WC_FIRMWARE, [this]() { return new WFirmwarePage(); });
-    this->addCustomPage(WC_INFO, [this]() { return new WInfoPage((millis() - _startupTime) / 1000 / 60); });
-    this->addCustomPage(WC_RESET, [this]() { return new WResetPage(this); });
+    this->addCustomPage(WC_CONFIG, [this]() { return new WRootPage(_pages); }, nullptr, false);
+    this->addCustomPage(WC_WIFI, [this]() { return new WNetworkPage(); }, PSTR("Configure network"));
+    this->addCustomPage(WC_FIRMWARE, [this]() { return new WFirmwarePage(); }, PSTR("Firmware"));
+    this->addCustomPage(WC_INFO, [this]() { return new WInfoPage((millis() - _startupTime) / 1000 / 60); }, PSTR("Info"));
+    this->addCustomPage(WC_RESET, [this]() { return new WResetPage(this); }, PSTR("Reboot"));
   }
 
   void setStatusLedPin(int statusLedPin, bool statusLedOnIfConnected) {
@@ -357,11 +357,13 @@ class WNetwork {
         if (MDNS.begin(mdnsName.c_str())) {
           MDNS.addService("http", "tcp", 80);
           MDNS.addServiceTxt("http", "tcp", "url", "http://" + mdnsName + SLASH);
-          MDNS.addServiceTxt("http", "tcp", "webthing", "true");
+          MDNS.addServiceTxt("http", "tcp", "webthing", WC_TRUE);
           LOG->notice(F("MDNS responder for Webthings started at '%s'"), _hostname);
         }
         _webServer->on(SLASH, HTTP_GET, std::bind(&WNetwork::_sendDevicesStructure, this, std::placeholders::_1));
         _devices->forEach([this](WDevice *device, const char *id) { _bindWebServerCalls(device); });
+      //} else {
+      //  _webServer->on(SLASH, HTTP_GET, std::bind(&WNetwork::_sendDevicesStructure, this, std::placeholders::_1));
       }
       // Start http server
       _webServer->begin();
@@ -457,8 +459,8 @@ class WNetwork {
     _bindWebServerCalls(device);
   }
 
-  void addCustomPage(const char *id, WPageInitializer initializer, bool showInMainMenu = true) {
-    _pages->add(new WPageItem(initializer, showInMainMenu), id);
+  void addCustomPage(const char *id, WPageInitializer initializer, const char* title, bool showInMainMenu = true) {
+    _pages->add(new WPageItem(initializer, title, showInMainMenu), id);
   }
 
   AsyncWebServer *getWebServer() { return _webServer; }
@@ -494,13 +496,13 @@ class WNetwork {
       WJson json(response);
       json.beginObject();
       json.memberName(LOG->getLevelString(level));
-      response->print(QUOTE);
+      response->print(WC_QUOTE);
       LOG->setOutput(response, level, false, false);
       LOG->printLevel(level, msg, args...);
       this->setDebuggingOutput(_debuggingOutput);
-      response->print(QUOTE);
+      response->print(WC_QUOTE);
       json.endObject();
-      publishMqtt(_mqttBaseTopic->c_str(), response);
+      publishMqtt(_mqttBaseTopic->asString(), response);
     }
   }
 
@@ -521,14 +523,14 @@ class WNetwork {
   DNSServer *_dnsApServer;
   AsyncWebServer *_webServer;
   int _networkState;
-  WProperty *_supportingMqtt;
+  WValue *_supportingMqtt;
   bool _supportsWebServer;
-  WProperty *_ssid;
-  WProperty *_idx;
+  WValue *_ssid;
+  WValue *_idx;
   char *_hostname;
-  WProperty *_mqttBaseTopic;
-  WProperty *_mqttSetTopic;
-  WProperty *_mqttStateTopic;
+  WValue *_mqttBaseTopic;
+  WValue *_mqttSetTopic;
+  WValue *_mqttStateTopic;
   WiFiClient *_wifiClient;
   PubSubClient *_mqttClient;
   unsigned long _lastMqttConnect, _lastWifiConnect, _lastWifiConnectFirstTry;
@@ -589,7 +591,7 @@ class WNetwork {
         // Send every changed property only
         device->properties()->forEach(
             [this, complete, topic](WProperty *property, const char *id) {
-              if ((complete) || (property->changed())) {
+              if ((complete) || (property->value().changed())) {
                 if (property->isVisible(MQTT)) {
                   WStringStream *response = getResponseStream();
                   WJson json(response);
@@ -598,7 +600,7 @@ class WNetwork {
                       String(topic + SLASH + String(id)).c_str(),
                       response->c_str(), true);
                 }
-                property->changed(false);
+                property->value().changed(false);
               }
             });
         if (complete) {
@@ -794,60 +796,67 @@ class WNetwork {
   }
 
   void _handleHttpEvent(AsyncWebServerRequest *request) {
-    LOG->debug("handle form action ... simple");    
-    WStringList* args = new WStringList();
+    LOG->debug("handle form action ... simple");
+    WList<WValue> *args = new WList<WValue>();
     int params = request->params();
     for (int i = 0; i < params; i++) {
       AsyncWebParameter *p = request->getParam(i);
       LOG->debug("..POST[%s]: %s", p->name().c_str(), p->value().c_str());
-      args->add(p->value().c_str(), p->name().c_str());
+      args->add(new WValue(p->value().c_str()), p->name().c_str());
     }
-    LOG->debug("handle form action ... b"); 
-    _handleHttpEventArgs(request, args);         
-    LOG->debug("handle form action ... c"); 
-    delete args;    
-    LOG->debug("handle form action ... d"); 
+    LOG->debug("handle form action ... b");
+    _handleHttpEventArgs(request, args);
+    LOG->debug("handle form action ... c");
+    delete args;
+    LOG->debug("handle form action ... d");
   }
 
   void _handleHttpFinishEvent(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-    LOG->debug("handle form action ... complicated");
-    WStringStream* ss = getResponseStream();
+    LOG->debug("handle form action ... complicated a");
+    WStringStream *ss = getResponseStream();
     for (size_t i = 0; i < len; i++) {
       ss->write(data[i]);
     }
-    LOG->debug("Received post data: '%s'", ss->c_str());    
-    WStringList* args = WJsonParser::asMap(ss->c_str());
-    _handleHttpEventArgs(request, args);   
+    LOG->debug("Received post data: '%s'", ss->c_str());
+    WList<WValue> *args = WJsonParser::asMap(ss->c_str());
+    LOG->debug("handle form action ... complicated b");
+    _handleHttpEventArgs(request, args);
+    LOG->debug("handle form action ... complicated c");
     delete args;
   }
 
-  void _handleHttpEventArgs(AsyncWebServerRequest *request, WStringList* args) {
-    WPageItem *pi = _pages->getById(args->getById(WC_FORM));
-    if (pi != nullptr) {
-      WPage* p = pi->initializer();
-      WFormResponse* result = p->submitForm(args);
-      switch (result->operation) {
-        case FO_RESTART : {
-          _restart(request, result->message);
-          break;
-        }          
-        case FO_FORCE_AP : {
-          SETTINGS->forceAPNextStart();
-          _restart(request, result->message);
-          break;
+  void _handleHttpEventArgs(AsyncWebServerRequest *request, WList<WValue> *args) {
+    WValue *formName = args->getById(WC_FORM);    
+    if (formName != nullptr) {
+      WPageItem *pi = _pages->getById(formName->asString());
+      if (pi != nullptr) {
+        WPage *p = pi->initializer();
+        WFormResponse *result = p->submitForm(args);
+        switch (result->operation) {
+          case FO_RESTART: {
+            _restart(request, result->message);
+            break;
+          }
+          case FO_FORCE_AP: {
+            SETTINGS->forceAPNextStart();
+            _restart(request, result->message);
+            break;
+          }
+          case FO_RESET_ALL: {
+            SETTINGS->resetAll();
+            _restart(request, result->message);
+            break;
+          }
+          default:
+            request->send(200);
         }
-        case FO_RESET_ALL : {
-          SETTINGS->resetAll();
-          _restart(request, result->message);
-          break;
-        }
-        default :
-          request->send(200);
+        delete result;
+      } else {
+        request->send(404);
       }
-      delete result;        
     } else {
       request->send(404);
-    }     
+    }
   }
 
   String _getClientName(bool lowerCase) {
@@ -866,7 +875,7 @@ class WNetwork {
   }
 
   void _handleHttpProgressEvent(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-    LOG->debug("handle update progress...");    
+    LOG->debug("handle update progress...");
     // Start firmwareUpdate
     _updateRunning = true;
     // Close existing MQTT connections
@@ -906,15 +915,15 @@ class WNetwork {
       AsyncResponseStream *stream = request->beginResponseStream(WC_TEXT_HTML);
       rp->toString(stream);
       request->send(stream);
-      //delay(500);
+      // delay(500);
     }
     _restartFlag = true;
   }
 
   void _loadNetworkSettings() {
     _idx = SETTINGS->setNetworkString(WC_ID, _getClientName(true).c_str());
-    _hostname = new char[strlen_P(_idx->c_str()) + 1];
-    strcpy_P(_hostname, _idx->c_str());
+    _hostname = new char[strlen_P(_idx->asString()) + 1];
+    strcpy_P(_hostname, _idx->asString());
     for (int i = 0; i < strlen(_hostname); i++) {
       if ((_hostname[i] == '.') || (_hostname[i] == ' ')) {
         _hostname[i] = '-';

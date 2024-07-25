@@ -18,7 +18,7 @@ class WRootPage : public WPage {
     parentNode->add(div); 
     _customPages->forEach([this, div](WPageItem* pageItem, const char* id) {
       if (pageItem->showInMainMenu) {
-        div->add(new WebDiv((new WebButton(id))->onClickNavigateTo(id)));      
+        div->add(new WebDiv((new WebButton(pageItem->title))->onClickNavigateTo(id)));      
       }
     });
   }
@@ -54,16 +54,16 @@ class WNetworkPage : public WPage {
     form->add((new WebSubmitButton(PSTR("Save configuration"))));
   }  
 
-  virtual WFormResponse* submitForm(WStringList* args) {
-    SETTINGS->setString(WC_ID, args->getById(WC_ID));
-    SETTINGS->setString(WC_SSID, args->getById(WC_SSID));
-    SETTINGS->setString(WC_PASSWORD, args->getById(WC_PASSWORD));
-    SETTINGS->setString(WC_MQTT_SERVER, args->getById(WC_MQTT_SERVER));
-    SETTINGS->setString(WC_MQTT_PORT, args->getById(WC_MQTT_PORT));
-    SETTINGS->setString(WC_MQTT_USER, args->getById(WC_MQTT_USER));
-    SETTINGS->setString(WC_MQTT_PASSWORD, args->getById(WC_MQTT_PASSWORD));
+  virtual WFormResponse* submitForm(WList<WValue>* args) {
+    SETTINGS->setString(WC_ID, args->getById(WC_ID)->asString());
+    SETTINGS->setString(WC_SSID, args->getById(WC_SSID)->asString());
+    SETTINGS->setString(WC_PASSWORD, args->getById(WC_PASSWORD)->asString());
+    SETTINGS->setString(WC_MQTT_SERVER, args->getById(WC_MQTT_SERVER)->asString());
+    SETTINGS->setString(WC_MQTT_PORT, args->getById(WC_MQTT_PORT)->asString());
+    SETTINGS->setString(WC_MQTT_USER, args->getById(WC_MQTT_USER)->asString());
+    SETTINGS->setString(WC_MQTT_PASSWORD, args->getById(WC_MQTT_PASSWORD)->asString());
     SETTINGS->save();
-		//delay(300);
+    //delay(300);
     return new WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));   
   }
 
@@ -90,18 +90,13 @@ class WResetPage : public WPage {
     div->add(new WebDiv((new WebButton(WC_BACK_TO_MAINMENU))->onClickNavigateTo(WC_CONFIG)));
   }
 
-  virtual WFormResponse* submitForm(WStringList* args) {
-    const char* sender = args->getById(WC_ID);
-    const char* v = args->getById(WC_VALUE);
-    LOG->debug("value of sender '%s' is '%s'", sender, v);
+  virtual WFormResponse* submitForm(WList<WValue>* args) {
+    const char* v = args->getById(WC_VALUE)->asString();
     switch (v[0]) {
       case '0' : return new WFormResponse(FO_RESTART, PSTR("Restart was caused by web interface"));        
       case '1' : return new WFormResponse(FO_FORCE_AP, PSTR("Restart device in AccessPoint mode"));        
       case '2' : return new WFormResponse(FO_RESET_ALL, PSTR("All settings are resetted, device restarts"));        
-      default : {
-        LOG->debug("Unknown value: '%'", v);
-        return new WFormResponse(FO_NONE);
-      }
+      default : return new WFormResponse(FO_NONE);
     }
     return new WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));   
   }
@@ -146,7 +141,7 @@ class WFirmwarePage : public WPage {
   
   }  
 
-  virtual WFormResponse* submitForm(WStringList* args) {
+  virtual WFormResponse* submitForm(WList<WValue>* args) {
     LOG->debug("Update finished.");
     SETTINGS->save();
     return new WFormResponse(FO_RESTART, (Update.hasError() ? PSTR("Some error during update") : PSTR("Update successful")));
@@ -167,24 +162,24 @@ class WInfoPage : public WPage {
   virtual void createControls(WebControl* parentNode) {
     WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
     parentNode->add(div);
-    WList<WProperty>* datas = new WList<WProperty>();
+    WList<WValue>* datas = new WList<WValue>();
 #ifdef ESP8266    
-    datas->add(WProps::createStringProperty()->asString("ESP8266"), PSTR("Chip"));      
+    datas->add(new WValue("ESP8266"), PSTR("Chip"));      
 #elif ESP32
     datas->add(WProps::createStringProperty()->asString("ESP 32"), PSTR("Chip"));      
 #endif
-    datas->add(WProps::createIntegerProperty()->asInt(WUtils::getChipId()), PSTR("Chip ID"));      
-    datas->add(WProps::createIntegerProperty()->asInt(ESP.getFlashChipSize()), PSTR("IDE Flash Size"));      
-    datas->add(WProps::createIntegerProperty()->asInt(ESP.getFlashChipRealSize()), PSTR("Real Flash Size")); 
+    datas->add(new WValue(WUtils::getChipId()), PSTR("Chip ID"));      
+    datas->add(new WValue(ESP.getFlashChipSize()), PSTR("IDE Flash Size"));      
+    datas->add(new WValue(ESP.getFlashChipRealSize()), PSTR("Real Flash Size")); 
     //datas->add(WProps::create..., PSTR("IP address"));      
     //datas->add(WProps::createStringProperty()->asString(WiFi.macAddress()), PSTR("MAC address"));
-    datas->add(WProps::createIntegerProperty()->asInt(ESP.getSketchSize()), PSTR("Current sketch size"));      
-    datas->add(WProps::createIntegerProperty()->asInt(ESP.getFreeSketchSpace()), PSTR("Available sketch size"));      
-    datas->add(WProps::createIntegerProperty()->asInt(ESP.getFreeHeap()), PSTR("Free heap size"));    
+    datas->add(new WValue(ESP.getSketchSize()), PSTR("Current sketch size"));      
+    datas->add(new WValue(ESP.getFreeSketchSpace()), PSTR("Available sketch size"));      
+    datas->add(new WValue(ESP.getFreeHeap()), PSTR("Free heap size"));    
 #ifdef ESP8266            
-    datas->add(WProps::createIntegerProperty()->asInt(ESP.getMaxFreeBlockSize()), PSTR("Largest heap block"));        
+    datas->add(new WValue(ESP.getMaxFreeBlockSize()), PSTR("Largest heap block"));        
 #endif           
-    datas->add(WProps::createUnsignedLongProperty()->asUnsignedLong(_running)->unit(PSTR(" minutes")), PSTR("Running since"));        
+    datas->add(new WValue(_running)/*->unit(PSTR(" minutes"))*/, PSTR("Running since"));        
 
     div->add(new WebTable(datas));
     div->add(new WebDiv((new WebButton(WC_BACK_TO_MAINMENU))->onClickNavigateTo(WC_CONFIG)));

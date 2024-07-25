@@ -8,7 +8,6 @@
 #include "WJson.h"
 #include "WList.h"
 #include "WStringStream.h"
-#include "WValue.h"
 
 // for reference see https://iot.mozilla.org/schemas
 const char* TYPE_COLOR_PROPERTY = "ColorProperty";
@@ -31,17 +30,6 @@ const char* VALUE_OFF = "off";
 const char* VALUE_HEATING = "heating";
 const char* VALUE_COOLING = "cooling";
 
-enum WPropertyType {
-  BOOLEAN,
-  DOUBLE,
-  SHORT,
-  INTEGER,
-  UNSIGNED_LONG,
-  BYTE,
-  STRING,
-  BYTE_ARRAY
-};
-
 enum WPropertyVisibility { ALL,
                            NONE,
                            MQTT,
@@ -51,19 +39,13 @@ typedef std::function<void()> TOnPropertyChange;
 
 class WProperty {
  public:
-  WProperty(const char* title, WPropertyType type, const char* atType = "") {
+  WProperty(const char* title, WDataType type, const char* atType = "") {
     initialize(title, type, atType);
   }
 
   virtual ~WProperty() {
-    if (_title) delete _title;
+    if (_title) delete _title;    
     if (_unit) delete _unit;
-    if ((_type == STRING) && (_value.string)) {
-      delete[] _value.string;
-    }
-    if ((_type == BYTE_ARRAY) && (_value.asByteArray)) {
-      delete[] _value.asByteArray;
-    }
   }
 
   void onValueRequest(TOnPropertyChange onValueRequest) { _onValueRequest = onValueRequest; }
@@ -75,35 +57,14 @@ class WProperty {
   const char* title() { return _title; }
 
   byte length() {
-    switch (_type) {
-      case STRING:
-        return (_valueNull ? 0 : strlen(_value.string));
-      case DOUBLE:
-        return sizeof(double);
-      case SHORT:
-        return sizeof(short);
-      case INTEGER:
-        return sizeof(int);
-      case UNSIGNED_LONG:
-        return sizeof(unsigned long);
-      case BYTE:
-      case BOOLEAN:
-        return 1;
-      case BYTE_ARRAY:
-        return (_valueNull ? 0 : byteArrayLength());
-    }
-    return 0;
+    return _value.length();
   }
 
-  WPropertyType type() { return _type; }
-
-  void type(WPropertyType type) { _type = type; }
+  WDataType type() { return _value.type(); }  
 
   const char* atType() { return _atType; }
 
-  bool isNull() { return (_valueNull); }
-
-  void setNull() { _valueNull = true; }
+  bool isNull() { return _value.isNull(); }
 
   bool requested() { return (_requested); }
 
@@ -111,322 +72,13 @@ class WProperty {
     _requested = ((requested) && (!isNull()));
   }
 
-  bool changed() { return (_changed); }
+  virtual bool parse(const char* value) {    
+    return ((!_readOnly) ? _value.parse(value) : false);    
+  }    
 
-  void changed(bool changed) { _changed = changed; }
-
-  virtual bool parse(const char* value) {
-    if ((!readOnly()) && (value != nullptr)) {
-      String v = String(value);
-      switch (_type) {
-        case BOOLEAN: {
-          v.toLowerCase();
-          asBool(v.equals("true"));
-          return true;
-        }
-        case DOUBLE: {
-          asDouble(v.toDouble());
-          return true;
-        }
-        case SHORT: {
-          asShort(v.toInt());
-          return true;
-        }
-        case INTEGER: {
-          asInt(v.toInt());
-          return true;
-        }
-        case UNSIGNED_LONG: {
-          asUnsignedLong(v.toInt());
-          return true;
-        }
-        case BYTE: {
-          asByte(v.toInt());
-          return true;
-        }
-        case STRING: {
-          asString(value);
-          return true;
-        }
-        case BYTE_ARRAY: {
-          // tbi not implemented yet
-          return false;
-        }
-      }
-    }
-    return false;
-  }
-
-  bool asBool() {
+  WValue value() { 
     _requestValue();
-    return (!_valueNull ? _value.asBool : false);
-  }
-
-  WProperty* asBool(bool newValue) {
-    if (_type == BOOLEAN) {
-      bool changed = ((_valueNull) || (_value.asBool != newValue));
-      if (changed) {
-        WValue valueB;
-        valueB.asBool = newValue;
-        this->value(valueB);
-      }
-    }
-    return this;
-  }
-
-  void toggleBool() {
-    if (_type == BOOLEAN) {      
-      asBool(!asBool());
-    }
-  }
-
-  double asDouble() {
-    _requestValue();
-    return (!_valueNull ? _value.asDouble : 0.0);
-  }
-
-  static bool isEqual(double a, double b, double precision) {
-    double diff = a - b;
-    return ((diff < precision) && (-diff < precision));
-  }
-
-  WProperty* asDouble(double newValue) {
-    if (_type == DOUBLE) {
-      bool changed = ((_valueNull) || (!isEqual(_value.asDouble, newValue, 0.01)));
-      if (changed) {
-        WValue valueB;
-        valueB.asDouble = newValue;
-        this->value(valueB);
-      }
-    }
-    return this;
-  }
-
-  bool equalsDouble(double number) {
-    return ((!_valueNull) &&
-            (isEqual(_value.asDouble, number, 0.01)));
-  }
-
-  int asInt() {
-    _requestValue();
-    return (!_valueNull ? _value.asInt : 0);
-  }
-
-  WProperty* asInt(int newValue) {
-    if (_type == INTEGER) {
-      bool changed = ((_valueNull) || (_value.asInt != newValue));
-      if (changed) {
-        WValue valueB;
-        valueB.asInt = newValue;
-        this->value(valueB);
-      }
-    }
-    return this;
-  }
-
-  short asShort() {
-    _requestValue();
-    return (!_valueNull ? _value.asShort : 0);
-  }
-
-  WProperty* asShort(short newValue) {
-    if (_type == SHORT) {
-      bool changed = ((_valueNull) || (_value.asShort != newValue));
-      if (changed) {
-        WValue valueB;
-        valueB.asShort = newValue;
-        this->value(valueB);
-      }
-    }
-    return this;
-  }
-
-  unsigned long asUnsignedLong() {
-    _requestValue();
-    return (!_valueNull ? _value.asUnsignedLong : 0);
-  }
-
-  WProperty* asUnsignedLong(unsigned long newValue) {
-    if (_type == UNSIGNED_LONG) {      
-      bool changed = ((_valueNull) || (_value.asUnsignedLong != newValue));
-      if (changed) {
-        WValue valueB;
-        valueB.asUnsignedLong = newValue;
-        this->value(valueB);
-      }
-    }
-    return this;
-  }
-
-  bool equalsInteger(int number) {
-    return ((!_valueNull) && (_value.asInt == number));
-  }
-
-  bool isIntegerBetween(int lowerLimit, int upperLimit) {
-    return ((!_valueNull) && (_value.asInt >= lowerLimit) &&
-            (_value.asInt < upperLimit));
-  }
-
-  bool equalsShort(short number) {
-    return ((!_valueNull) && (_value.asShort == number));
-  }
-
-  bool equalsString(const char* toCompare) {
-    return ((!_valueNull) && (strcmp(_value.string, toCompare) == 0));
-  }
-
-  bool isStringEmpty() {
-    return ((isNull()) || (equalsString("")));
-  }
-
-  bool equalsUnsignedLong(unsigned long number) {
-    return ((!_valueNull) && (_value.asUnsignedLong == number));
-  }
-
-  bool isUnsignedLongBetween(unsigned long lowerLimit,
-                             unsigned long upperLimit) {
-    return ((!_valueNull) && (_value.asUnsignedLong >= lowerLimit) &&
-            (_value.asUnsignedLong < upperLimit));
-  }
-
-  byte asByte() {
-    _requestValue();
-    return (!_valueNull ? _value.asByte : 0x00);
-  }
-
-  WProperty* asByte(byte newValue) {
-    if (_type == BYTE) {      
-      bool changed = ((_valueNull) || (_value.asByte != newValue));
-      if (changed) {
-        WValue valueB;
-        valueB.asByte = newValue;
-        this->value(valueB);
-      }
-    }
-    return this;
-  }
-
-  bool equalsByte(byte number) {
-    return ((!_valueNull) && (_value.asByte == number));
-  }
-
-  byte* asByteArray() {
-    if (_type == BYTE_ARRAY) {
-      byte length = byteArrayLength();
-      if (length > 0) {
-        byte* result = (byte*)malloc(length);
-        for (int i = 0; i < length; i++) {
-          result[i] = _value.asByteArray[i + 1];
-        }
-        return result;
-      } else {
-        return 0;
-      }
-    }
-    return 0;
-  }
-
-  bool asByteArray(byte length, const byte* newValue) {
-    if (_type == BYTE_ARRAY) {
-     
-      bool changed = ((_valueNull) || (length != (_value.asByteArray[0])));
-      if ((!_valueNull) && (length != (_value.asByteArray[0]))) {
-        free(_value.asByteArray);
-      }
-      _value.asByteArray = (byte*)malloc(length + 1);
-      _value.asByteArray[0] = length;
-      for (int i = 0; i < length; i++) {
-        changed = ((changed) || (_value.asByteArray[i] != newValue[i]));
-        _value.asByteArray[i + 1] = newValue[i];
-      }
-      if (changed) {
-        _valueNull = false;
-        _changed = true;
-        valueChanged();
-        _notify();
-      }
-      return changed;
-    } else {
-      return false;
-    }
-  }
-
-  byte byteArrayLength() { return (!_valueNull ? _value.asByteArray[0] : 0); }
-
-  byte byteArrayValue(byte index) { return _value.asByteArray[index + 1]; }
-
-  bool byteArrayValue(byte index, byte newValue) {
-    if (_type != BYTE_ARRAY) {
-      return false;
-    }
-    bool changed = ((_valueNull) || (_value.asByteArray[index + 1] != newValue));
-    if (changed) {
-      _value.asByteArray[index + 1] = newValue;
-      _valueNull = false;
-      _changed = true;
-      valueChanged();
-      _notify();
-    }
-    return changed;
-  }
-
-  bool byteArrayBitValue(byte byteIndex, byte bitIndex) {
-    return bitRead(byteArrayValue(byteIndex), bitIndex);
-  }
-
-  bool byteArrayBitValue(byte byteIndex, byte bitIndex, bool bitValue) {
-    if (_type != BYTE_ARRAY) {
-      return false;
-    }
-    byte v = byteArrayValue(byteIndex);
-    if (bitValue) {
-      bitSet(v, bitIndex);
-    } else {
-      bitClear(v, bitIndex);
-    }
-    return byteArrayValue(byteIndex, v);
-  }
-
-  WValue value() { return _value; }
-
-  char* c_str() {
-    _requestValue();
-    return _value.string;
-  }
-
-  char* asString() {
-    return c_str();
-  }
-
-  WProperty* asString(const char* newValue) {
-    if (_type != STRING) {
-      return this;
-    }
-    bool changed = ((_valueNull) || (strcmp(_value.string, newValue) != 0));
-    if ((changed) && (newValue != nullptr) && (this->hasEnums())) {
-      // proceed only at valid enums
-      changed = (enumIndex(this, newValue) != 0xFF);
-    }
-    if (changed) {
-      if (!_valueNull) {
-        free(_value.string);
-      }
-
-      if (newValue != nullptr) {
-        int l = strlen(newValue);
-        _value.string = (char*)malloc(l + 1);
-        strncpy(_value.string, newValue, l);
-        _value.string[l] = '\0';
-        _valueNull = false;
-      } else {
-        _value.string = nullptr;
-        _valueNull = true;
-      }
-      _changed = true;
-      valueChanged();
-      _notify();
-    }
-    return this;
+    return _value; 
   }
 
   bool readOnly() { return _readOnly; }
@@ -448,33 +100,33 @@ class WProperty {
 
   virtual void toJsonValue(WJson* json, const char* memberName = nullptr) {
     _requestValue();
-    switch (_type) {
+    switch (_value.type()) {
       case BOOLEAN:
-        json->propertyBoolean(memberName, asBool());
+        json->propertyBoolean(memberName, _value.asBool());
         break;
       case DOUBLE:
-        json->propertyDouble(memberName, asDouble());
+        json->propertyDouble(memberName, _value.asDouble());
         break;
       case INTEGER:
-        json->propertyInteger(memberName, asInt());
+        json->propertyInteger(memberName, _value.asInt());
         break;
       case SHORT:
-        json->propertyShort(memberName, asShort());
+        json->propertyShort(memberName, _value.asShort());
         break;
       case UNSIGNED_LONG:
-        json->propertyUnsignedLong(memberName, asUnsignedLong());
+        json->propertyUnsignedLong(memberName, _value.asUnsignedLong());
         break;
       case BYTE:
-        json->propertyByte(memberName, asByte());
+        json->propertyByte(memberName, _value.asByte());
         break;
       case STRING:
         if (memberName != nullptr)
-          json->propertyString(memberName, c_str(), nullptr);
+          json->propertyString(memberName, _value.c_str(), nullptr);
         else
-          json->onlyString(c_str());
+          json->onlyString(_value.c_str());
         break;
       case BYTE_ARRAY:        
-        json->propertyByteArray(memberName, length(), asByteArray());
+        json->propertyByteArray(memberName, length(), _value.asByteArray());
         break;
     }
     _requested = true;
@@ -482,32 +134,7 @@ class WProperty {
 
   virtual void toString(Print* stream) {
     _requestValue();
-    switch (_type) {
-      case BOOLEAN:
-        WUtils::boolean(stream, asBool());
-        break;
-      case DOUBLE:
-        WUtils::numberDouble(stream, asDouble());
-        break;
-      case INTEGER:
-        WUtils::numberInteger(stream, asInt());
-        break;
-      case SHORT:
-        WUtils::numberShort(stream, asShort());
-        break;
-      case UNSIGNED_LONG:
-        WUtils::numberUnsignedLong(stream, asUnsignedLong());
-        break;
-      case BYTE:
-        WUtils::numberByte(stream, asByte());
-        break;
-      case STRING:
-        WUtils::string(stream, c_str(), nullptr);
-        break;
-      case BYTE_ARRAY:   
-        WUtils::numberByteArray(stream, length(), asByteArray());
-        break;
-    }
+    _value.toString(stream);
     if (_unit) {
       stream->print(_unit);
     }
@@ -522,7 +149,7 @@ class WProperty {
       json->propertyString("title", title(), nullptr);
     }
     // type
-    switch (_type) {
+    switch (_value.type()) {
       case BOOLEAN:
         json->propertyString("type", "boolean", nullptr);
         break;
@@ -555,8 +182,8 @@ class WProperty {
     // enum
     if (this->hasEnums()) {
       json->beginArray("enum");
-      _enums->forEach([this, json](WProperty* propE, const char* id) {
-        switch (_type) {
+      _enums->forEach([this, json](WValue* propE, const char* id) {
+        switch (_value.type()) {
           case BOOLEAN:
             json->boolean(propE->asBool());
             break;
@@ -592,74 +219,60 @@ class WProperty {
   }
 
   void addEnumBoolean(bool enumBoolean) {
-    if (_type != BOOLEAN) {
+    if (_value.type() != BOOLEAN) {
       return;
     }
-    WProperty* valueE = new WProperty("", _type, "");
-    valueE->asBool(enumBoolean);
-    this->addEnum(valueE);
+    this->addEnum(WValue::ofBool(enumBoolean));
   }
 
   void addEnumNumber(double enumNumber) {
-    if (_type != DOUBLE) {
+    if (_value.type() != DOUBLE) {
       return;
-    }
-    WProperty* valueE = new WProperty("", _type, "");
-    valueE->asDouble(enumNumber);
-    this->addEnum(valueE);
+    }    
+    this->addEnum(WValue::ofDouble(enumNumber));
   }
 
   void addEnumInteger(int enumNumber) {
-    if (_type != INTEGER) {
+    if (_value.type() != INTEGER) {
       return;
     }
-    WProperty* valueE = new WProperty("", _type, "");
-    valueE->asInt(enumNumber);
-    this->addEnum(valueE);
+    this->addEnum(WValue::ofInt(enumNumber));
   }
 
   void addEnumShort(short enumNumber) {
-    if (_type != SHORT) {
+    if (_value.type() != SHORT) {
       return;
     }
-    WProperty* valueE = new WProperty("", _type, "");
-    valueE->asShort(enumNumber);
-    this->addEnum(valueE);
+    this->addEnum(WValue::ofShort(enumNumber));
   }
 
   void addEnumUnsignedLong(unsigned long enumNumber) {
-    if (_type != UNSIGNED_LONG) {
+    if (_value.type() != UNSIGNED_LONG) {
       return;
     }
-    WProperty* valueE = new WProperty("", _type, "");
-    valueE->asUnsignedLong(enumNumber);
-    this->addEnum(valueE);
+    this->addEnum(WValue::ofUnsignedLong(enumNumber));
   }
 
   void addEnumByte(byte enumByte) {
-    if (_type != BYTE) {
+    if (_value.type() != BYTE) {
       return;
     }
-    WProperty* valueE = new WProperty("", _type, "");
-    valueE->asByte(enumByte);
-    this->addEnum(valueE);
+    this->addEnum(WValue::ofByte(enumByte));
   }
 
   void addEnumString(const char* enumString) {
-    if (_type != STRING) {
+    if (_value.type() != STRING) {
       return;
     }
-    WProperty* valueE = new WProperty("", _type, "");
-    valueE->asString(enumString);
-    this->addEnum(valueE);
+    this->addEnum(WValue::ofString(enumString));
   }
 
-  byte enumIndex() { return enumIndex(this, this->value().string); }
+  byte enumIndex() { return enumIndex(this, _value.asString()); }
 
   static byte enumIndex(WProperty* property, const char* enumString) {
     if ((property->hasEnums()) && (enumString != nullptr) && (property->type() == STRING)) {
-      WProperty* en = property->_enums->getIf([property, enumString](WProperty* en) {
-        return (strcmp(en->value().string, enumString) == 0);
+      WValue* en = property->_enums->getIf([property, enumString](WValue* en) {
+        return (strcmp(en->asString(), enumString) == 0);
       });
       return (en != nullptr ? property->_enums->indexOf(en) : 0xFF);
     } else {
@@ -677,8 +290,8 @@ class WProperty {
 
   static const char* enumString(WProperty* property, byte enumIndex) {
     if ((property->hasEnums()) && (property->type() == STRING)) {
-      WProperty* en = property->_enums->get(enumIndex);
-      return (en != nullptr ? en->value().string : nullptr);
+      WValue* en = property->_enums->get(enumIndex);
+      return (en != nullptr ? en->asString() : nullptr);
     } else {
       return nullptr;
     }
@@ -690,11 +303,11 @@ class WProperty {
     }
   }
 
-  void addEnum(WProperty* propEnum) {
+  void addEnum(WValue propEnum) {
     if (_enums == nullptr) {
-      _enums = new WList<WProperty>();
+      _enums = new WList<WValue>();
     }
-    _enums->add(propEnum);
+    _enums->add(&propEnum);
   }
 
   bool hasEnums() { return (_enums != nullptr); }
@@ -742,16 +355,14 @@ class WProperty {
  protected:
   const char* _atType;
 
-  void initialize(const char* title, WPropertyType type, const char* atType) {
+  void initialize(const char* title, WDataType type, const char* atType) {
     if (title) {
       _title = new char[strlen_P(title) + 1];
       strcpy_P(_title, title);
     }
-    _type = type;
+    _value = WValue::empty(type);
     _visibility = ALL;
-    _supportingWebthing = true;
-    _valueNull = true;
-    _changed = true;
+    _supportingWebthing = true;    
     _requested = false;
     _valueRequesting = false;
     _notifying = false;
@@ -762,21 +373,12 @@ class WProperty {
     _enums = nullptr;
   }
 
-  void value(WValue value) {
-    _value = value;
-    _valueNull = false;
-    _changed = true;
-    valueChanged();
-    _notify();
-  }
-
   virtual void valueChanged() {}
 
   virtual void toJsonStructureAdditionalParameters(WJson* json) {}
 
  private:
-  char* _title = nullptr;
-  WPropertyType _type;
+  char* _title = nullptr;  
   WPropertyVisibility _visibility;
   bool _supportingMqtt;
   bool _supportingWebthing;
@@ -786,14 +388,12 @@ class WProperty {
   std::list<TOnPropertyChange> _listeners;
   TOnPropertyChange _onValueRequest;
   TOnPropertyChange _deviceNotification;
-  WValue _value = {false};
-  bool _valueNull;
-  bool _changed;
+  WValue _value;  
   bool _requested;
   bool _valueRequesting;
   bool _notifying;
 
-  WList<WProperty>* _enums;
+  WList<WValue>* _enums;
 
   void _notify() {
     if (!_valueRequesting) {
@@ -821,37 +421,40 @@ class WProperty {
 
 class WRangeProperty : public WProperty {
  public:
-  WRangeProperty(const char* title, WPropertyType type, WValue minimum, WValue maximum, const char* atType = TYPE_LEVEL_PROPERTY)
+  WRangeProperty(const char* title, WDataType type, WValue minimum, WValue maximum, const char* atType = TYPE_LEVEL_PROPERTY)
       : WProperty(title, type, atType) {
     _min = minimum;
     _max = maximum;
   }
 
+  ~WRangeProperty() {
+  }
+
   double getMinAsDouble() {
-    return _min.asDouble;
+    return _min.asDouble();
   }
 
   int getMinAsInteger() {
-    return _min.asInt;
+    return _min.asInt();
   }
 
   double getMaxAsDouble() {
-    return _max.asDouble;
+    return _max.asDouble();
   }
 
   int getMaxAsInteger() {
-    return _max.asInt;
+    return _max.asInt();
   }
 
   byte getScaledToMax0xFF() {
     int v = 0;
     switch (this->type()) {
       case DOUBLE: {
-        v = (int)round(asDouble() * 0xFF / getMaxAsDouble());
+        v = (int)round(value().asDouble() * 0xFF / getMaxAsDouble());
         break;
       }
       case INTEGER: {
-        v = asInt() * 0xFF / getMaxAsInteger();
+        v = value().asInt() * 0xFF / getMaxAsInteger();
         break;
       }
     }
@@ -875,7 +478,8 @@ class WRangeProperty : public WProperty {
 
  protected:
  private:
-  WValue _min, _max;
+  WValue _min;
+  WValue _max;
 };
 
 class WColorProperty : public WProperty {
@@ -919,28 +523,28 @@ class WColorProperty : public WProperty {
     if (_blue < 0x10) result.print("0");
     result.print(buffer);
     _changeValue = true;
-    asString(result.c_str());
+    value().asString(result.c_str());
     _changeValue = false;
   }
 
   void parseRGBString() {
     char buffer[3];
     buffer[2] = '\0';
-    buffer[0] = c_str()[1];
-    buffer[1] = c_str()[2];
+    buffer[0] = value().c_str()[1];
+    buffer[1] = value().c_str()[2];
     _red = strtol(buffer, NULL, 16);
-    buffer[0] = c_str()[3];
-    buffer[1] = c_str()[4];
+    buffer[0] = value().c_str()[3];
+    buffer[1] = value().c_str()[4];
     _green = strtol(buffer, NULL, 16);
-    buffer[0] = c_str()[5];
-    buffer[1] = c_str()[6];
+    buffer[0] = value().c_str()[5];
+    buffer[1] = value().c_str()[6];
     _blue = strtol(buffer, NULL, 16);
   }
 
   bool parse(String value) {
     if ((!readOnly()) && (value != nullptr)) {
       if ((value.startsWith("#")) && (value.length() == 7)) {
-        asString(value.c_str());
+        this->value().asString(value.c_str());
         return true;
       } else if ((value.startsWith("rgb(")) && (value.endsWith(")"))) {
         value = value.substring(4, value.length() - 1);

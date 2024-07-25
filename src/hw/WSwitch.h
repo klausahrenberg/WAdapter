@@ -92,7 +92,7 @@ class WSwitch : public WInput {
   void handleButtonOrSwitchPressed() {
     setTriggerValue(true);
     if (property() != nullptr) {
-      property()->asBool(!property()->asBool());
+      property()->value().asBool(!property()->value().asBool());
     }
     if (_onPressed) {
       _onPressed();
@@ -144,7 +144,7 @@ class WSwitch : public WInput {
 
   void setTriggerValue(bool triggered) {
     if (_triggerProperty != nullptr) {
-      _triggerProperty->asBool(triggered);
+      _triggerProperty->value().asBool(triggered);
     }
   }
 };

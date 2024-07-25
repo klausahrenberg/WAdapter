@@ -21,7 +21,6 @@ const static char WC_CSS_CHECK_BOX_CHECKED_LABEL_BEFORE[] PROGMEM = ".cb input[t
 const static char WC_DIV[] PROGMEM = "div";
 const static char WC_ENCTYPE[] PROGMEM = "enctype";
 const static char WC_DOCTYPE_HTML[] PROGMEM = "!DOCTYPE";
-const static char WC_FALSE[] PROGMEM = "false";
 const static char WC_FILE[] PROGMEM = "file";
 const static char WC_FIRMWARE[] PROGMEM = "firmware";
 const static char WC_FOR[] PROGMEM = "for";
@@ -72,7 +71,6 @@ const static char WC_TEXTAREA[] PROGMEM = "textarea";
 const static char WC_TEXT_HTML[] PROGMEM = "text/html";
 const static char WC_TITLE[] PROGMEM = "title";
 const static char WC_TYPE[] PROGMEM = "type";
-const static char WC_TRUE[] PROGMEM = "true";
 const static char WC_VALUE[] PROGMEM = "value";
 const static char WC_WHITE_BOX[] PROGMEM = "wb";
 const static char WC_WIDTH_100PERCENT[] PROGMEM = "width:100%";
@@ -209,28 +207,28 @@ https://stackoverflow.com/questions/4388102/can-you-style-an-active-form-inputs-
 class WHtml {
  public:
   static void commandParamsAndNullptr(Print* stream, const char* tag, bool start, const char* params, ...) {    
-    stream->print(WC_BASE[2]);
-    if (!start) stream->print(WC_BASE[4]);
+    stream->print(WC_SMALLER);
+    if (!start) stream->print(WC_SLASH);
     stream->print(FPSTR(tag));
     va_list arg;
     bool b = false;
     va_start(arg, params);
     while (params) {
       if (b) {
-        stream->print(WC_BASE[1]);
-        stream->print(WC_BASE[5]);
+        stream->print(WC_EQUAL);
+        stream->print(WC_QUOTE);
       } else {
-        stream->print(WC_BASE[0]);
+        stream->print(WC_SPACE);
       }
       stream->print(FPSTR(params));
       if (b) {
-        stream->print(WC_BASE[5]);
+        stream->print(WC_QUOTE);
       }
       b = !b;
       params = va_arg(arg, const char*);
     }
     va_end(arg);
-    stream->print(WC_BASE[3]);
+    stream->print(WC_GREATER);
   }
 
   static void command(Print* stream, const char* tag, bool start) {
@@ -238,23 +236,23 @@ class WHtml {
   }
 
   static void command(Print* stream, const char* tag, bool start, WStringList* keyValues) {
-    stream->print(WC_BASE[2]);
-    if (!start) stream->print(WC_BASE[4]);
+    stream->print(WC_SMALLER);
+    if (!start) stream->print(WC_SLASH);
     stream->print(FPSTR(tag));
     if (keyValues != nullptr) {
       keyValues->forEach([stream](const char* value, const char* id) {
 
-        stream->print(WC_BASE[0]);
+        stream->print(WC_SPACE);
         stream->print(id);               
         if (value) {
-          stream->print(WC_BASE[1]);
-          stream->print(WC_BASE[5]);
+          stream->print(WC_EQUAL);
+          stream->print(WC_QUOTE);
           stream->print(value);
-          stream->print(WC_BASE[5]);        
+          stream->print(WC_QUOTE);        
         }
       });
     }
-    stream->print(WC_BASE[3]);
+    stream->print(WC_GREATER);
   }
 
   static void breakLine(Print* stream) {
@@ -262,24 +260,24 @@ class WHtml {
   }
 
   static void styleToString(Print* stream, const char* key, const char* value) {    
-    stream->print(WC_BASE[0]);
+    stream->print(WC_SPACE);
     stream->print(key);
-    stream->print(WC_BASE[6]);
+    stream->print(WC_SBEGIN);
     if (value) stream->print(value);
-    stream->print(WC_BASE[7]);
+    stream->print(WC_SEND);
   }  
 
   static void scriptToString(Print* stream, const char* key, const char* value) {
-    stream->print(WC_BASE[0]);
+    stream->print(WC_SPACE);
     stream->print(FPSTR(WC_FUNCTION));
-    stream->print(WC_BASE[0]);
+    stream->print(WC_SPACE);
     stream->print(key);
-    stream->print(WC_BASE[8]);
+    stream->print(WC_BBEGIN);
     stream->print("elem");
-    stream->print(WC_BASE[9]);
-    stream->print(WC_BASE[6]);
+    stream->print(WC_BEND);
+    stream->print(WC_SBEGIN);
     stream->print(value);
-    stream->print(WC_BASE[7]);
+    stream->print(WC_SEND);
   }
 };
 

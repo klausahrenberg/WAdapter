@@ -4,7 +4,6 @@
 #include "EEPROM.h"
 #include "WList.h"
 #include "WLog.h"
-#include "WProps.h"
 
 const byte FLAG_OPTIONS_NETWORK = 0x61;
 const byte FLAG_OPTIONS_NETWORK_FORCE_AP = 0x65;
@@ -13,7 +12,7 @@ const int EEPROM_SIZE = 1024;  // SPI_FLASH_SEC_SIZE;
 class WSettings {
  public:
   WSettings() {
-    _items = new WList<WProperty>();
+    _items = new WList<WValue>();
     _address = 2;
     _readingFirstTime = true;
     EEPROM.begin(EEPROM_SIZE);
@@ -42,11 +41,11 @@ class WSettings {
     EEPROM.end();
   }
 
-  void changeId(const char* id, const char* newId) {
-    Serial.println("changeId tbi");
-  }
+  void changeId(const char* id, const char* newId) { _items->changeId(id, newId); }
 
-  bool existsSetting(const char* id) { return (getSetting(id) != nullptr); }
+  WValue* getById(const char* id) { return _items->getById(id); }
+
+  bool existsSetting(const char* id) { return (_items->getById(id) != nullptr); }
 
   bool existsNetworkSettings() {
     return ((_networkByte == FLAG_OPTIONS_NETWORK) ||
@@ -57,83 +56,71 @@ class WSettings {
     return (_networkByte == FLAG_OPTIONS_NETWORK_FORCE_AP);
   }
 
-  WProperty* getSetting(const char* id) { return _items->getById(id); }
+  void add(WValue* value, const char* id) { this->add(value, id, false); }
 
-  bool exists(WProperty* property) { return _items->exists(property); }
-
-  void add(WProperty* property, const char* id) { this->add(property, id, false); }
-
-  void insert(WProperty* property, int index, const char* id) {
-    add(property, index, id, false);
+  void insert(WValue* value, int index, const char* id) {
+    add(value, index, id, false);
   }
 
-  void add(WProperty* property, const char* id, bool networkSetting) {
-    add(property, _items->size(), id, networkSetting);
+  void add(WValue* value, const char* id, bool networkSetting) {
+    add(value, _items->size(), id, networkSetting);
   }
 
-  void add(WProperty* property, int index, const char* id, bool networkSetting) {
-    if (!exists(property)) {
-      _items->insert(property, index, id);
+  void add(WValue* value, int index, const char* id, bool networkSetting) {
+    if (!_items->exists(value)) {
+      _items->insert(value, index, id);
       // read stored values
       if ((isReadingFirstTime()) &&
           (((networkSetting) && (this->existsNetworkSettings())) ||
            ((!networkSetting) && (_existsSettingsApplication)))) {
-        switch (property->type()) {
+        switch (value->type()) {
           case BOOLEAN: {
-            property->asBool(EEPROM.read(_address) == 0xFF);
+            value->asBool(EEPROM.read(_address) == 0xFF);
             break;
           }
           case DOUBLE: {
             double d;
             EEPROM.get(_address, d);
-            property->asDouble(d);
+            value->asDouble(d);
             break;
           }
           case SHORT: {
-            short value = 0;
-            EEPROM.get(_address, value);
-            property->asShort(value);
+            short s = 0;
+            EEPROM.get(_address, s);
+            value->asShort(s);
             break;
           }
           case INTEGER: {
-            int value = 0;
-            EEPROM.get(_address, value);
-            property->asInt(value);
+            int i = 0;
+            EEPROM.get(_address, i);
+            value->asInt(i);
             break;
           }
           case UNSIGNED_LONG: {
-            unsigned long value = 0;
-            EEPROM.get(_address, value);
-            property->asUnsignedLong(value);
+            unsigned long l = 0;
+            EEPROM.get(_address, l);
+            value->asUnsignedLong(l);
             break;
           }
           case BYTE: {
             int b2 = EEPROM.read(_address);
-            property->asByte(b2);
+            value->asByte(b2);
             break;
           }
           case BYTE_ARRAY: {
             const byte* ba = readByteArray(_address);
-            property->asByteArray(readByteArrayLength(_address), ba);
+            value->asByteArray(readByteArrayLength(_address), ba);
             delete ba;
             break;
           }
           case STRING: {
             const char* rs = readString(_address);
-            property->asString(rs);
+            value->asString(rs);
             delete rs;
             break;
           }
         }
-        _address += this->getLengthInEEPROM(property);
-      }
-      // add listener to save user settings
-      if (!networkSetting) {
-        property->addListener([this, property]() {
-          if (!_readingFirstTime) {
-            _saveEEPROM(FLAG_OPTIONS_NETWORK, property);
-          }
-        });
+        _address += this->getLengthInEEPROM(value);
       }
     }
   }
@@ -143,134 +130,127 @@ class WSettings {
   byte size() { return _items->size(); };
 
   bool getBoolean(const char* id) {
-    WProperty* setting = getSetting(id);
-    return (setting != nullptr ? setting->asBool() : false);
+    WValue* value = _items->getById(id);
+    return (value != nullptr ? value->asBool() : false);
   }
 
-  WProperty* setBoolean(const char* id, bool value) {
+  WValue* setBoolean(const char* id, bool value) {
     return this->setBoolean(id, value, false);
   }
 
-  WProperty* setNetworkBoolean(const char* id, bool value) {
+  WValue* setNetworkBoolean(const char* id, bool value) {
     return this->setBoolean(id, value, true);
   }
 
   byte getByte(const char* id) {
-    WProperty* setting = getSetting(id);
-    return (setting != nullptr ? setting->asByte() : 0x00);
+    WValue* value = _items->getById(id);
+    return (value != nullptr ? value->asByte() : 0x00);
   }
 
-  WProperty* setByte(const char* id, byte value) {
+  WValue* setByte(const char* id, byte value) {
     return setByte(id, value, 0);
   }
 
-  WProperty* setByte(const char* id, byte value, byte max) {
-    WProperty* setting = getSetting(id);
-    if (setting == nullptr) {
-      setting = WProps::createByteProperty(id);
-      setting->asByte(value);
-      add(setting, id);
-      if ((max > 0) && (setting->asByte() > max)) {
-        setting->asByte(value);
+  WValue* setByte(const char* id, byte b, byte max) {
+    WValue* value = _items->getById(id);
+    if (value == nullptr) {
+      value = new WValue(b);
+      add(value, id);
+      if ((max > 0) && (value->asByte() > max)) {
+        value->asByte(max);
       }
     } else {
-      setting->asByte(value);
+      value->asByte(b);
     }
-    return setting;
+    return value;
   }
 
   int getInteger(const char* id) {
-    WProperty* setting = getSetting(id);
-    return (setting != nullptr ? setting->asInt() : 0);
+    WValue* value = _items->getById(id);
+    return (value != nullptr ? value->asInt() : 0);
   }
 
-  WProperty* setInteger(const char* id, int value) {
-    WProperty* setting = getSetting(id);
-    if (setting == nullptr) {
-      setting = WProps::createIntegerProperty(id);
-      setting->asInt(value);
-      add(setting, id);
+  WValue* setInteger(const char* id, int i) {
+    WValue* value = _items->getById(id);
+    if (value == nullptr) {
+      value = new WValue(i);
+      add(value, id);
     } else {
-      setting->asInt(value);
+      value->asInt(i);
     }
-    return setting;
+    return value;
   }
 
   short getShort(const char* id) {
-    WProperty* setting = getSetting(id);
-    return (setting != nullptr ? setting->asShort() : 0);
+    WValue* value = _items->getById(id);
+    return (value != nullptr ? value->asShort() : 0);
   }
 
-  WProperty* setShort(const char* id, short value) {
-    WProperty* setting = getSetting(id);
-    if (setting == nullptr) {
-      setting = WProps::createShortProperty(id);
-      setting->asShort(value);
-      add(setting, id);
+  WValue* setShort(const char* id, short s) {
+    WValue* value = _items->getById(id);
+    if (value == nullptr) {
+      value = new WValue(s);
+      add(value, id);
     } else {
-      setting->asShort(value);
+      value->asShort(s);
     }
-    return setting;
+    return value;
   }
 
   unsigned long getUnsignedLong(const char* id) {
-    WProperty* setting = getSetting(id);
-    return (setting != nullptr ? setting->asUnsignedLong() : 0);
+    WValue* value = _items->getById(id);
+    return (value != nullptr ? value->asUnsignedLong() : 0);
   }
 
-  WProperty* setUnsignedLong(const char* id, unsigned long value) {
-    WProperty* setting = getSetting(id);
-    if (setting == nullptr) {
-      setting = WProps::createUnsignedLongProperty(id);
-      setting->asUnsignedLong(value);
-      add(setting, id);
+  WValue* setUnsignedLong(const char* id, unsigned long ul) {
+    WValue* value = _items->getById(id);
+    if (value == nullptr) {
+      value = new WValue(ul);
+      add(value, id);
     } else {
-      setting->asUnsignedLong(value);
+      value->asUnsignedLong(ul);
     }
-    return setting;
+    return value;
   }
 
   double getDouble(const char* id) {
-    WProperty* setting = getSetting(id);
-    return (setting != nullptr ? setting->asDouble() : 0.0);
+    WValue* value = _items->getById(id);
+    return (value != nullptr ? value->asDouble() : 0.0);
   }
 
-  WProperty* setDouble(const char* id, double value) {
-    WProperty* setting = getSetting(id);
-    if (setting == nullptr) {
-      setting = WProps::createDoubleProperty(id);
-      setting->asDouble(value);
-      add(setting, id);
+  WValue* setDouble(const char* id, double d) {
+    WValue* value = _items->getById(id);
+    if (value == nullptr) {
+      value = new WValue(d);
+      add(value, id);
     } else {
-      setting->asDouble(value);
+      value->asDouble(d);
     }
-    return setting;
+    return value;
   }
 
   const char* getString(const char* id) {    
-    WProperty* setting = getSetting(id);
-    return (setting != nullptr ? setting->c_str() : "");
+    WValue* value = _items->getById(id);
+    return (value != nullptr ? value->c_str() : "");
   }
 
-  WProperty* setString(const char* id, const char* value) {
+  WValue* setString(const char* id, const char* value) {
     return this->setString(id, value, false);
   }
 
-  WProperty* setNetworkString(const char* id, const char* value) {
+  WValue* setNetworkString(const char* id, const char* value) {
     return this->setString(id, value, true);
   }
 
-  WProperty* setByteArray(const char* id, byte length, const byte* value) {
-    WProperty* setting = getSetting(id);
-    if (setting == nullptr) {
-      setting = new WProperty(id, BYTE_ARRAY, "");
-      setting->asByteArray(length, value);
-      setting->visibility(NONE);
-      add(setting, id);
+  WValue* setByteArray(const char* id, byte length, const byte* ba) {
+    WValue* value = _items->getById(id);
+    if (value == nullptr) {
+      value = new WValue(length, ba);      
+      add(value, id);
     } else {
-      setting->asByteArray(length, value);
+      value->asByteArray(length, ba);
     }
-    return setting;
+    return value;
   }
 
   static unsigned long getUnsignedLong(byte l1, byte l2, byte l3, byte l4) {
@@ -300,63 +280,60 @@ class WSettings {
   }
 
  protected:
-  WProperty* setBoolean(const char* id, bool value, bool networkSetting) {
-    WProperty* setting = getSetting(id);
-    if (setting == nullptr) {
-      setting = WProps::createBooleanProperty(id);
-      setting->asBool(value);
-      add(setting, id, networkSetting);
+  WValue* setBoolean(const char* id, bool b, bool networkSetting) {
+    WValue* value = _items->getById(id);
+    if (value == nullptr) {
+      value = new WValue(b);
+      add(value, id, networkSetting);
     } else {
-      setting->asBool(value);
+      value->asBool(b);
     }
-    return setting;
+    return value;
   }
 
-  WProperty* setString(const char* id, const char* value, bool networkSetting) {        
-    WProperty* setting = getSetting(id);
-    if (setting == nullptr) {
-      setting = WProps::createStringProperty(id);
-      setting->asString(value);
-      add(setting, id, networkSetting);
+  WValue* setString(const char* id, const char* s, bool networkSetting) {        
+    WValue* value = _items->getById(id);
+    if (value == nullptr) {
+      value = new WValue(s);
+      add(value, id, networkSetting);
     } else {
-      setting->asString(value);
+      value->asString(s);
     }
-    return setting;
-  }
+    return value;
+  }  
 
-  void _save(int address, WProperty* setting) {
-    switch (setting->type()) {
+  void _save(int address, WValue* value) {
+    switch (value->type()) {
       case BOOLEAN: {
-        EEPROM.write(address, (setting->asBool() ? 0xFF : 0x00));
+        EEPROM.write(address, (value->asBool() ? 0xFF : 0x00));
         break;
       }
       case BYTE: {
-        EEPROM.write(address, setting->asByte());
+        EEPROM.write(address, value->asByte());
         break;
       }
       case SHORT: {
-        EEPROM.put(address, setting->asShort());
+        EEPROM.put(address, value->asShort());
         break;
       }
       case INTEGER: {
-        EEPROM.put(address, setting->asInt());
+        EEPROM.put(address, value->asInt());
         break;
       }
       case UNSIGNED_LONG: {
-        EEPROM.put(address, setting->asUnsignedLong());
+        EEPROM.put(address, value->asUnsignedLong());
         break;
       }
       case DOUBLE: {
-        EEPROM.put(address, setting->asDouble());
+        EEPROM.put(address, value->asDouble());
         break;
       }
       case BYTE_ARRAY: {
-        writeByteArray(address, setting->byteArrayLength(),
-                       setting->asByteArray());
+        writeByteArray(address, value->length(),  value->asByteArray());
         break;
       }
       case STRING: {
-        writeString(address, setting->c_str());
+        writeString(address, value->asString());
         break;
       }
     }    
@@ -365,11 +342,11 @@ class WSettings {
  private:
   bool _existsSettingsApplication;
   int _networkByte;
-  WList<WProperty>* _items;
+  WList<WValue>* _items;
   int _address;
   bool _readingFirstTime;
 
-  byte getLengthInEEPROM(WProperty* setting) {
+  byte getLengthInEEPROM(WValue* setting) {
     switch (setting->type()) {
       case BYTE_ARRAY:
       case STRING:
@@ -408,19 +385,19 @@ class WSettings {
     return data;
   }
 
-  void writeString(int address, const char* value) {
-    byte size = strlen(value);
+  void writeString(int address, const char* value) {     
+    byte size = (value != nullptr ? strlen(value) : 0);
     EEPROM.write(address, size);
     for (int i = 1; i <= size; i++) {
       EEPROM.write(address + i, value[i - 1]);
     }
   }
 
-  void _saveEEPROM(int networkSettingsFlag, WProperty* specificSetting = nullptr) {
+  void _saveEEPROM(int networkSettingsFlag, WValue* specificSetting = nullptr) {
     EEPROM.begin(EEPROM_SIZE);
     _address = 2;
-    _items->forEach([this, specificSetting](WProperty* setting, const char* id) { 
-			if ((specificSetting == nullptr) || (specificSetting == setting)) {
+    _items->forEach([this, specificSetting](WValue* setting, const char* id) { 
+      if ((specificSetting == nullptr) || (specificSetting == setting)) {
 				_save(_address, setting); 
 			}
 			_address += this->getLengthInEEPROM(setting);		

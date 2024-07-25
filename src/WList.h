@@ -50,7 +50,7 @@ class WList {
   };
 
   virtual ~WList() {
-    clear();
+    this->clear();
   }
 
   void add(T* value, const char* id = nullptr) { this->insert(value, _size, id); }
@@ -75,12 +75,12 @@ class WList {
       _lastNodeGot = newNode;
       _size++;
     } else {
-      //if (newNode->value) delete newNode->value;
+      if (newNode->value) delete newNode->value;
       newNode->value = value;
     }
   };
 
-  void clear() {
+  virtual void clear() {
     while (_size > 0) {
       this->remove(0, true);      
     }
@@ -95,15 +95,17 @@ class WList {
       } else {
         nodePrev->next = nodeToDelete->next;
       }
-      if ((freeMemoryForValues) && (nodeToDelete) && (nodeToDelete->value)) delete nodeToDelete->value;
+      if ((freeMemoryForValues) && (nodeToDelete) && (nodeToDelete->value)) {
+        delete nodeToDelete->value;
+      }  
       delete nodeToDelete;
       _size--;
       _resetCaching();
     }
   }
 
-  bool removeById(const char* id) {
-    bool result = false;
+  T* removeById(const char* id) {
+    T* result = nullptr;
     WListNode<T>* nodePrev = nullptr;
     WListNode<T>* node = _firstNode;
     while (node != nullptr) {        
@@ -115,8 +117,8 @@ class WList {
             nodePrev->next = nodeToDelete->next;
           }
           node = nodeToDelete->next;
-          delete nodeToDelete;          
-          result = true;
+          result = nodeToDelete->value;
+          delete nodeToDelete;        
       }
       node = node->next;        
     }
@@ -192,6 +194,11 @@ class WList {
       }
     }
     return nullptr;
+  }
+
+  void changeId(const char* id, const char* newId) {
+    T* lv = removeById(id);
+    this->add(lv, newId);
   }
 
   bool exists(T* value) {    
@@ -301,13 +308,51 @@ class WStringList : public WList<const char> {
 
   }  
 
-  virtual void insert(const char* value, int index, const char* id = nullptr) { 
+  virtual ~WStringList() {    
+  }  
+
+  virtual void insert(const char* value, int index, const char* id = nullptr) {     
     if (value) {
       char* temp = new char[strlen_P(value) + 1];
       strcpy_P(temp, value);
-      WList::insert(temp, index, id);
+      WList::insert(temp, index, id);          
     }
   }  
+};
+
+template <typename T>
+class WStack : public WList<T> {
+ public:
+  WStack(boolean lifo = true) : WList<T>() {
+    _lifo = lifo;
+  }
+
+  T* peek() {    
+    if (this->size() != 0) {    
+      if (_lifo) {
+        return this->get(this->size() - 1);
+      } else {
+        return this->get(0);
+      }
+    } else {
+      return nullptr;
+    }
+  }
+
+  T* pop() {
+    T* obj = peek();
+    if (_lifo) {
+      this->remove(this->size() - 1);
+    } else {
+      this->remove(0);
+    }
+    return obj;
+  }
+
+  void push(T* item) { this->add(item); }
+
+ private:  
+  bool _lifo;
 };
 
 #endif

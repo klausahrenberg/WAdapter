@@ -76,7 +76,7 @@ class WDevice {
       if (property->isVisible(visibility)) {
         property->toJsonValue(json, id);
       }
-      property->changed(false);      
+      property->value().changed(false);      
     });
   }
 
