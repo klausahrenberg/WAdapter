@@ -21,7 +21,7 @@ class WOutput {
     }
   }
 
-  bool isOn() { return (_on != nullptr ? _on->value().asBool() : _isOn); }
+  bool isOn() { return (_on != nullptr ? _on->value()->asBool() : _isOn); }
 
   void setOn(bool isOn) {
     if ((_on == nullptr) && (isOn != _isOn)) {

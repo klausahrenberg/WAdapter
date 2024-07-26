@@ -591,7 +591,7 @@ class WNetwork {
         // Send every changed property only
         device->properties()->forEach(
             [this, complete, topic](WProperty *property, const char *id) {
-              if ((complete) || (property->value().changed())) {
+              if ((complete) || (property->value()->changed())) {
                 if (property->isVisible(MQTT)) {
                   WStringStream *response = getResponseStream();
                   WJson json(response);
@@ -600,7 +600,7 @@ class WNetwork {
                       String(topic + SLASH + String(id)).c_str(),
                       response->c_str(), true);
                 }
-                property->value().changed(false);
+                property->value()->changed(false);
               }
             });
         if (complete) {

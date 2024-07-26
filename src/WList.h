@@ -14,6 +14,12 @@
   - method getIf
 */
 
+template <typename T>
+class IWIterable {
+public:
+  virtual void forEach(std::function<void(T* value, const char* id)> consumer);
+};  
+
 template <class T>
 struct WListNode {
   WListNode(const char* id) {
@@ -36,8 +42,8 @@ template <typename T>
 class WIterator;
 
 template <typename T>
-class WList {
- public:
+class WList : public IWIterable<T> {
+ public:  
   typedef std::function<void(T* value, const char* id)> TOnValue;
   typedef std::function<bool(T* value)> TOnCompare;
   typedef std::function<void(WListNode<T>* listNode)> TOnListNode;

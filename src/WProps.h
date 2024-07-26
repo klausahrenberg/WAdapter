@@ -20,7 +20,7 @@ class WProps {
 
   static WProperty* createByteArrayProperty(const char* title, byte arrayLength, const byte* values) {
     WProperty* result = new WProperty(title, BYTE_ARRAY, "");
-    result->value().asByteArray(arrayLength, values);
+    result->value()->asByteArray(arrayLength, values);
     return result;
   }
 
@@ -73,7 +73,7 @@ class WProps {
 
   static WRangeProperty* createBrightnessProperty(const char* title, byte min = 0, byte max = 100) {
     WRangeProperty* p = new WRangeProperty(title, INTEGER, WValue::ofInt(min), WValue::ofInt(max), TYPE_BRIGHTNESS_PROPERTY);          
-    p->value().asInt(max);
+    p->value()->asInt(max);
     return p;
   }
 

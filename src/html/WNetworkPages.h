@@ -181,7 +181,10 @@ class WInfoPage : public WPage {
 #endif           
     datas->add(new WValue(_running)/*->unit(PSTR(" minutes"))*/, PSTR("Running since"));        
 
-    div->add(new WebTable(datas));
+    div->add((new WebTable(datas))->onPrintRow([this](Print* stream, WValue* item, const char* id){
+      WebTable<WValue>::headerCell(stream, id);
+      WebTable<WValue>::dataCell(stream, item->toString());
+    }));
     div->add(new WebDiv((new WebButton(WC_BACK_TO_MAINMENU))->onClickNavigateTo(WC_CONFIG)));
     /*
     if (isWebServerRunning()) {

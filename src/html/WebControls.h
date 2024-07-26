@@ -298,9 +298,27 @@ class WebInputFile : public WebControl {
   }
 };
 
+template <typename T>
 class WebTable : public WebControl {
  public:
-  WebTable(WList<WValue>* datas) : WebControl(WC_TABLE, nullptr) {
+  static bool test() {
+    return true;
+  }
+
+  static void headerCell(Print* stream, const char* header) {
+    WHtml::command(stream, WC_TABLE_HEADER, true, nullptr);          
+    if (header) stream->print(header); 
+    WHtml::command(stream, WC_TABLE_HEADER, false, nullptr);
+  }
+
+  static void dataCell(Print* stream, const char* data) {
+    WHtml::command(stream, WC_TABLE_DATA, true, nullptr);    
+    if (data) stream->print(data); 
+    WHtml::command(stream, WC_TABLE_DATA, false, nullptr);
+  }
+
+  typedef std::function<void(Print*, T*, const char*)> TOnPrintRow;
+  WebTable(IWIterable<T>* datas) : WebControl(WC_TABLE, nullptr) {
     _datas = datas;
   }  
 
@@ -310,24 +328,30 @@ class WebTable : public WebControl {
     }
   }
 
+  virtual void printRow(Print* stream, T* item, const char* id) {
+    if (_onPrintRow) _onPrintRow(stream, item, id);
+  }
+
+  WebTable* onPrintRow(TOnPrintRow onPrintRow) {
+    _onPrintRow = onPrintRow;
+    return this;
+  }  
+
   virtual void toString(Print* stream) {             
     WHtml::command(stream, _tag, true, _params);    
-    _datas->forEach([this, stream](WValue* property, const char* id) { 
+    _datas->forEach([this, stream](T* item, const char* id) { 
       WHtml::command(stream, WC_TABLE_ROW, true, nullptr);    
-      WHtml::command(stream, WC_TABLE_HEADER, true, nullptr);          
-      if (id) stream->print(id); 
-      WHtml::command(stream, WC_TABLE_HEADER, false, nullptr);   
-      WHtml::command(stream, WC_TABLE_DATA, true, nullptr);    
-      property->toString(stream);
-      //if (item) stream->print();      
-      WHtml::command(stream, WC_TABLE_DATA, false, nullptr);   
+      this->printRow(stream, item, id);      
       WHtml::command(stream, WC_TABLE_ROW, false, nullptr);    
     });      
     if (_closing) WHtml::command(stream, _tag, false, nullptr);    
   }
 
+    
+
  private:
-  WList<WValue>* _datas; 
+  IWIterable<T>* _datas; 
+  TOnPrintRow _onPrintRow;
 };
 
 #endif
