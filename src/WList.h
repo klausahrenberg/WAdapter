@@ -16,8 +16,9 @@
 
 template <typename T>
 class IWIterable {
-public:
-  virtual void forEach(std::function<void(T* value, const char* id)> consumer);
+ public:
+  typedef std::function<void(int, T*, const char*)> TOnIteration;
+  virtual void forEach(TOnIteration consumer);
 };  
 
 template <class T>
@@ -44,7 +45,7 @@ class WIterator;
 template <typename T>
 class WList : public IWIterable<T> {
  public:  
-  typedef std::function<void(T* value, const char* id)> TOnValue;
+  typedef std::function<void(int, T*, const char*)> TOnIteration;
   typedef std::function<bool(T* value)> TOnCompare;
   typedef std::function<void(WListNode<T>* listNode)> TOnListNode;
 
@@ -156,11 +157,13 @@ class WList : public IWIterable<T> {
     return result;
   }
 
-  virtual void forEach(TOnValue consumer) {
+  virtual void forEach(TOnIteration consumer) {
     if (consumer) {
       WListNode<T>* node = _firstNode;
+      int i = 0;
       while (node != nullptr) {
-        consumer(node->value, node->id);
+        consumer(i, node->value, node->id);
+        i++;
         node = node->next;
       }
     }
@@ -182,6 +185,11 @@ class WList : public IWIterable<T> {
   T* get(int index) {
     WListNode<T>* node = _getNode(index);
     return (node != nullptr ? node->value : nullptr);
+  }
+
+  const char* getId(int index) {
+    WListNode<T>* node = _getNode(index);
+    return (node != nullptr ? node->id : nullptr);
   }
 
   T* getById(const char* id) {

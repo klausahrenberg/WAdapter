@@ -97,7 +97,7 @@ class WPage {
     WHtml::commandParamsAndNullptr(stream, WC_LINK, true, WC_REL, F("shortcut icon"), WC_TYPE, F("image/svg"), WC_HREF, WC_ICON_KAMSA, nullptr);        
     // Style
     WHtml::command(stream, WC_STYLE, true);    
-    styles->forEach([this, stream] (const char* style, const char* id) { WHtml::styleToString(stream, id, style); });
+    styles->forEach([this, stream] (int index, const char* style, const char* id) { WHtml::styleToString(stream, id, style); });
     WHtml::command(stream, WC_STYLE, false);  // Style end    
     WHtml::command(stream, WC_HEAD, false);   // Head end    
     // Body
@@ -125,7 +125,7 @@ class WPage {
     // Scripts
     if (!scripts->empty()) {
       WHtml::command(stream, WC_SCRIPT, true);  
-      scripts->forEach([this, stream] (const char* script, const char* id) { WHtml::scriptToString(stream, id, script); });
+      scripts->forEach([this, stream] (int index, const char* script, const char* id) { WHtml::scriptToString(stream, id, script); });
       WHtml::command(stream, WC_SCRIPT, false);  
     }
     WHtml::command(stream, WC_BODY, false);  // Body end    

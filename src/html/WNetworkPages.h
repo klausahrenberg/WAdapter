@@ -16,7 +16,7 @@ class WRootPage : public WPage {
   virtual void createControls(WebControl* parentNode) {    
     WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);    
     parentNode->add(div); 
-    _customPages->forEach([this, div](WPageItem* pageItem, const char* id) {
+    _customPages->forEach([this, div](int index, WPageItem* pageItem, const char* id) {
       if (pageItem->showInMainMenu) {
         div->add(new WebDiv((new WebButton(pageItem->title))->onClickNavigateTo(id)));      
       }
@@ -154,34 +154,37 @@ class WInfoPage : public WPage {
  public: 
   WInfoPage(unsigned long running) : WPage() {    \
     _running = running;
+    _datas = new WList<WValue>();
   }
 
-  virtual ~WInfoPage() {    
+  virtual ~WInfoPage() {   
+    delete _datas; 
   }  
 
   virtual void createControls(WebControl* parentNode) {
     WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
-    parentNode->add(div);
-    WList<WValue>* datas = new WList<WValue>();
+    parentNode->add(div);    
 #ifdef ESP8266    
-    datas->add(new WValue("ESP8266"), PSTR("Chip"));      
+    _datas->add(new WValue("ESP8266"), PSTR("Chip"));      
 #elif ESP32
-    datas->add(WProps::createStringProperty()->asString("ESP 32"), PSTR("Chip"));      
+    _datas->add(new WValue("ESP 32"), PSTR("Chip"));      
 #endif
-    datas->add(new WValue(WUtils::getChipId()), PSTR("Chip ID"));      
-    datas->add(new WValue(ESP.getFlashChipSize()), PSTR("IDE Flash Size"));      
-    datas->add(new WValue(ESP.getFlashChipRealSize()), PSTR("Real Flash Size")); 
-    //datas->add(WProps::create..., PSTR("IP address"));      
-    //datas->add(WProps::createStringProperty()->asString(WiFi.macAddress()), PSTR("MAC address"));
-    datas->add(new WValue(ESP.getSketchSize()), PSTR("Current sketch size"));      
-    datas->add(new WValue(ESP.getFreeSketchSpace()), PSTR("Available sketch size"));      
-    datas->add(new WValue(ESP.getFreeHeap()), PSTR("Free heap size"));    
+    _datas->add(new WValue(WUtils::getChipId()), PSTR("Chip ID"));      
+    _datas->add(new WValue(ESP.getFlashChipSize()), PSTR("IDE Flash Size"));      
+#ifdef ESP8266    
+    _datas->add(new WValue(ESP.getFlashChipRealSize()), PSTR("Real Flash Size")); 
+#endif    
+    //_datas->add(WProps::create..., PSTR("IP address"));      
+    //_datas->add(WProps::createStringProperty()->asString(WiFi.macAddress()), PSTR("MAC address"));
+    _datas->add(new WValue(ESP.getSketchSize()), PSTR("Current sketch size"));      
+    _datas->add(new WValue(ESP.getFreeSketchSpace()), PSTR("Available sketch size"));      
+    _datas->add(new WValue(ESP.getFreeHeap()), PSTR("Free heap size"));    
 #ifdef ESP8266            
-    datas->add(new WValue(ESP.getMaxFreeBlockSize()), PSTR("Largest heap block"));        
+    _datas->add(new WValue(ESP.getMaxFreeBlockSize()), PSTR("Largest heap block"));        
 #endif           
-    datas->add(new WValue(_running)/*->unit(PSTR(" minutes"))*/, PSTR("Running since"));        
+    _datas->add(new WValue(_running)/*->unit(PSTR(" minutes"))*/, PSTR("Running since"));        
 
-    div->add((new WebTable(datas))->onPrintRow([this](Print* stream, WValue* item, const char* id){
+    div->add((new WebTable<WValue>(_datas))->onPrintRow([this](Print* stream, int index, WValue* item, const char* id){
       WebTable<WValue>::headerCell(stream, id);
       WebTable<WValue>::dataCell(stream, item->toString());
     }));
@@ -248,6 +251,7 @@ class WInfoPage : public WPage {
   }
  private:
   unsigned long _running;
+  WList<WValue>* _datas;
   
 };
 

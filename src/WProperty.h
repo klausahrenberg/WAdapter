@@ -40,7 +40,7 @@ typedef std::function<void()> TOnPropertyChange;
 class WProperty {
  public:
   WProperty(const char* title, WDataType type, const char* atType = "") {
-    initialize(title, type, atType);
+    _initialize(title, type, atType);
   }
 
   virtual ~WProperty() {
@@ -73,14 +73,58 @@ class WProperty {
     _requested = ((requested) && (!isNull()));
   }
 
-  virtual bool parse(const char* value) {    
-    return ((!_readOnly) ? _value->parse(value) : false);    
+  bool changed() { return (_changed); }
+
+  void changed(bool changed) { _changed = changed; }
+
+  virtual bool parse(const char* value) {  
+    if (!_readOnly) {
+      _changed = _value->parse(value) || _changed;
+      if (_changed) _notify();
+    } else {
+      return false;
+    }    
   }    
 
-  WValue* value() { 
-    _requestValue();
-    return _value; 
-  }
+  bool asBool() { _requestValue(); return _value->asBool(); }
+
+  WProperty* asBool(bool value) {
+    if (!_readOnly) {
+      _changed = _value->asBool(value) || _changed;
+      if (_changed) _notify();
+    }
+    return this;
+  }  
+
+  char* asString() { _requestValue(); return _value->asString(); }
+
+  WProperty* asString(const char* value) {  
+    if (!_readOnly) {
+      _changed = _value->asString(value) || _changed;
+      if (_changed) _notify();
+    }
+    return this;
+  }  
+
+  int asInt() { _requestValue(); return _value->asInt(); }
+
+  WProperty* asInt(int value) {
+    if (!_readOnly) {
+      _changed = _value->asInt(value) || _changed;
+      if (_changed) _notify();
+    }
+    return this;
+  }  
+
+  byte* asByteArray() { _requestValue(); return _value->asByteArray(); }
+
+  bool asByteArray(byte length, const byte* value) {
+    if (!_readOnly) {
+      _changed = _value->asByteArray(length, value) || _changed;
+      if (_changed) _notify();
+    }
+    return this;
+  }  
 
   bool readOnly() { return _readOnly; }
 
@@ -183,7 +227,7 @@ class WProperty {
     // enum
     if (this->hasEnums()) {
       json->beginArray("enum");
-      _enums->forEach([this, json](WValue* propE, const char* id) {
+      _enums->forEach([this, json](int index, WValue* propE, const char* id) {
         switch (_value->type()) {
           case BOOLEAN:
             json->boolean(propE->asBool());
@@ -355,8 +399,10 @@ class WProperty {
 
  protected:
   const char* _atType;
+  WValue* _value; 
+  bool _changed;
 
-  void initialize(const char* title, WDataType type, const char* atType) {
+  void _initialize(const char* title, WDataType type, const char* atType) {
     if (title) {
       _title = new char[strlen_P(title) + 1];
       strcpy_P(_title, title);
@@ -364,6 +410,7 @@ class WProperty {
     _value = new WValue(type);
     _visibility = ALL;
     _supportingWebthing = true;    
+    _changed = true;
     _requested = false;
     _valueRequesting = false;
     _notifying = false;
@@ -388,12 +435,10 @@ class WProperty {
   double _multipleOf;
   std::list<TOnPropertyChange> _listeners;
   TOnPropertyChange _onValueRequest;
-  TOnPropertyChange _deviceNotification;
-  WValue* _value;  
+  TOnPropertyChange _deviceNotification;   
   bool _requested;
   bool _valueRequesting;
   bool _notifying;
-
   WList<WValue>* _enums;
 
   void _notify() {
@@ -451,11 +496,11 @@ class WRangeProperty : public WProperty {
     int v = 0;
     switch (this->type()) {
       case DOUBLE: {
-        v = (int)round(value()->asDouble() * 0xFF / getMaxAsDouble());
+        v = (int)round(_value->asDouble() * 0xFF / getMaxAsDouble());
         break;
       }
       case INTEGER: {
-        v = value()->asInt() * 0xFF / getMaxAsInteger();
+        v = _value->asInt() * 0xFF / getMaxAsInteger();
         break;
       }
     }
@@ -524,28 +569,28 @@ class WColorProperty : public WProperty {
     if (_blue < 0x10) result.print("0");
     result.print(buffer);
     _changeValue = true;
-    value()->asString(result.c_str());
+    asString(result.c_str());
     _changeValue = false;
   }
 
   void parseRGBString() {
     char buffer[3];
     buffer[2] = '\0';
-    buffer[0] = value()->c_str()[1];
-    buffer[1] = value()->c_str()[2];
+    buffer[0] = asString()[1];
+    buffer[1] = asString()[2];
     _red = strtol(buffer, NULL, 16);
-    buffer[0] = value()->c_str()[3];
-    buffer[1] = value()->c_str()[4];
+    buffer[0] = asString()[3];
+    buffer[1] = asString()[4];
     _green = strtol(buffer, NULL, 16);
-    buffer[0] = value()->c_str()[5];
-    buffer[1] = value()->c_str()[6];
+    buffer[0] = asString()[5];
+    buffer[1] = asString()[6];
     _blue = strtol(buffer, NULL, 16);
   }
 
   bool parse(String value) {
     if ((!readOnly()) && (value != nullptr)) {
       if ((value.startsWith("#")) && (value.length() == 7)) {
-        this->value()->asString(value.c_str());
+        this->asString(value.c_str());
         return true;
       } else if ((value.startsWith("rgb(")) && (value.endsWith(")"))) {
         value = value.substring(4, value.length() - 1);

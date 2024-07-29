@@ -62,16 +62,6 @@ class WJsonParser {
     return jp.parse(payload);
   }
 
-  /*WStringList* parse(const char* payload) {
-    WStringList* result = new WStringList();
-    parse(payload, [this, result](const char* key, const char* value) {
-      char* v = new char[strlen_P(value) + 1];
-      strcpy_P(v, value);
-      result->add(v, key);
-    });
-    return _stack->peek()->mapOrList;
-  }*/
-
   WList<WValue>* parse(const char* payload) {
     for (int i = 0; i < strlen(payload); i++) {
       _parseChar(payload[i]);
@@ -82,24 +72,10 @@ class WJsonParser {
     }
     return _stack->peek()->mapOrList;
   }
-
-  WProperty* parse(const char* payload, WDevice* device) {
-    _device = device;
-    WProperty* result = nullptr;
-    for (int i = 0; i < strlen(payload); i++) {
-      WProperty* p = _parseChar(payload[i]);
-      if (p != nullptr) {
-        result = p;
-      }
-    }
-    return result;
-  }
-
+  
  private:
   WState _state;
   WStack<WMapItem>* _stack;
-  // int _stack[20];
-  // int _stackPos = 0;
   bool _doEmitWhitespace = false;
   char _buffer[BUFFER_MAX_LENGTH];
   int _bufferPos = 0;
@@ -111,7 +87,6 @@ class WJsonParser {
   int _unicodeHighSurrogate = 0;
   bool _logging = false;
   String _currentKey = "";
-  WDevice* _device = nullptr;
 
   void _log(String message) {
     if (_logging) {
@@ -119,40 +94,24 @@ class WJsonParser {
     }
   }
 
-  WProperty* _processKeyValue(const char* key, const char* value) {
-    WProperty* result = nullptr;
-    if (_device != nullptr) {
-      result = _device->getPropertyById(key);
-      if (result != nullptr) {
-        if (!result->parse(value)) {
-          result = nullptr;
-        }
+  void _processKeyValue(const char* key, const char* value) {
+    WMapItem* peeked = _stack->peek();
+    if (peeked->mapOrList != nullptr) {               
+      if (value != nullptr) {
+        peeked->mapOrList->add(new WValue(value), (_currentKey.equals("") ? nullptr : _currentKey.c_str()));
       }
-
-    } else {
-			WMapItem* peeked = _stack->peek();
-      if (peeked->mapOrList != nullptr) {               
-      	if (value != nullptr) {
-          peeked->mapOrList->add(new WValue(value), (_currentKey.equals("") ? nullptr : _currentKey.c_str()));
-        }
-         _currentKey = "";
-      }
+      _currentKey = "";
     }
-    return result;
-
-		
-
   }
 
-  WProperty* _parseChar(char c) {
-    WProperty* result = nullptr;
+  void _parseChar(char c) {    
     if ((c == WC_SPACE || c == '\t' || c == '\n' || c == '\r') && !(_state == WS_IN_STRING || _state == WS_UNICODE || _state == WS_START_ESCAPE || _state == WS_IN_NUMBER || _state == WS_START_DOCUMENT)) {
-      return result;
+      return;
     }
     switch (_state) {
       case WS_IN_STRING:
         if ((c == WC_QUOTE) || (c == WC_QUOTE2)) {
-          result = _endString();
+          _endString();
         } else if (c == '\\') {
           _state = WS_START_ESCAPE;
         } else if ((c < 0x1f) || (c == 0x7f)) {
@@ -249,7 +208,7 @@ class WJsonParser {
           _buffer[_bufferPos] = c;
           _increaseBufferPointer();
         } else {
-          result = _endNumber();
+          _endNumber();
           // we have consumed one beyond the end of the number
           _parseChar(c);
         }
@@ -258,14 +217,14 @@ class WJsonParser {
         _buffer[_bufferPos] = c;
         _increaseBufferPointer();
         if (_bufferPos == 4) {
-          result = _endTrue();
+          _endTrue();
         }
         break;
       case WS_IN_FALSE:
         _buffer[_bufferPos] = c;
         _increaseBufferPointer();
         if (_bufferPos == 5) {
-          result = _endFalse();
+          _endFalse();
         }
         break;
       case WS_IN_NULL:
@@ -284,16 +243,14 @@ class WJsonParser {
         }
         break;
     }
-    _characterCounter++;
-    return result;
+    _characterCounter++;    
   }
 
   void _increaseBufferPointer() {
     _bufferPos = _min(_bufferPos + 1, BUFFER_MAX_LENGTH - 1);
   }
 
-  WProperty* _endString() {
-    WProperty* result = nullptr;
+  void _endString() {
     WMapItem* popped = _stack->pop();
     if (popped->type == WT_KEY) {
       _buffer[_bufferPos] = '\0';
@@ -302,14 +259,10 @@ class WJsonParser {
     } else if (popped->type == WT_STRING) {      
       _buffer[_bufferPos] = '\0';
       const char* v = _buffer;
-      result = _processKeyValue(_currentKey.c_str(), _buffer);      
-      _state = WS_AFTER_VALUE;
-    } else {
-      // throw new ParsingError($this->_line_number, $this->_char_number,
-      // "Unexpected end of string.");
+      _processKeyValue(_currentKey.c_str(), _buffer);      
+      _state = WS_AFTER_VALUE;    
     }
     _bufferPos = 0;
-    return result;
   }
 
   void _startValue(char c) {
@@ -375,12 +328,6 @@ class WJsonParser {
 			} else {
         _stack->peek()->mapOrList->add(new WValue(popped->mapOrList), (popped->objectId.equals("") ? nullptr : popped->objectId.c_str()));
 			}	
-                /*    _result = (T) o;
-                } else if (_stack.peek().map() != null) {
-                    _stack.peek().map().put(popped.objectKey(), o);
-                } else if (_stack.peek().list() != null) {
-                    _stack.peek().list().add(o);
-                }*/
     } else {
       LOG->error(F("jsonParser->endObject(): Stack has no object map inside, can't create object."));
     }
@@ -470,15 +417,13 @@ class WJsonParser {
     _state = WS_UNICODE;
   }
 
-  WProperty* _endNumber() {
-    WProperty* result = nullptr;
+  void _endNumber() {
     if (_currentKey != "") {
       _buffer[_bufferPos] = '\0';
-      result = _processKeyValue(_currentKey.c_str(), _buffer);
+      _processKeyValue(_currentKey.c_str(), _buffer);
     }
     _bufferPos = 0;
     _state = WS_AFTER_VALUE;
-    return result;
   }
 
   int _convertDecimalBufferToInt(char myArray[], int length) {
@@ -494,30 +439,26 @@ class WJsonParser {
     _state = WS_DONE;
   }
 
-  WProperty* _endTrue() {
-    WProperty* result = nullptr;
+  void _endTrue() {
     if (_currentKey != "") {
       _buffer[_bufferPos] = '\0';
       if (strcmp_P(_buffer, WC_TRUE) == 0) {
-        result = _processKeyValue(_currentKey.c_str(), WC_TRUE);
+        _processKeyValue(_currentKey.c_str(), WC_TRUE);
       }
     }
     _bufferPos = 0;
     _state = WS_AFTER_VALUE;
-    return result;
   }
 
-  WProperty* _endFalse() {
-    WProperty* result = nullptr;
+  void _endFalse() {
     if (_currentKey != "") {
       _buffer[_bufferPos] = '\0';
       if (strcmp_P(_buffer, WC_FALSE) == 0) {
-        result = _processKeyValue(_currentKey.c_str(), WC_FALSE);
+        _processKeyValue(_currentKey.c_str(), WC_FALSE);
       }
     }
     _bufferPos = 0;
     _state = WS_AFTER_VALUE;
-    return result;
   }
 
   void _endNull() {

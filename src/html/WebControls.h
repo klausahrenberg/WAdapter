@@ -4,13 +4,6 @@
 #include "WebResources.h"
 
 class WebControl {
- protected:
-  char* _tag = nullptr;
-  char* _content = nullptr;
-  bool _closing = true;
-  WStringList* _params = nullptr;
-  WList<WebControl>* _items = nullptr;
-
  public:
   WebControl(const char* tag, const char* params, ...) {
     _tag = new char[strlen_P(tag) + 1];
@@ -45,6 +38,11 @@ class WebControl {
     if (_params) delete _params;
     if (_items) delete _items; 
   }
+
+  typedef std::function<void(Print* stream)> WOnPrint;
+  void content(WOnPrint contentFactory) {
+    _contentFactory = contentFactory;
+  }  
 
   void content(const char* content) {
     if (_content) delete _content;
@@ -91,19 +89,32 @@ class WebControl {
   }
 
   virtual void createStyles(WStringList* styles) {
-    if (_items) _items->forEach([this, styles](WebControl* wc, const char* id) { wc->createStyles(styles); });
+    if (_items) _items->forEach([this, styles](int index, WebControl* wc, const char* id) { wc->createStyles(styles); });
   }
 
   virtual void createScripts(WStringList* scripts) {
-    if (_items) _items->forEach([this, scripts](WebControl* wc, const char* id) { wc->createScripts(scripts); });
+    if (_items) _items->forEach([this, scripts](int index, WebControl* wc, const char* id) { wc->createScripts(scripts); });
   }
 
   virtual void toString(Print* stream) {
     WHtml::command(stream, _tag, true, _params);
-    stream->print(_content);
-    if (_items) _items->forEach([this, stream](WebControl* wc, const char* id) { wc->toString(stream); });
+    if (_contentFactory) {
+      _contentFactory(stream);
+    } else {
+      stream->print(_content);
+    }  
+    if (_items) _items->forEach([this, stream](int index, WebControl* wc, const char* id) { wc->toString(stream); });
     if (_closing) WHtml::command(stream, _tag, false, nullptr);
   }
+
+ protected:
+  char* _tag = nullptr;
+  char* _content = nullptr;
+  WOnPrint _contentFactory;
+  bool _closing = true;
+  WStringList* _params = nullptr;
+  WList<WebControl>* _items = nullptr;
+
 };
 
 class WebDiv : public WebControl {
@@ -269,12 +280,10 @@ class WebTextField : public WebControl {
 
 class WebTextArea : public WebControl {
  public:
-  WebTextArea(const char* id, const char* title, const char* text, byte rows = 20) : WebControl(WC_DIV, nullptr) {    
+  WebTextArea(const char* id, const char* title, WOnPrint textFactory, byte rows = 20) : WebControl(WC_DIV, nullptr) {    
     this->add(new WebLabel(title, id));
     WebControl* input = new WebControl(WC_TEXTAREA, WC_ID, id, WC_NAME, id, WC_ROWS, String(rows).c_str(), nullptr);
-    if (text != nullptr) {
-      input->content(text);
-    }
+    input->content(textFactory);    
     this->add(input);
     
   }
@@ -317,19 +326,16 @@ class WebTable : public WebControl {
     WHtml::command(stream, WC_TABLE_DATA, false, nullptr);
   }
 
-  typedef std::function<void(Print*, T*, const char*)> TOnPrintRow;
   WebTable(IWIterable<T>* datas) : WebControl(WC_TABLE, nullptr) {
     _datas = datas;
   }  
 
   virtual ~WebTable() {
-    if (_datas) {
-      delete _datas;
-    }
   }
 
-  virtual void printRow(Print* stream, T* item, const char* id) {
-    if (_onPrintRow) _onPrintRow(stream, item, id);
+  typedef std::function<void(Print*, int, T*, const char*)> TOnPrintRow;
+  virtual void printRow(Print* stream, int index, T* item, const char* id) {
+    if (_onPrintRow) _onPrintRow(stream, index, item, id);
   }
 
   WebTable* onPrintRow(TOnPrintRow onPrintRow) {
@@ -339,15 +345,13 @@ class WebTable : public WebControl {
 
   virtual void toString(Print* stream) {             
     WHtml::command(stream, _tag, true, _params);    
-    _datas->forEach([this, stream](T* item, const char* id) { 
+    _datas->forEach([this, stream](int index, T* item, const char* id) { 
       WHtml::command(stream, WC_TABLE_ROW, true, nullptr);    
-      this->printRow(stream, item, id);      
+      this->printRow(stream, index, item, id);      
       WHtml::command(stream, WC_TABLE_ROW, false, nullptr);    
     });      
     if (_closing) WHtml::command(stream, _tag, false, nullptr);    
-  }
-
-    
+  }    
 
  private:
   IWIterable<T>* _datas; 

@@ -17,6 +17,8 @@ class WSettings {
     _readingFirstTime = true;
     EEPROM.begin(EEPROM_SIZE);
     _networkByte = EEPROM.read(0);
+    Serial.print("networkByte ");
+    Serial.println(_networkByte);
     _existsSettingsApplication = (EEPROM.read(1) == FLAG_SETTINGS);
   }
 
@@ -396,7 +398,7 @@ class WSettings {
   void _saveEEPROM(int networkSettingsFlag, WValue* specificSetting = nullptr) {
     EEPROM.begin(EEPROM_SIZE);
     _address = 2;
-    _items->forEach([this, specificSetting](WValue* setting, const char* id) { 
+    _items->forEach([this, specificSetting](int index, WValue* setting, const char* id) { 
       if ((specificSetting == nullptr) || (specificSetting == setting)) {
 				_save(_address, setting); 
 			}
@@ -410,6 +412,6 @@ class WSettings {
   }
 };
 
-WSettings* SETTINGS = new WSettings();
+WSettings* SETTINGS;
 
 #endif

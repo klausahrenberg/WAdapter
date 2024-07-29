@@ -240,7 +240,7 @@ class WHtml {
     if (!start) stream->print(WC_SLASH);
     stream->print(FPSTR(tag));
     if (keyValues != nullptr) {
-      keyValues->forEach([stream](const char* value, const char* id) {
+      keyValues->forEach([stream](int index, const char* value, const char* id) {
 
         stream->print(WC_SPACE);
         stream->print(id);               

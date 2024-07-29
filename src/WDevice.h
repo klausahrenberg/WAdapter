@@ -72,11 +72,11 @@ class WDevice {
   WProperty* getPropertyById(const char* propertyId) { return _properties->getById(propertyId); }
 
   virtual void toJsonValues(WJson* json, WPropertyVisibility visibility) {    
-    _properties->forEach([this, json, visibility](WProperty* property, const char* id) {    
+    _properties->forEach([this, json, visibility](int index, WProperty* property, const char* id) {    
       if (property->isVisible(visibility)) {
         property->toJsonValue(json, id);
       }
-      property->value()->changed(false);      
+      property->changed(false);      
     });
   }
 
@@ -99,7 +99,7 @@ class WDevice {
     json->endArray();
     // properties
     json->beginObject("properties");
-    _properties->forEach([this, json, result, visibility](WProperty* property, const char* id) {        
+    _properties->forEach([this, json, result, visibility](int index, WProperty* property, const char* id) {        
       if (property->isVisible(visibility)) {
         property->toJsonStructure(json, id, result.c_str());
       }      
@@ -110,10 +110,10 @@ class WDevice {
 
   virtual void loop(unsigned long now) {
     if (_inputs != nullptr) {
-      _inputs->forEach([this, now](WInput* input, const char* id){input->loop(now);});
+      _inputs->forEach([this, now](int index, WInput* input, const char* id){input->loop(now);});
     }
     if (_outputs != nullptr) {
-      _outputs->forEach([this, now](WOutput* output, const char* id){output->loop(now);});
+      _outputs->forEach([this, now](int index, WOutput* output, const char* id){output->loop(now);});
     }  
   }
 

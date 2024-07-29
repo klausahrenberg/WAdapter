@@ -171,24 +171,26 @@ struct WValue {
   
   bool asBool() { return (!_isNull ? _asBool : false); }
 
-  WValue* asBool(bool newValue) {
+  bool asBool(bool newValue) {
+    bool changed = false;
     if (_type == BOOLEAN) {
-      changed((_isNull) || (_asBool != newValue));
+      changed = ((_isNull) || (_asBool != newValue));
       _asBool = newValue;       
       _isNull = false; 
     }
-    return this;
+    return changed;
   }
 
   double asDouble() { return (!_isNull ? _asDouble : 0.0); }
 
-  WValue* asDouble(double newValue) {
+  bool asDouble(double newValue) {
+    bool changed = false;
     if (_type == DOUBLE) {
-      changed((_isNull) || (!isEqual(_asDouble, newValue, 0.01)));
+      changed = ((_isNull) || (!isEqual(_asDouble, newValue, 0.01)));
       _asDouble = newValue;      
       _isNull = false;
     }
-    return this;
+    return changed;
   }
 
   bool equalsDouble(double number) {
@@ -197,13 +199,14 @@ struct WValue {
 
   short asShort() { return (!_isNull ? _asShort : 0); }
 
-  WValue* asShort(short newValue) {
+  bool asShort(short newValue) {
+    bool changed = false;
     if (_type == SHORT) {
-      changed((_isNull) || (_asShort != newValue));
+      changed = ((_isNull) || (_asShort != newValue));
       _asShort = newValue;
       _isNull = false;
     }
-    return this;
+    return changed;
   }
 
   bool equalsShort(short number) {
@@ -212,13 +215,15 @@ struct WValue {
 
   int asInt() { return (!_isNull ? _asInt : 0); }
 
-  WValue* asInt(int newValue) {
+  bool asInt(int newValue) {
+    bool changed = false;
     if (_type == INTEGER) {
-      changed((_isNull) || (_asInt != newValue));
+      bool changed = false;
+      changed = ((_isNull) || (_asInt != newValue));
       _asInt = newValue;
       _isNull = false;
     }
-    return this;
+    return changed;
   }
 
   bool equalsInteger(int number) {
@@ -231,13 +236,14 @@ struct WValue {
 
   unsigned long asUnsignedLong() { return (!_isNull ? _asUnsignedLong : 0); }
 
-  WValue* asUnsignedLong(unsigned long newValue) {
+  bool asUnsignedLong(unsigned long newValue) {
+    bool changed = false;
     if (_type == UNSIGNED_LONG) {      
-      changed((_isNull) || (_asUnsignedLong != newValue));
+      changed = ((_isNull) || (_asUnsignedLong != newValue));
       _asUnsignedLong = newValue;
       _isNull = false;
     }
-    return this;
+    return changed;
   }
 
   bool equalsUnsignedLong(unsigned long number) {
@@ -250,13 +256,14 @@ struct WValue {
 
   byte asByte() { return (!_isNull ? _asByte : 0x00); }
 
-  WValue* asByte(byte newValue) {
+  bool asByte(byte newValue) {
+    bool changed = false;
     if (_type == BYTE) {
-      changed((_isNull) || (_asByte != newValue));
+      changed = ((_isNull) || (_asByte != newValue));
       _asByte = newValue;
       _isNull = false;
     }
-    return this;
+    return changed;
   }
 
   bool equalsByte(byte number) {
@@ -275,34 +282,35 @@ struct WValue {
     }  
   }
 
-  WValue* asByteArray(byte length, const byte* newValue) {
+  bool asByteArray(byte length, const byte* newValue) {
+    bool changed = false;
     if (_type == BYTE_ARRAY) {     
-      bool changed = ((_isNull) || (length != this->length()));
+      changed = ((_isNull) || (length != this->length()));
       if ((!_isNull) && (length != this->length())) {
         free(_asByteArray);
       }
       _asByteArray = (byte*)malloc(length + 1);
       _asByteArray[0] = length;
       for (int i = 0; i < length; i++) {
-        changed = ((changed) || (_asByteArray[i] != newValue[i]));
+        changed = ((changed) || (_asByteArray[i + 1] != newValue[i]));
         _asByteArray[i + 1] = newValue[i];
       }
       if (changed) {
         _isNull = false;
-        this->changed(true);        
       }
     }
-    return this;
+    return changed;
   }
 
   byte byteArrayValue(byte index) { return _asByteArray[index + 1]; }
 
-  WValue* byteArrayValue(byte index, byte newValue) {
+  bool byteArrayValue(byte index, byte newValue) {
+    bool changed = false;
     if (_type == BYTE_ARRAY) {      
-      changed((_isNull) || (_asByteArray[index + 1] != newValue));
+      changed = ((_isNull) || (_asByteArray[index + 1] != newValue));
       _asByteArray[index + 1] = newValue;            
     }
-    return this;
+    return changed;
   }
 
   bool byteArrayBitValue(byte byteIndex, byte bitIndex) {
@@ -326,10 +334,11 @@ struct WValue {
 
   char* asString() { return _asString; }
 
-  WValue* asString(const char* newValue) {
+  bool asString(const char* newValue) {
+    bool changed = false;
     if (_type == STRING) {
-      changed((_isNull) || (strcmp_P(_asString, newValue) != 0));      
-      if (_changed) {
+      changed = ((_isNull) || (strcmp_P(_asString, newValue) != 0));      
+      if (changed) {
         if (!_isNull) delete _asString;         
         _isNull = (newValue == nullptr);  
         if (!_isNull) {
@@ -338,24 +347,7 @@ struct WValue {
         }  
       }  
     }
-    /*if (_type == STRING) {
-      _changed = ((_isNull) || (strcmp_P(_asString, newValue) != 0));      
-      if (_changed) {
-        //if (_asString) free(_asString);
-        if (!_isNull) free(_asString);
-        if (newValue != nullptr) {
-          int l = strlen_P(newValue);
-          _asString = (char*)malloc(l + 1);
-          strncpy_P(_asString, newValue, l);
-          _asString[l] = '\0';
-          _isNull = false;
-        } else {
-          _asString = nullptr;
-          _isNull = true;
-        }
-      }
-    }*/
-    return this;
+    return changed;
   }
 
   bool equalsString(const char* toCompare) {
@@ -368,23 +360,14 @@ struct WValue {
   
   WList<WValue>* asList() { return _asList; };
 
-  WValue* asList(WList<WValue>* list) {
+  bool asList(WList<WValue>* list) {
+    bool changed = false;
     if (_type == LIST) {      
-      changed((_isNull) || (_asList != list));
+      changed = ((_isNull) || (_asList != list));
       _asList = list;
       _isNull = (_asList == nullptr);
     }    
-    return this;
-  }
-
-  bool changed() { return _changed; };
-
-  WValue* changed(bool changed) {
-    if (changed != _changed) {
-      _changed = changed;
-      if ((_changed) && (_toString)) delete _toString;
-    }  
-    return this;
+    return changed;
   }
 
   byte length() {
@@ -413,37 +396,15 @@ struct WValue {
     switch (_type) {
       case BOOLEAN: {
         v.toLowerCase();
-        asBool(v.equals(WC_TRUE));
-        return true;
+        return asBool(v.equals(WC_TRUE));
       }
-      case DOUBLE: {
-        asDouble(v.toDouble());
-        return true;
-      }
-      case SHORT: {
-        asShort(v.toInt());
-        return true;
-      }
-      case INTEGER: {
-        asInt(v.toInt());
-        return true;
-      }
-      case UNSIGNED_LONG: {
-        asUnsignedLong(v.toInt());
-        return true;
-      }
-      case BYTE: {
-        asByte(v.toInt());
-        return true;
-      }
-      case STRING: {
-        asString(value);
-        return true;
-      }
-      case BYTE_ARRAY: {
-        // tbi not implemented yet
-        return false;
-      }
+      case DOUBLE: return asDouble(v.toDouble());
+      case SHORT: return asShort(v.toInt());
+      case INTEGER: return asInt(v.toInt());
+      case UNSIGNED_LONG: return asUnsignedLong(v.toInt());
+      case BYTE: return asByte(v.toInt());
+      case STRING: return asString(value);
+      case BYTE_ARRAY: /* tbi not implemented yet*/ return false;      
     }
     return false;
   }
@@ -539,7 +500,6 @@ struct WValue {
  private:
   WDataType _type;
   bool _isNull = true;
-  bool _changed = false;
   const char* _toString = nullptr;
   union {
     bool _asBool;

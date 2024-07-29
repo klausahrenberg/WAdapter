@@ -48,6 +48,9 @@ class WNetwork {
   typedef std::function<void()> THandlerFunction;
 
   WNetwork(int statusLedPin, Print *debuggingOutput = &Serial) {
+
+    SETTINGS = new WSettings();
+
     WiFi.disconnect();
     WiFi.mode(WIFI_STA);
 #ifdef ESP8266
@@ -227,7 +230,7 @@ class WNetwork {
       bool allStatesComplete = true;
       bool stateUpd = false;
       // Loop Devices
-      _devices->forEach([this, now](WDevice *device, const char *id) {
+      _devices->forEach([this, now](int index, WDevice *device, const char *id) {
         device->loop(now);
         if ((this->isMqttConnected()) && (this->isSupportingMqtt()) &&
             ((device->lastStateNotify() == 0) ||
@@ -341,7 +344,7 @@ class WNetwork {
       bool aDeviceNeedsWebThings = _aDeviceNeedsWebThings();
       _webServer = new AsyncWebServer(80);
       _webServer->onNotFound(std::bind(&WNetwork::_handleUnknown, this, std::placeholders::_1));
-      _pages->forEach([this](WPageItem *pageItem, const char *id) { WPage::bind(_webServer, id, pageItem); });
+      _pages->forEach([this](int index, WPageItem *pageItem, const char *id) { WPage::bind(_webServer, id, pageItem); });
       _webServer->on("/events",
                      HTTP_POST,
                      std::bind(&WNetwork::_handleHttpEvent, this, std::placeholders::_1),
@@ -361,7 +364,7 @@ class WNetwork {
           LOG->notice(F("MDNS responder for Webthings started at '%s'"), _hostname);
         }
         _webServer->on(SLASH, HTTP_GET, std::bind(&WNetwork::_sendDevicesStructure, this, std::placeholders::_1));
-        _devices->forEach([this](WDevice *device, const char *id) { _bindWebServerCalls(device); });
+        _devices->forEach([this](int index, WDevice *device, const char *id) { _bindWebServerCalls(device); });
       //} else {
       //  _webServer->on(SLASH, HTTP_GET, std::bind(&WNetwork::_sendDevicesStructure, this, std::placeholders::_1));
       }
@@ -590,8 +593,8 @@ class WNetwork {
       } else {
         // Send every changed property only
         device->properties()->forEach(
-            [this, complete, topic](WProperty *property, const char *id) {
-              if ((complete) || (property->value()->changed())) {
+            [this, complete, topic](int index, WProperty *property, const char *id) {
+              if ((complete) || (property->changed())) {
                 if (property->isVisible(MQTT)) {
                   WStringStream *response = getResponseStream();
                   WJson json(response);
@@ -600,7 +603,7 @@ class WNetwork {
                       String(topic + SLASH + String(id)).c_str(),
                       response->c_str(), true);
                 }
-                property->value()->changed(false);
+                property->changed(false);
               }
             });
         if (complete) {
@@ -667,13 +670,19 @@ class WNetwork {
               if (topic.equals("")) {
                 // set all properties
                 LOG->notice(F("Try to set several properties for device %s"), device->id());
-                WJsonParser *parser = new WJsonParser();
-                if (parser->parse((char *)payload, device) == nullptr) {
-                  LOG->notice(F("No properties updated for device %s"), device->id());
-                } else {
-                  LOG->notice(F("One or more properties updated for device %s"), device->id());
+                WList<WValue>* properties = WJsonParser::asMap(_body_data);
+                LOG->debug("list items count: %d", properties->size());    
+                for (int i = 0; i < properties->size(); i++) {
+                  WValue* value = properties->get(i);
+                  const char* id = properties->getId(i);
+                  WProperty* property = device->getPropertyById(id);
+                  if (property != nullptr) {        
+                    LOG->notice(F("Set property '%s' to value '%s' (mqtt request)"), id, value->toString());
+                    property->parse(value->asString());                    
+                  } else {
+                    LOG->notice(F("Property '%s' not found for device %s"), id, device->id());  
+                  }
                 }
-                delete parser;
               } else {
                 // Try to find property and set single value
                 WProperty *property = device->getPropertyById(topic.c_str());
@@ -744,7 +753,7 @@ class WNetwork {
         LOG->notice(F("Connected to MQTT server."));
         //  Send device structure and status
         _mqttClient->subscribe("devices/#");
-        _devices->forEach([this](WDevice *device, const char *id) {
+        _devices->forEach([this](int index, WDevice *device, const char *id) {
           String topic("devices/");
           topic.concat(device->id());
           WStringStream *response = getResponseStream();
@@ -788,7 +797,7 @@ class WNetwork {
   void _notify(bool sendState) {
     _updateLedState();
     if (sendState) {
-      _devices->forEach([this](WDevice *device, const char *id) { _handleDeviceStateChange(device, false); });
+      _devices->forEach([this](int index, WDevice *device, const char *id) { _handleDeviceStateChange(device, false); });
     }
     if (_onNotify) {
       _onNotify();
@@ -950,7 +959,7 @@ class WNetwork {
       LOG->debug(F("SSID: '%s'; MQTT enabled: %T; MQTT server: '%s'; MQTT port: %s; WebServer started: %T"),
                  getSsid(), isSupportingMqtt(), mqttServer(), mqttPort(), isWebServerRunning());
     } else {
-      LOG->notice(F("Network settings are missing."));
+      LOG->notice(F("Network settings are missing"));
     }
   }
 
@@ -966,7 +975,7 @@ class WNetwork {
       AsyncResponseStream *response = request->beginResponseStream(APPLICATION_JSON);
       WJson *json = new WJson(response);
       json->beginArray();
-      _devices->forEach([this, json](WDevice *device, const char *id) {
+      _devices->forEach([this, json](int index, WDevice *device, const char *id) {
         if (device->isVisible(WEBTHING)) {
           LOG->notice(F("Send description for device %s "), device->id());
           device->toJsonStructure(json, "", WEBTHING);
@@ -1004,13 +1013,13 @@ class WNetwork {
     }
   }
 
-  void _getPropertyValue(AsyncWebServerRequest *request, WProperty *property) {
+  void _getPropertyValue(AsyncWebServerRequest *request, WProperty *property, const char* propertyId) {
     if (!isUpdateRunning()) {
       AsyncResponseStream *response =
           request->beginResponseStream(APPLICATION_JSON);
       WJson json(response);
       json.beginObject();
-      property->toJsonValue(&json);
+      property->toJsonValue(&json, propertyId);
       json.endObject();
       property->requested(true);
       request->send(response);
@@ -1036,19 +1045,25 @@ class WNetwork {
         request->send(422);
         return;
       }
-      WJsonParser parser;
-      WProperty *property = parser.parse(_body_data, device);
-      if (property != nullptr) {
-        // response new value
-        LOG->notice(F("Set property value: %s (web request) %s"), property->title(), _body_data);
+      WList<WValue>* properties = WJsonParser::asMap(_body_data);
+      LOG->debug("list items count: %d", properties->size());      
+      if (properties->size() > 0) {
         AsyncResponseStream *response = request->beginResponseStream(APPLICATION_JSON);
         WJson json(response);
         json.beginObject();
-        property->toJsonValue(&json /*tbi id, id!!!*/);
+        for (int i = 0; i < properties->size(); i++) {
+          WValue* value = properties->get(i);
+          const char* id = properties->getId(i);
+          WProperty* property = device->getPropertyById(id);
+          if (property != nullptr) {        
+            LOG->notice(F("Set property '%s' to value '%s' (web request)"), id, value->toString());
+            property->parse(value->asString());
+            property->toJsonValue(&json, id);
+          }
+        }
         json.endObject();
         request->send(response);
       } else {
-        // unable to parse json
         LOG->notice(F("unable to parse json: %s"), _body_data);
         _b_has_body_data = false;
         memset(_body_data, 0, sizeof(_body_data));
@@ -1075,11 +1090,10 @@ class WNetwork {
       LOG->notice(F("Bind webServer calls for device %s"), device->id());
       String deviceBase("/things/");
       deviceBase.concat(device->id());
-      device->properties()->forEach([this, device,
-                                     deviceBase](WProperty *property, const char *id) {
+      device->properties()->forEach([this, device, deviceBase](int index, WProperty *property, const char *id) {
         if (property->isVisible(WEBTHING)) {
           String propertyBase = deviceBase + "/properties/" + id;
-          _webServer->on(propertyBase.c_str(), HTTP_GET, std::bind(&WNetwork::_getPropertyValue, this, std::placeholders::_1, property));
+          _webServer->on(propertyBase.c_str(), HTTP_GET, std::bind(&WNetwork::_getPropertyValue, this, std::placeholders::_1, property, id));
           _webServer->on(propertyBase.c_str(), HTTP_PUT, std::bind(&WNetwork::_setPropertyValue, this, std::placeholders::_1, device),
                          NULL, std::bind(&WNetwork::_handleBody, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
         }
