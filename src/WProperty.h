@@ -81,6 +81,7 @@ class WProperty {
     if (!_readOnly) {
       _changed = _value->parse(value) || _changed;
       if (_changed) _notify();
+      return _changed;
     } else {
       return false;
     }    
@@ -114,6 +115,16 @@ class WProperty {
       if (_changed) _notify();
     }
     return this;
+  }
+
+  double asDouble() { _requestValue(); return _value->asDouble(); }
+
+  WProperty* asDouble(double value) {
+    if (!_readOnly) {
+      _changed = _value->asDouble(value) || _changed;
+      if (_changed) _notify();
+    }
+    return this;
   }  
 
   byte* asByteArray() { _requestValue(); return _value->asByteArray(); }
@@ -125,6 +136,8 @@ class WProperty {
     }
     return this;
   }  
+
+  byte byteArrayValue(byte index) { return _value->byteArrayValue(index); }
 
   bool readOnly() { return _readOnly; }
 
@@ -217,7 +230,7 @@ class WProperty {
       json->propertyBoolean("readOnly", true);
     }
     // unit
-    if (this->unit() != "") {
+    if (this->unit() != nullptr) {
       json->propertyString("unit", this->unit(), nullptr);
     }
     // multipleOf

@@ -17,7 +17,7 @@ public:
 	virtual void loop(unsigned long now) {
 		WOutput::loop(now);	
 		if ((this->isInitialized()) && (_levelAdjusting) && ((_levelLastUpdate == 0) || (_levelLastUpdate + 200 < now))) {
-			int targetLevel = (isOn() ? (_level != nullptr ? _level->value()->asInt() : 100) : 0);
+			int targetLevel = (isOn() ? (_level != nullptr ? _level->asInt() : 100) : 0);
 			if (targetLevel != _levelCurrent) {
 				if (_levelStep == 0) {
 					_levelStep = (targetLevel - _levelCurrent) / LEVEL_STEPS;

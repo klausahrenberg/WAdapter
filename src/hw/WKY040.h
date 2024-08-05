@@ -46,6 +46,8 @@ class WKY040 : public WSwitch {
       Serial.print(_pinClk);
       Serial.print(" rotating ");
       Serial.println(_irqEventLeft ? "left" : "right");
+
+      this->handleButtonOrSwitchPressed();
       
       if (_rotatingLeft != nullptr) {
         _rotatingLeft->asBool(_irqEventLeft);
@@ -70,6 +72,10 @@ class WKY040 : public WSwitch {
   bool _useInterrupt;
   bool _irqEventLeft, _irqEventRight;
   int _pinClk, _pinDt;
+
+  bool rotatedLeft() { return _irqEventLeft; }
+
+  bool rotatedRight() { return _irqEventRight; }
 
  protected:
   bool isInitialized() { return (WSwitch::isInitialized()) && (_pinClk != NO_PIN) && (_pinDt != NO_PIN); }

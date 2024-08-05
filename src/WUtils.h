@@ -72,7 +72,7 @@ class WUtils {
     va_list arg;
     va_start(arg, text);
     while (text) {
-      stream->print(text);
+      stream->printf_P(text);
       text = va_arg(arg, const char*);
     }
     va_end(arg);

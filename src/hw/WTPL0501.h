@@ -11,7 +11,10 @@ public:
       //pinMode(tpl_spi->pinSS(), OUTPUT);
     }
 
+    uint8_t resistance() { return _value; }
+
     void resistance(uint8_t value) {
+      _value = value;
       tpl_spi->beginTransaction(SPISettings(spiClockSpeed, MSBFIRST, SPI_MODE3));
       digitalWrite(tpl_spi->pinSS(), LOW); //pull SS slow to prep other end for transfer
       tpl_spi->transfer(value);
@@ -22,7 +25,7 @@ public:
 private:
     static const int spiClockSpeed = 100000; // should be less than 25M
     SPIClass* tpl_spi = nullptr;
-
+    uint8_t _value = 0;
 };
 
 #endif

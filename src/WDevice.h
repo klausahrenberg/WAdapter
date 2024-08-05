@@ -174,7 +174,7 @@ class WDevice {
     WIterator<WProperty>* it_p = _properties->iterator();
     while ((!result) && (it_p->hasNext())) {
       WProperty* p = it_p->next();
-      result = ((p->visibility() == WPropertyVisibility::WEBTHING) || (p->visibility() == WPropertyVisibility::ALL));
+      result = ((p->visibility() == WEBTHING) || (p->visibility() == ALL));
     } 
     return result;
   }  

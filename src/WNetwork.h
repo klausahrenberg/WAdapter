@@ -128,11 +128,7 @@ class WNetwork {
   }
 
   void onGotIP() {
-    LOG->notice(F("Station connected, IP: %s Host Name is '%s'"), this->getDeviceIp().toString().c_str(), _hostname);
-    // Connect, if webThing supported and Wifi is connected as client
-    if ((_supportsWebServer) && (isWifiConnected())) {
-      this->startWebServer();
-    }
+    LOG->notice(F("Station connected, IP: %s Host Name is '%s'"), this->getDeviceIp().toString().c_str(), _hostname);    
     _wifiConnectTrys = 0;
     _notify(false);
   }
@@ -209,6 +205,10 @@ class WNetwork {
       }
       // webServer->handleClient();
       result = ((!isSoftAP()) && (!isUpdateRunning()));
+    }
+    //WebServer
+    if ((isWifiConnected()) && (_supportsWebServer)) {
+      this->startWebServer();
     }
     // MQTT connection
     if ((isWifiConnected()) && (isSupportingMqtt()) &&
@@ -342,6 +342,7 @@ class WNetwork {
   void startWebServer() {
     if (!isWebServerRunning()) {
       bool aDeviceNeedsWebThings = _aDeviceNeedsWebThings();
+      
       _webServer = new AsyncWebServer(80);
       _webServer->onNotFound(std::bind(&WNetwork::_handleUnknown, this, std::placeholders::_1));
       _pages->forEach([this](int index, WPageItem *pageItem, const char *id) { WPage::bind(_webServer, id, pageItem); });
@@ -357,16 +358,16 @@ class WNetwork {
       if ((aDeviceNeedsWebThings) && (this->isWifiConnected())) {
         // Make the thing discoverable
         String mdnsName = String(_hostname);
-        if (MDNS.begin(mdnsName.c_str())) {
-          MDNS.addService("http", "tcp", 80);
-          MDNS.addServiceTxt("http", "tcp", "url", "http://" + mdnsName + SLASH);
-          MDNS.addServiceTxt("http", "tcp", "webthing", WC_TRUE);
+        if (MDNS.begin(mdnsName.c_str())) {    
+          MDNS.addService(WC_HTTP, WC_TCP, 80);
+          MDNS.addServiceTxt(WC_HTTP, WC_TCP, WC_URL, "http://" + mdnsName + SLASH);
+          MDNS.addServiceTxt(WC_HTTP, WC_TCP, "webthing", WC_TRUE);
           LOG->notice(F("MDNS responder for Webthings started at '%s'"), _hostname);
         }
         _webServer->on(SLASH, HTTP_GET, std::bind(&WNetwork::_sendDevicesStructure, this, std::placeholders::_1));
         _devices->forEach([this](int index, WDevice *device, const char *id) { _bindWebServerCalls(device); });
       //} else {
-      //  _webServer->on(SLASH, HTTP_GET, std::bind(&WNetwork::_sendDevicesStructure, this, std::placeholders::_1));
+      //  _webServer->on(SLASH, HTTP_GET, std::bind(&WNetwork::_sendDevicesStructure, this, std::placeholders::_1));      
       }
       // Start http server
       _webServer->begin();
