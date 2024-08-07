@@ -153,7 +153,7 @@ class WSettings {
     return setByte(id, value, 0);
   }
 
-  WValue* setByte(const char* id, byte b, byte max) {
+  WValue* setByte(const char* id, byte b, byte max = 0xFF) {
     WValue* value = _items->getById(id);
     if (value == nullptr) {
       value = new WValue(b);

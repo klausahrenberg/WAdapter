@@ -11,13 +11,13 @@ const byte LED_ON = HIGH;
 const byte LED_OFF = LOW;
 #endif
 
-class WLed : public WOutput {
+class WLed : public WOutput, public IWStorable {
  public:
   WLed(int ledPin, IWExpander* expander = nullptr) : WOutput(ledPin, OUTPUT, expander) {
     _blinkMillis = 0;    
     _inverted = false;
     if (this->isInitialized()) {
-      writeOutput(getOffLevel());
+      writeOutput(ledPin, getOffLevel());
     }
     _blinkOn = false;
     _lastBlinkOn = 0;
@@ -44,14 +44,14 @@ class WLed : public WOutput {
         if ((_lastBlinkOn == 0) || (now - _lastBlinkOn > _blinkMillis)) {
           _blinkOn = !_blinkOn;
           _lastBlinkOn = now;
-          writeOutput(_blinkOn ? getOnLevel() : getOffLevel());          
+          writeOutput(pin(), _blinkOn ? getOnLevel() : getOffLevel());          
         }
       } else {
-        writeOutput(getOnLevel());
+        writeOutput(pin(), getOnLevel());
       }
     } else {
       // switchoff
-      writeOutput(getOffLevel());
+      writeOutput(pin(), getOffLevel());
     }
   }
 

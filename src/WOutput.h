@@ -73,11 +73,11 @@ class WOutput {
 		_on->addListener([this]() { _updateOn();});
 	}  
 
-  void writeOutput(bool value) {
+  void writeOutput(uint8_t pin, bool value) {
     if (_expander == nullptr) {
-      digitalWrite(_pin, value);
+      digitalWrite(pin, value);
     } else {
-      _expander->writeOutput(_pin, value);
+      _expander->writeOutput(pin, value);
     } 
   }
 
