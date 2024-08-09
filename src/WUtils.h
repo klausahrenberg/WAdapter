@@ -514,8 +514,10 @@ struct WValue {
   };
 };
 
-#define BIT_CONFIG_INVERTED 0
-#define BIT_CONFIG_LINKSTATE 1
+#define BIT_CONFIG_PROPERTY_MQTT 1
+#define BIT_CONFIG_PROPERTY_WEBTHING 2
+#define BIT_CONFIG_INVERTED 5
+#define BIT_CONFIG_LINKSTATE 6
 
 class IWStorable {
 public:
