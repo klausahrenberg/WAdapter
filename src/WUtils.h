@@ -514,8 +514,12 @@ struct WValue {
   };
 };
 
+#define BIT_CONFIG_INVERTED 0
+#define BIT_CONFIG_LINKSTATE 1
+
 class IWStorable {
 public:
+  virtual void loadFromStore();
   //virtual void mode(uint8_t pin, uint8_t mode);
   //virtual bool readInput(uint8_t pin);
   //virtual void writeOutput(uint8_t pin, bool value);

@@ -1,24 +1,23 @@
 #ifndef W_OUTPUT_H
 #define W_OUTPUT_H
 
+#include "WSettings.h"
 #include "WProperty.h"
 #include "IWExpander.h"
 
-const int NO_PIN = -1;
-const int NO_MODE = -1;
+#define NO_PIN 0xFF
+#define NO_MODE NO_PIN
 
 class WProperty;
 
-class WOutput {
+class WOutput : public IWStorable {
  public:
-  WOutput(int pin, uint8_t mode = OUTPUT, IWExpander* expander = nullptr) {
-    _pin = pin;
+  WOutput(byte pin = NO_PIN, byte mode = OUTPUT, IWExpander* expander = nullptr) {    
+    _mode = mode;
     _expander = expander;
     _id = nullptr;
     _isOn = false;
-    if ((_pin != NO_PIN) && (mode != NO_MODE)) {
-      _pinMode(_pin, mode);      
-    }
+    this->pin(pin);
   }
 
   bool isOn() { return (_on != nullptr ? _on->asBool() : _isOn); }
@@ -32,7 +31,7 @@ class WOutput {
 
   const char* id() { return _id; }
 
-  void setId(const char* id) {
+  WOutput* id(const char* id) {
     if (_id != nullptr) {
       delete _id;
       _id = nullptr;
@@ -41,6 +40,7 @@ class WOutput {
       _id = new char[strlen(id) + 1];
       strcpy(_id, id);
     }  
+    return this;
   }
 
   bool equalsId(const char* id) {
@@ -81,25 +81,46 @@ class WOutput {
     } 
   }
 
+  int pin() { return _pin; }  
+
+  virtual WOutput* pin(byte pin) { 
+    if (_pin != pin) {
+      _pin = pin;
+      if ((_pin != NO_PIN) && (_mode != NO_MODE)) {
+        _pinMode(_pin, _mode);      
+      }
+      _pinChanged();
+    }
+    return this; 
+  }  
+
+  virtual void loadFromStore() {
+    Serial.println("load output parameters");   
+    WValue* gpio = SETTINGS->setByte(nullptr, NO_PIN);
+    Serial.println(gpio->asByte()); 
+    pin(gpio->asByte());
+    WValue* idx = SETTINGS->setString(nullptr, nullptr);
+    Serial.println(idx->asString()); 
+    id(idx->asString());
+  }  
+
  protected:
   WProperty* _on = nullptr;
   IWExpander* _expander;
 
-  virtual bool isInitialized() { return (_pin != NO_PIN); }
-
-  int pin() { return _pin; }  
-
+  virtual bool isInitialized() { return (_pin != NO_PIN); }  
 
   void _pinMode(uint8_t pin, uint8_t mode) {
     (_expander == nullptr ? pinMode(pin, mode) : _expander->mode(pin, mode));
   }
 
-  virtual void _updateOn() {
+  virtual void _updateOn() {}
 
-  };
+  virtual void _pinChanged() {}
 
  private:  
-  int _pin;
+  byte _pin = NO_PIN;
+  byte _mode = NO_MODE;
   bool _isOn;
   char* _id;
 };

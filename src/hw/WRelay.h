@@ -16,7 +16,17 @@ class WRelay : public WOutput {
 
   bool inverted() { return _inverted; }
 
-  //void setInverted(bool inverted) { this->inverted = inverted; }
+  WRelay* inverted(bool inverted) { 
+    _inverted = inverted; 
+    return this;
+  }
+
+  virtual void loadFromStore() {
+    WOutput::loadFromStore();
+    WValue* config = SETTINGS->setByte(nullptr, NO_PIN);
+    // Inverted
+    inverted(bitRead(config->asByte(), BIT_CONFIG_INVERTED));    
+  }
 
  protected:
   void _updateOn() {

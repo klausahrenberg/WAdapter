@@ -11,16 +11,10 @@ const byte LED_ON = HIGH;
 const byte LED_OFF = LOW;
 #endif
 
-class WLed : public WOutput, public IWStorable {
+class WLed : public WOutput {
  public:
-  WLed(int ledPin, IWExpander* expander = nullptr) : WOutput(ledPin, OUTPUT, expander) {
-    _blinkMillis = 0;    
-    _inverted = false;
-    if (this->isInitialized()) {
-      writeOutput(ledPin, getOffLevel());
-    }
-    _blinkOn = false;
-    _lastBlinkOn = 0;
+  WLed(int ledPin, IWExpander* expander = nullptr) : WOutput(ledPin, OUTPUT, expander) {    
+    
   }  
 
   void onChanged() {
@@ -28,7 +22,7 @@ class WLed : public WOutput, public IWStorable {
     _lastBlinkOn = 0;
   };
 
-  void setOn(bool ledOn, int blinkMillis) {
+  void setOn(bool ledOn, int blinkMillis = 0) {
     if ((this->isOn()) && (_blinkMillis != blinkMillis)) {
       WOutput::setOn(false);
     }
@@ -57,7 +51,21 @@ class WLed : public WOutput, public IWStorable {
 
   bool inverted() { return _inverted; }
 
-  void setInverted(bool inverted) { _inverted = inverted; }
+  WLed* inverted(bool inverted) { 
+    _inverted = inverted; 
+    return this;
+  }
+
+  bool linkState() { return _linkState; }
+
+  virtual void loadFromStore() {
+    WOutput::loadFromStore();
+    WValue* config = SETTINGS->setByte(nullptr, NO_PIN);
+    // Inverted
+    inverted(bitRead(config->asByte(), BIT_CONFIG_INVERTED));
+    // Linkstate
+    _linkState = bitRead(config->asByte(), BIT_CONFIG_LINKSTATE);    
+  }
 
  protected:
   byte getOnLevel() { return (!_inverted ? LED_ON : LED_OFF); }
@@ -69,9 +77,18 @@ class WLed : public WOutput, public IWStorable {
 
 	}
 
+  virtual void _pinChanged() {    
+    if (isInitialized()) {
+      writeOutput(pin(), getOffLevel());
+    }
+  } 
+
  private:
-  bool _blinkOn, _inverted;
-  unsigned long _blinkMillis, _lastBlinkOn;
+  bool _blinkOn = false;
+  bool _inverted = false;
+  bool _linkState = false;
+  unsigned long _blinkMillis = 0;
+  unsigned long _lastBlinkOn = 0;
 };
 
 #endif
