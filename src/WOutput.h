@@ -104,6 +104,10 @@ class WOutput : public IWStorable {
     id(idx->asString());
   }  
 
+  virtual void writeToStore() {
+    
+  }
+
  protected:
   WProperty* _on = nullptr;
   IWExpander* _expander;

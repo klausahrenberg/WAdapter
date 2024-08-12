@@ -522,9 +522,7 @@ struct WValue {
 class IWStorable {
 public:
   virtual void loadFromStore();
-  //virtual void mode(uint8_t pin, uint8_t mode);
-  //virtual bool readInput(uint8_t pin);
-  //virtual void writeOutput(uint8_t pin, bool value);
+  virtual void writeToStore();
 }; 
 
 #endif
