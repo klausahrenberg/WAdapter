@@ -50,8 +50,8 @@ class WDevice {
 
   const char* type() { return _type; }
 
-  void addProperty(WProperty* property, const char* id) {
-    property->deviceNotification(std::bind(&WDevice::onPropertyChange, this));
+  void addProperty(WProperty* property, const char* id) {    
+    property->deviceNotification(std::bind(&WDevice::onPropertyChange, this));    
     _properties->add(property, id);
   }
 

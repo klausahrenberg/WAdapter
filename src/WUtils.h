@@ -350,8 +350,8 @@ struct WValue {
     return changed;
   }
 
-  bool equalsString(const char* toCompare) {
-    return ((!_isNull) && (strcmp(_asString, toCompare) == 0));
+  bool equalsString(const char* toCompare) {    
+    return ((!_isNull) && (_type == STRING) && (strcmp_P(_asString, toCompare) == 0));
   }
 
   bool isStringEmpty() {

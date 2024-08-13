@@ -859,13 +859,16 @@ class WNetwork {
             break;
           }
           default:
+            LOG->debug(F("No operation. Send 200"));
             request->send(200);
         }
         delete result;
       } else {
+        LOG->debug(F("No page '%s' found."), formName);
         request->send(404);
       }
     } else {
+      LOG->debug(F("No form name found."));
       request->send(404);
     }
   }
