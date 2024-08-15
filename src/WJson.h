@@ -2,7 +2,6 @@
 #define _WJSON_H__
 
 #include "Arduino.h"
-#include "WUtils.h"
 
 class WJson {
 public:

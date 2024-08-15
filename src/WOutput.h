@@ -10,7 +10,7 @@
 
 class WProperty;
 
-class WOutput : public IWStorable {
+class WOutput : public IWStorable, public IWJsonable {
  public:
   WOutput(byte pin = NO_PIN, byte mode = OUTPUT, IWExpander* expander = nullptr) {    
     _mode = mode;
@@ -97,12 +97,18 @@ class WOutput : public IWStorable {
   virtual void loadFromStore() {
     Serial.println("load output parameters");   
     WValue* gpio = SETTINGS->setByte(nullptr, NO_PIN);
-    Serial.println(gpio->asByte()); 
     pin(gpio->asByte());
     WValue* idx = SETTINGS->setString(nullptr, nullptr);
-    Serial.println(idx->asString()); 
     id(idx->asString());
   }  
+
+  virtual void loadFromJson(WList<WValue>* list) {
+    WValue* gpio = list->getById(WC_GPIO);
+    pin(gpio != nullptr ? gpio->asByte() : NO_PIN);
+    SETTINGS->setByte(nullptr, pin());
+    WValue* idx = list->getById(WC_ID);
+    id(idx != nullptr ? idx->asString() : nullptr);
+  }
 
   virtual void writeToStore() {
     

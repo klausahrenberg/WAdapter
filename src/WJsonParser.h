@@ -3,7 +3,6 @@
 
 #include "Arduino.h"
 #include "WJson.h"
-#include "WLog.h"
 
 #define BUFFER_MAX_LENGTH 64
 

@@ -19,7 +19,6 @@
 #include "WDevice.h"
 #include "WJsonParser.h"
 #include "WList.h"
-#include "WLog.h"
 #include "WSettings.h"
 
 #include "WStringStream.h"

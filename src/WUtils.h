@@ -20,7 +20,10 @@ char WC_REND = WC__BASE[11];
 char WC_COMMA = WC__BASE[12];
 char WC_DPOINT = WC__BASE[13];
 char WC_QUOTE2 = WC__BASE[14];
+
+const static char WC_ID[] PROGMEM = "id";
 const static char WC_FALSE[] PROGMEM = "false";
+const static char WC_GPIO[] PROGMEM = "gpio";
 const static char WC_TRUE[] PROGMEM = "true";
 
 const static char* APPLICATION = nullptr;
@@ -169,7 +172,15 @@ struct WValue {
 
   bool isNull() { return _isNull; }
   
-  bool asBool() { return (!_isNull ? _asBool : false); }
+  bool asBool() {
+    if (!_isNull) {
+      switch (_type) {
+        case BOOLEAN : return _asBool;
+        case STRING : return equalsString(WC_TRUE);
+      }
+    }
+    return false; 
+  }
 
   bool asBool(bool newValue) {
     bool changed = false;
@@ -524,5 +535,10 @@ public:
   virtual void loadFromStore();
   virtual void writeToStore();
 }; 
+
+class IWJsonable {
+public:
+  virtual void loadFromJson(WList<WValue>* list);
+};            
 
 #endif

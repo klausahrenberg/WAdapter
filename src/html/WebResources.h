@@ -35,7 +35,6 @@ const static char WC_HISTORY_BACK[] PROGMEM = "history.back()";
 const static char WC_HTML[] PROGMEM = "html";
 const static char WC_HTTP[] PROGMEM = "http";
 const static char WC_HREF[] PROGMEM = "href";
-const static char WC_ID[] PROGMEM = "id";
 const static char WC_INFO[] PROGMEM = "info";
 const static char WC_INPUT[] PROGMEM = R"=====(input)=====";
 const static char WC_LABEL[] PROGMEM = R"=====(label)=====";
