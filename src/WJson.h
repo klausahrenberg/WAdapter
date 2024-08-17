@@ -71,6 +71,15 @@ public:
 		return *this;
 	}
 
+	WJson& propertyNull(const char* name) {
+		_ifSeparator();
+		_separatorAlreadyCalled = true;
+		memberName(name);
+		null();
+		_separatorAlreadyCalled = false;
+		return *this;
+	}
+
 	WJson& propertyInteger(const char* name, int value) {
 		_ifSeparator();
 		_separatorAlreadyCalled = true;
@@ -214,7 +223,8 @@ public:
 	}
 
 	WJson& null() {
-		_ifSeparator();
+		if (!_separatorAlreadyCalled)
+			_ifSeparator();
 		_stream->print("null");
 		return *this;
 	}

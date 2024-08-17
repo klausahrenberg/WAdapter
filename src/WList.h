@@ -118,16 +118,48 @@ class WList : public IWIterable<T> {
     while (node != nullptr) {        
       if ((node->id != nullptr) && (strcmp_P(node->id, id) == 0)) {
         WListNode<T>* nodeToDelete = node;
-          if (nodePrev == nullptr) {
-            _firstNode = nodeToDelete->next;
-          } else {
-            nodePrev->next = nodeToDelete->next;
-          }
-          node = nodeToDelete->next;
-          result = nodeToDelete->value;
-          delete nodeToDelete;        
+        if (nodePrev == nullptr) {
+          _firstNode = nodeToDelete->next;
+        } else {
+          nodePrev->next = nodeToDelete->next;
+        }
+        node = nodeToDelete->next;
+        result = nodeToDelete->value;
+        delete nodeToDelete;        
+      } else {
+        nodePrev = node;
+        node = node->next;        
       }
-      node = node->next;        
+    }
+    return result;
+  }
+
+  T* removeAllAfter(const char* id) {
+    T* result = nullptr;
+    WListNode<T>* nodePrev = nullptr;
+    WListNode<T>* node = _firstNode;
+    bool foundFirst = false;
+    while (node != nullptr) {        
+      if ((foundFirst) || ((node->id != nullptr) && (strcmp_P(node->id, id) == 0))) {
+        WListNode<T>* nodeToDelete = node;        
+        if (!foundFirst) {
+          if (nodePrev == nullptr) {
+            _firstNode = nullptr;
+          } else {
+            nodePrev->next = nullptr;
+          }
+          nodePrev = nullptr;
+          foundFirst = true;
+        } else {
+          nodePrev = node;
+        }
+        node = nodeToDelete->next;
+        result = nodeToDelete->value;
+        delete nodeToDelete;        
+      } else {     
+        nodePrev = node;
+        node = node->next;        
+      }
     }
     return result;
   }

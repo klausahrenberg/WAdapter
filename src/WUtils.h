@@ -22,9 +22,9 @@ char WC_DPOINT = WC__BASE[13];
 char WC_QUOTE2 = WC__BASE[14];
 
 const static char WC_ID[] PROGMEM = "id";
-const static char WC_FALSE[] PROGMEM = "false";
+const static char* WC_FALSE = "false";
 const static char WC_GPIO[] PROGMEM = "gpio";
-const static char WC_TRUE[] PROGMEM = "true";
+const static char* WC_TRUE = "true";
 
 const static char* APPLICATION = nullptr;
 const static char* VERSION = nullptr;
@@ -536,9 +536,12 @@ public:
   virtual void writeToStore();
 }; 
 
+class WJson;
+
 class IWJsonable {
 public:
   virtual void loadFromJson(WList<WValue>* list);
+  virtual void toJson(WJson* json);    
 };            
 
 #endif

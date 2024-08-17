@@ -71,17 +71,16 @@ class WDevice {
 
   WProperty* getPropertyById(const char* propertyId) { return _properties->getById(propertyId); }
 
-  virtual void toJsonValues(WJson* json, WPropertyVisibility visibility) {    
+  virtual void toJsonValues(WJson* json, WPropertyVisibility visibility) {        
     _properties->forEach([this, json, visibility](int index, WProperty* property, const char* id) {    
       if (property->isVisible(visibility)) {
         property->toJsonValue(json, id);
       }
       property->changed(false);      
-    });
+    });    
   }
 
-  virtual void toJsonStructure(WJson* json, const char* deviceHRef,
-                               WPropertyVisibility visibility) {
+  virtual void toJsonStructure(WJson* json, const char* deviceHRef, WPropertyVisibility visibility) {    
     json->beginObject();
     json->propertyString("id", this->id(), nullptr);
     json->propertyString("title", this->title(), nullptr);
@@ -98,7 +97,7 @@ class WDevice {
     }
     json->endArray();
     // properties
-    json->beginObject("properties");
+    json->beginObject("properties");    
     _properties->forEach([this, json, result, visibility](int index, WProperty* property, const char* id) {        
       if (property->isVisible(visibility)) {
         property->toJsonStructure(json, id, result.c_str());
@@ -149,9 +148,7 @@ class WDevice {
 
   void setMainDevice(bool mainDevice) { _mainDevice = mainDevice; }
 
-  WList<WProperty>* properties() {
-    return _properties;
-  }  
+  WList<WProperty>* properties() { return _properties; }  
 
   virtual WDeepSleepMode deepSleepMode() { return DEEP_SLEEP_NONE; }
 

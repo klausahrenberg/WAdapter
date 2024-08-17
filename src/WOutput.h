@@ -8,7 +8,7 @@
 #define NO_PIN 0xFF
 #define NO_MODE NO_PIN
 
-class WProperty;
+//class WProperty;
 
 class WOutput : public IWStorable, public IWJsonable {
  public:
@@ -69,8 +69,8 @@ class WOutput : public IWStorable, public IWJsonable {
   WProperty* on() { return _on; }
 
 	void on(WProperty* on) { 
-		_on = on; 
-		_on->addListener([this]() { _updateOn();});
+    this->_on = on; 
+    _on->addListener([this]() { _updateOn();});    
 	}  
 
   void writeOutput(uint8_t pin, bool value) {
@@ -102,16 +102,28 @@ class WOutput : public IWStorable, public IWJsonable {
     id(idx->asString());
   }  
 
+  virtual void writeToStore() {
+    
+  }
+
   virtual void loadFromJson(WList<WValue>* list) {
     WValue* gpio = list->getById(WC_GPIO);
     pin(gpio != nullptr ? gpio->asByte() : NO_PIN);
     SETTINGS->setByte(nullptr, pin());
     WValue* idx = list->getById(WC_ID);
     id(idx != nullptr ? idx->asString() : nullptr);
+    SETTINGS->setString(nullptr, id());
   }
 
-  virtual void writeToStore() {
-    
+  virtual void toJson(WJson* json) {
+    Serial.print("id is ");
+    Serial.println(id() != nullptr ? id() : "n.a." );
+    json->propertyString(WC_ID, id(), nullptr);
+    if (pin() != NO_PIN) {
+      json->propertyByte(WC_GPIO, pin());
+    } else {
+      json->propertyNull(WC_GPIO);
+    }
   }
 
  protected:

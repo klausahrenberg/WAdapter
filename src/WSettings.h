@@ -17,8 +17,6 @@ class WSettings {
     _readingFirstTime = true;
     EEPROM.begin(EEPROM_SIZE);
     _networkByte = EEPROM.read(0);
-    Serial.print("networkByte ");
-    Serial.println(_networkByte);
     _existsSettingsApplication = (EEPROM.read(1) == FLAG_SETTINGS);
   }
 
@@ -126,6 +124,8 @@ class WSettings {
       }
     }
   }
+
+  void removeAllAfter(const char* id) { _items->removeAllAfter(id); }
 
   void remove(const char* id) { _items->removeById(id); }
 

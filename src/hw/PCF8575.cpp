@@ -607,11 +607,6 @@ void PCF8575::readBuffer(bool force){
 ////	DEBUG_PRINT(" value ");
 ////	DEBUG_PRINTLN(value);
 //
-////	Serial.print(" --> ");
-////	Serial.println(writeByteBuffered);
-////	Serial.println((uint8_t) writeByteBuffered);
-////	Serial.println((uint8_t) (writeByteBuffered >> 8));
-//
 //	writeByteBuffered = writeByteBuffered & writeMode;
 //	_wire->write((uint8_t) writeByteBuffered);
 //	_wire->write((uint8_t) (writeByteBuffered >> 8));

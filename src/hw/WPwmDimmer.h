@@ -39,7 +39,6 @@ protected:
 	virtual void _writeLevelCurrent(int levelCurrent) {
 		WDimmer::_writeLevelCurrent(levelCurrent);
 		levelCurrent = levelCurrent * 0x3FF / 100;
-		Serial.println(levelCurrent);
 		#ifdef ESP8266
 			analogWrite(this->pin(), levelCurrent);
 		#elif ESP32

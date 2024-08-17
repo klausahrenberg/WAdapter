@@ -357,11 +357,12 @@ class WNetwork {
       // WebThings
       if ((aDeviceNeedsWebThings) && (this->isWifiConnected())) {
         // Make the thing discoverable
-        String mdnsName = String(_hostname);
+        String mdnsName = String(_hostname);        
         if (MDNS.begin(mdnsName.c_str())) {    
           MDNS.addService(WC_HTTP, WC_TCP, 80);
           MDNS.addServiceTxt(WC_HTTP, WC_TCP, WC_URL, "http://" + mdnsName + SLASH);
-          MDNS.addServiceTxt(WC_HTTP, WC_TCP, "webthing", WC_TRUE);
+          //tbi for any reasons it crashes when using progmem variables, like WC_HTTP, WC_TCP,..
+          MDNS.addServiceTxt("http", "tcp", "webthing", "true");
           LOG->notice(F("MDNS responder for Webthings started at '%s'"), _hostname);
         }
         //root page sends json structure for webthing
@@ -800,7 +801,7 @@ class WNetwork {
   void _notify(bool sendState) {
     _updateLedState();
     if (sendState) {
-      _devices->forEach([this](int index, WDevice *device, const char *id) { _handleDeviceStateChange(device, false); });
+      _devices->forEach([this](int index, WDevice *device, const char *id) { _handleDeviceStateChange(device, false); });      
     }
     if (_onNotify) {
       _onNotify();
