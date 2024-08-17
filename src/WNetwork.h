@@ -345,7 +345,7 @@ class WNetwork {
       
       _webServer = new AsyncWebServer(80);
       _webServer->onNotFound(std::bind(&WNetwork::_handleUnknown, this, std::placeholders::_1));
-      _pages->forEach([this](int index, WPageItem *pageItem, const char *id) { WPage::bind(_webServer, id, pageItem); });
+      _pages->forEach([this](int index, WPageItem *pageItem, const char *id) { WPage::bind(_webServer, pageItem, id); });
       _webServer->on("/events",
                      HTTP_POST,
                      std::bind(&WNetwork::_handleHttpEvent, this, std::placeholders::_1),
@@ -364,10 +364,12 @@ class WNetwork {
           MDNS.addServiceTxt(WC_HTTP, WC_TCP, "webthing", WC_TRUE);
           LOG->notice(F("MDNS responder for Webthings started at '%s'"), _hostname);
         }
+        //root page sends json structure for webthing
         _webServer->on(SLASH, HTTP_GET, std::bind(&WNetwork::_sendDevicesStructure, this, std::placeholders::_1));
         _devices->forEach([this](int index, WDevice *device, const char *id) { _bindWebServerCalls(device); });
-      //} else {
-      //  _webServer->on(SLASH, HTTP_GET, std::bind(&WNetwork::_sendDevicesStructure, this, std::placeholders::_1));      
+      } else if (_pages->size() > 0) {
+        //root page sends config page
+        WPage::bind(_webServer, _pages->get(0));
       }
       // Start http server
       _webServer->begin();

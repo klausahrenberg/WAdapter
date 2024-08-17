@@ -48,12 +48,12 @@ class WPage {
   void onPrintPage(TPrintPage onPrintPage) { _onPrintPage = onPrintPage; }
   void onSubmitPage(TSubmitPage onSubmitPage) { _onSubmitPage = onSubmitPage; }
 
-  static void bind(AsyncWebServer* webServer, const char* id, WPageItem* pi) {    
-    String target = "/" + String(id);    
-    webServer->on(target.c_str(), HTTP_GET, std::bind(&WPage::handleGet, std::placeholders::_1, id, pi));    
+  static void bind(AsyncWebServer* webServer, WPageItem* pi, const char* id = nullptr) {    
+    String target = "/" + (id != nullptr ? String(id) : "");    
+    webServer->on(target.c_str(), HTTP_GET, std::bind(&WPage::handleGet, std::placeholders::_1, pi));    
   }
 
-  static void handleGet(AsyncWebServerRequest* request, const char* id, WPageItem* pi) {
+  static void handleGet(AsyncWebServerRequest* request, WPageItem* pi) {
     AsyncResponseStream* stream = request->beginResponseStream(WC_TEXT_HTML);
     WPage* page = pi->initializer();
     page->toString(stream);
