@@ -125,7 +125,8 @@ class WList : public IWIterable<T> {
         }
         node = nodeToDelete->next;
         result = nodeToDelete->value;
-        delete nodeToDelete;        
+        delete nodeToDelete;
+        _size--;
       } else {
         nodePrev = node;
         node = node->next;        
@@ -156,6 +157,7 @@ class WList : public IWIterable<T> {
         node = nodeToDelete->next;
         result = nodeToDelete->value;
         delete nodeToDelete;        
+        _size--;
       } else {     
         nodePrev = node;
         node = node->next;        

@@ -68,6 +68,8 @@ class WSettings {
 
   void add(WValue* value, int index, const char* id, bool networkSetting) {
     if (!_items->exists(value)) {
+      Serial.print("insert ");      
+      Serial.println(value->toString());
       _items->insert(value, index, id);
       // read stored values
       if ((isReadingFirstTime()) &&
@@ -122,6 +124,9 @@ class WSettings {
         }
         _address += this->getLengthInEEPROM(value);
       }
+    } else {
+      Serial.print("no insert ");      
+      Serial.println(value->toString());
     }
   }
 
@@ -395,6 +400,12 @@ class WSettings {
     EEPROM.begin(EEPROM_SIZE);
     _address = 2;
     _items->forEach([this, specificSetting](int index, WValue* setting, const char* id) { 
+      Serial.print("save ");
+      if (id != nullptr) {
+        Serial.print(id);
+        Serial.print(" / ");
+      }
+      Serial.println(setting->toString());
       if ((specificSetting == nullptr) || (specificSetting == setting)) {
 				_save(_address, setting); 
 			}

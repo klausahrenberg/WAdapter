@@ -111,7 +111,11 @@ class WOutput : public IWStorable, public IWJsonable {
     pin(gpio != nullptr ? gpio->asByte() : NO_PIN);
     SETTINGS->setByte(nullptr, pin());
     WValue* idx = list->getById(WC_ID);
+    Serial.print("id in json is ");
+    Serial.println(idx != nullptr ? idx->asString() : "n.a." );
+    
     id(idx != nullptr ? idx->asString() : nullptr);
+     Serial.println(id() != nullptr ? id() : "n.a." );
     SETTINGS->setString(nullptr, id());
   }
 
