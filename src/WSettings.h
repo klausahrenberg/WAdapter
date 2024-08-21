@@ -69,6 +69,10 @@ class WSettings {
   void add(WValue* value, int index, const char* id, bool networkSetting) {
     if (!_items->exists(value)) {
       Serial.print("insert ");      
+      if (id != nullptr) {
+        Serial.print(id);
+        Serial.print(" / ");
+      }
       Serial.println(value->toString());
       _items->insert(value, index, id);
       // read stored values
@@ -130,7 +134,27 @@ class WSettings {
     }
   }
 
-  void removeAllAfter(const char* id) { _items->removeAllAfter(id); }
+  void removeAllAfter(const char* id) {
+    int index = _items->indexOfId(id);
+    if (index > -1) {
+      for (int i = _items->size() - 1; i > index; i--) {
+        _items->remove(i);
+      }  
+    }  
+
+  Serial.println("---------");
+  _items->forEach([this](int index, WValue* setting, const char* id) { 
+      Serial.print("save ");
+      if (id != nullptr) {
+        Serial.print(id);
+        Serial.print(" / ");
+      }
+      Serial.println(setting->toString());
+      		
+		});
+  Serial.println(">---------");
+  
+  }
 
   void remove(const char* id) { _items->removeById(id); }
 

@@ -20,6 +20,11 @@ class WOutput : public IWStorable, public IWJsonable {
     this->pin(pin);
   }
 
+  virtual ~WOutput() {
+    if (_pin) delete _pin;
+    if (_id) delete _id;
+  }
+
   bool isOn() { return (_on != nullptr ? _on->asBool() : _isOn); }
 
   void setOn(bool isOn) {
@@ -29,22 +34,16 @@ class WOutput : public IWStorable, public IWJsonable {
     }
   }    
 
-  const char* id() { return _id; }
+  const char* id() { return (_id != nullptr ? _id->asString() : nullptr); }
 
   WOutput* id(const char* id) {
-    if (_id != nullptr) {
-      delete _id;
-      _id = nullptr;
-    }  
-    if (id != nullptr) {
-      _id = new char[strlen(id) + 1];
-      strcpy(_id, id);
-    }  
+    if ((_id == nullptr) && (id != nullptr)) _id = new WValue(STRING);
+    _id->asString(id);
     return this;
   }
 
   bool equalsId(const char* id) {
-    return ((id != nullptr) && (_id != nullptr) && (strcmp(_id, id) == 0));
+    return ((id != nullptr) && (_id != nullptr) && (_id->equalsString(id)));
   }
 
   virtual void loop(unsigned long now) {}
@@ -81,25 +80,26 @@ class WOutput : public IWStorable, public IWJsonable {
     } 
   }
 
-  int pin() { return _pin; }  
+  int pin() { return _pin->asByte(); }  
 
-  virtual WOutput* pin(byte pin) { 
-    if (_pin != pin) {
-      _pin = pin;
-      if ((_pin != NO_PIN) && (_mode != NO_MODE)) {
-        _pinMode(_pin, _mode);      
-      }
+  virtual WOutput* pin(byte pin) {
+    bool changed = (_pin->asByte() != pin); 
+    _pin->asByte(pin);
+    if ((_pin->asByte() != NO_PIN) && (_mode != NO_MODE)) {
+      _pinMode(_pin->asByte(), _mode);      
+    }
+    if (changed) {  
       _pinChanged();
     }
     return this; 
   }  
 
   virtual void loadFromStore() {
-    Serial.println("load output parameters");   
-    WValue* gpio = SETTINGS->setByte(nullptr, NO_PIN);
-    pin(gpio->asByte());
-    WValue* idx = SETTINGS->setString(nullptr, nullptr);
-    id(idx->asString());
+    Serial.println("add pin");
+    SETTINGS->add(_pin, nullptr); 
+    pin(_pin->asByte());
+    if (_id == nullptr) _id = new WValue(STRING);
+    SETTINGS->add(_id, nullptr);
   }  
 
   virtual void writeToStore() {
@@ -108,15 +108,17 @@ class WOutput : public IWStorable, public IWJsonable {
 
   virtual void loadFromJson(WList<WValue>* list) {
     WValue* gpio = list->getById(WC_GPIO);
+    Serial.print("id in json is ");
+    Serial.println(gpio != nullptr ? gpio->asByte() : 23 );
     pin(gpio != nullptr ? gpio->asByte() : NO_PIN);
-    SETTINGS->setByte(nullptr, pin());
+    //SETTINGS->setByte(nullptr, pin());
     WValue* idx = list->getById(WC_ID);
     Serial.print("id in json is ");
     Serial.println(idx != nullptr ? idx->asString() : "n.a." );
     
     id(idx != nullptr ? idx->asString() : nullptr);
-     Serial.println(id() != nullptr ? id() : "n.a." );
-    SETTINGS->setString(nullptr, id());
+    Serial.println(id() != nullptr ? id() : "n.a." );
+    //SETTINGS->setString(nullptr, id());
   }
 
   virtual void toJson(WJson* json) {
@@ -134,7 +136,7 @@ class WOutput : public IWStorable, public IWJsonable {
   WProperty* _on = nullptr;
   IWExpander* _expander;
 
-  virtual bool isInitialized() { return (_pin != NO_PIN); }  
+  virtual bool isInitialized() { return (pin() != NO_PIN); }  
 
   void _pinMode(uint8_t pin, uint8_t mode) {
     (_expander == nullptr ? pinMode(pin, mode) : _expander->mode(pin, mode));
@@ -145,10 +147,10 @@ class WOutput : public IWStorable, public IWJsonable {
   virtual void _pinChanged() {}
 
  private:  
-  byte _pin = NO_PIN;
+  WValue* _pin = new WValue((byte) NO_PIN);
   byte _mode = NO_MODE;
   bool _isOn;
-  char* _id;
+  WValue* _id = nullptr;
 };
 
 #endif

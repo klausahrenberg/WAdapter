@@ -17,6 +17,10 @@ class WLed : public WOutput {
     
   }  
 
+  virtual ~WLed() {
+    if (_config) delete _config;
+  }
+
   void onChanged() {
     _blinkOn = false;
     _lastBlinkOn = 0;
@@ -49,26 +53,24 @@ class WLed : public WOutput {
     }
   }
 
-  bool inverted() { return _inverted; }
+  bool inverted() { return bitRead(_config->asByte(), BIT_CONFIG_INVERTED); }
 
   WLed* inverted(bool inverted) { 
-    _inverted = inverted; 
+    byte b = _config->asByte();
+    bitWrite(b, BIT_CONFIG_INVERTED, inverted);
+    _config->asByte(b);
     return this;
   }
 
-  bool linkState() { return _linkState; }
+  bool linkState() { return bitRead(_config->asByte(), BIT_CONFIG_LINKSTATE); }
 
   virtual void loadFromStore() {
     WOutput::loadFromStore();
-    WValue* config = SETTINGS->setByte(nullptr, NO_PIN);
-    // Inverted
-    inverted(bitRead(config->asByte(), BIT_CONFIG_INVERTED));
-    // Linkstate
-    _linkState = bitRead(config->asByte(), BIT_CONFIG_LINKSTATE);    
+    SETTINGS->add(_config, nullptr);    
   }
 
  protected:
-  byte getOnLevel() { return (!_inverted ? LED_ON : LED_OFF); }
+  byte getOnLevel() { return (!inverted() ? LED_ON : LED_OFF); }
 
   byte getOffLevel() { return !getOnLevel(); }
 
@@ -84,9 +86,10 @@ class WLed : public WOutput {
   } 
 
  private:
+  WValue* _config = new WValue((byte) 0b00000000);
   bool _blinkOn = false;
-  bool _inverted = false;
-  bool _linkState = false;
+  //bool _inverted = false;
+  //bool _linkState = false;
   unsigned long _blinkMillis = 0;
   unsigned long _lastBlinkOn = 0;
 };

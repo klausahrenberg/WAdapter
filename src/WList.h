@@ -111,59 +111,28 @@ class WList : public IWIterable<T> {
     }
   }
 
-  T* removeById(const char* id) {
-    T* result = nullptr;
-    WListNode<T>* nodePrev = nullptr;
+  int indexOfId(const char* id) {
     WListNode<T>* node = _firstNode;
-    while (node != nullptr) {        
+    int index = 0;
+    while (node != nullptr) {
       if ((node->id != nullptr) && (strcmp_P(node->id, id) == 0)) {
-        WListNode<T>* nodeToDelete = node;
-        if (nodePrev == nullptr) {
-          _firstNode = nodeToDelete->next;
-        } else {
-          nodePrev->next = nodeToDelete->next;
-        }
-        node = nodeToDelete->next;
-        result = nodeToDelete->value;
-        delete nodeToDelete;
-        _size--;
-      } else {
-        nodePrev = node;
-        node = node->next;        
+        return index;
       }
-    }
-    return result;
+      index++;
+      node = node->next;
+    }    
+    return -1;
   }
 
-  T* removeAllAfter(const char* id) {
-    T* result = nullptr;
-    WListNode<T>* nodePrev = nullptr;
-    WListNode<T>* node = _firstNode;
-    bool foundFirst = false;
-    while (node != nullptr) {        
-      if ((foundFirst) || ((node->id != nullptr) && (strcmp_P(node->id, id) == 0))) {
-        WListNode<T>* nodeToDelete = node;        
-        if (!foundFirst) {
-          if (nodePrev == nullptr) {
-            _firstNode = nullptr;
-          } else {
-            nodePrev->next = nullptr;
-          }
-          nodePrev = nullptr;
-          foundFirst = true;
-        } else {
-          nodePrev = node;
-        }
-        node = nodeToDelete->next;
-        result = nodeToDelete->value;
-        delete nodeToDelete;        
-        _size--;
-      } else {     
-        nodePrev = node;
-        node = node->next;        
-      }
+  T* removeById(const char* id) {
+    int index = indexOfId(id);
+    if (index > -1) {
+      T* result = get(index);
+      remove(index, false);
+      return result;
+    } else {
+      return nullptr;
     }
-    return result;
   }
 
   bool removeIf(TOnCompare comparator) {
@@ -272,10 +241,6 @@ class WList : public IWIterable<T> {
 
   bool empty() { return (_size == 0); }
 
-  WIterator<T>* iterator() {
-    return new WIterator<T>(this);
-  }
-
   WListNode<T>* _getNode(int index) {
     if ((index >= 0) && (index < _size)) {
       WListNode<T>* node = _firstNode;
@@ -315,40 +280,6 @@ class WList : public IWIterable<T> {
   }
 
 };  
-
-template <typename T>
-class WIterator {
- public: 
-  WIterator(WList<T>* list) {
-    _list = list;
-    _currentNode = nullptr;
-    _initial = true;
-  }
-
-  virtual ~WIterator() {
-    _list = nullptr;
-    _currentNode = nullptr;   
-  }
-
-  bool hasNext() {
-    return (((_initial) && (_list->_getNode(0) != nullptr)) || (_currentNode != nullptr));    
-  }
-
-  T* next() {
-    if (_initial) {
-      _currentNode = _list->_getNode(0);
-      _initial = false;
-    }
-    T* result = _currentNode->value;    
-    _currentNode = _currentNode->next;    
-    return result;
-  }
-
- private:
-  WList<T>* _list; 
-  WListNode<T>* _currentNode;
-  bool _initial;  
-};
 
 class WStringList : public WList<const char> {
  public:

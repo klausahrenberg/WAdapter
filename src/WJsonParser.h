@@ -419,6 +419,13 @@ class WJsonParser {
   void _endNumber() {
     if (_currentKey != "") {
       _buffer[_bufferPos] = '\0';
+
+      double t = atof(_buffer);
+
+      Serial.print("end number ");
+      Serial.print(_currentKey.c_str());
+      Serial.print(" / ");
+      Serial.println(t);
       _processKeyValue(_currentKey.c_str(), _buffer);
     }
     _bufferPos = 0;

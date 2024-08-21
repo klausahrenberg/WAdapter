@@ -556,13 +556,7 @@ class WNetwork {
   bool _waitForWifiConnection;
 
   bool _aDeviceNeedsWebThings() {
-    bool result = false;
-    WIterator<WDevice> *it_d = _devices->iterator();
-    while ((!result) && (it_d->hasNext())) {
-      WDevice *d = it_d->next();
-      result = d->needsWebThings();
-    }
-    return result;
+    return (_devices->getIf([] (WDevice* d) { return d->needsWebThings();}) != nullptr);
   }
 
   void _handleDeviceStateChange(WDevice *device, bool complete) {

@@ -224,7 +224,15 @@ struct WValue {
     return ((!_isNull) && (_asShort == number));
   }
 
-  int asInt() { return (!_isNull ? _asInt : 0); }
+  int asInt() { 
+    if (!_isNull) {
+      switch (_type) {
+        case INTEGER : return _asInt;
+        case STRING : return atoi(_asString);
+      }
+    }
+    return 0; 
+  }
 
   bool asInt(int newValue) {
     bool changed = false;
@@ -265,7 +273,15 @@ struct WValue {
     return ((!_isNull) && (_asUnsignedLong >= lowerLimit) && (_asUnsignedLong < upperLimit));
   }
 
-  byte asByte() { return (!_isNull ? _asByte : 0x00); }
+  byte asByte() { 
+    if (!_isNull) {
+      switch (_type) {
+        case BYTE : return _asByte;
+        case STRING : return atoi(_asString);
+      }
+    }
+    return 0x00;  
+  }
 
   bool asByte(byte newValue) {
     bool changed = false;

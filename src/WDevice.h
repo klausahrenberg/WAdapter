@@ -167,13 +167,7 @@ class WDevice {
   void stateNotifyInterval(unsigned long stateNotifyInterval) { _stateNotifyInterval = stateNotifyInterval; }
 
   bool needsWebThings() {
-    bool result = false;
-    WIterator<WProperty>* it_p = _properties->iterator();
-    while ((!result) && (it_p->hasNext())) {
-      WProperty* p = it_p->next();
-      result = ((p->visibility() == WEBTHING) || (p->visibility() == ALL));
-    } 
-    return result;
+    return (_properties->getIf([] (WProperty* p) { return ((p->visibility() == WEBTHING) || (p->visibility() == ALL));}) != nullptr);
   }  
 
  protected:  
