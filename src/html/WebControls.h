@@ -285,7 +285,6 @@ class WebTextArea : public WebControl {
     WebControl* input = new WebControl(WC_TEXTAREA, WC_ID, id, WC_NAME, id, WC_ROWS, String(rows).c_str(), nullptr);
     input->content(textFactory);    
     this->add(input);
-    
   }
 
 };

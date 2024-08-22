@@ -55,18 +55,35 @@ class WLed : public WOutput {
 
   bool inverted() { return bitRead(_config->asByte(), BIT_CONFIG_INVERTED); }
 
-  WLed* inverted(bool inverted) { 
-    byte b = _config->asByte();
-    bitWrite(b, BIT_CONFIG_INVERTED, inverted);
-    _config->asByte(b);
+  WLed* inverted(bool inverted) {
+    _config->asBit(BIT_CONFIG_INVERTED, inverted);
     return this;
   }
 
   bool linkState() { return bitRead(_config->asByte(), BIT_CONFIG_LINKSTATE); }
 
+  WLed* linkState(bool linkState) {
+    _config->asBit(BIT_CONFIG_LINKSTATE, linkState);
+    return this;
+  }
+
   virtual void loadFromStore() {
     WOutput::loadFromStore();
     SETTINGS->add(_config, nullptr);    
+  }
+
+  virtual void loadFromJson(WList<WValue>* list) {
+    WOutput::loadFromJson(list);
+    WValue* v = list->getById(WC_INVERTED);
+    inverted(v != nullptr ? v->asBool() : false);
+    v = list->getById(WC_LINK_STATE);
+    linkState(v != nullptr ? v->asBool() : false);    
+  }
+
+  virtual void toJson(WJson* json) {
+    WOutput::toJson(json);    
+    json->propertyBoolean(WC_INVERTED, inverted());
+    json->propertyBoolean(WC_LINK_STATE, linkState());
   }
 
  protected:
