@@ -8,21 +8,22 @@
 #define NO_PIN 0xFF
 #define NO_MODE NO_PIN
 
+#define BIT_CONFIG_INVERTED 5
+#define BIT_CONFIG_LINKSTATE 6
+
 //class WProperty;
 
-class WOutput : public IWStorable, public IWJsonable {
+class WOutput : public IWJsonable {
  public:
   WOutput(byte pin = NO_PIN, byte mode = OUTPUT, IWExpander* expander = nullptr) {    
     _mode = mode;
     _expander = expander;
-    _id = nullptr;
     _isOn = false;
     this->pin(pin);
   }
 
   virtual ~WOutput() {
     if (_pin) delete _pin;
-    if (_id) delete _id;
   }
 
   bool isOn() { return (_on != nullptr ? _on->asBool() : _isOn); }
@@ -33,18 +34,6 @@ class WOutput : public IWStorable, public IWJsonable {
       _updateOn();      
     }
   }    
-
-  const char* id() { return (_id != nullptr ? _id->asString() : nullptr); }
-
-  WOutput* id(const char* id) {
-    if ((_id == nullptr) && (id != nullptr)) _id = new WValue(STRING);
-    _id->asString(id);
-    return this;
-  }
-
-  bool equalsId(const char* id) {
-    return ((id != nullptr) && (_id != nullptr) && (_id->equalsString(id)));
-  }
 
   virtual void loop(unsigned long now) {}
 
@@ -94,37 +83,17 @@ class WOutput : public IWStorable, public IWJsonable {
     return this; 
   }  
 
-  virtual void loadFromStore() {
+  virtual void registerSettings() {
     Serial.println("add pin");
     SETTINGS->add(_pin, nullptr); 
     pin(_pin->asByte());
-    if (_id == nullptr) _id = new WValue(STRING);
-    SETTINGS->add(_id, nullptr);
   }  
 
-  virtual void writeToStore() {
-    
-  }
-
-  virtual void loadFromJson(WList<WValue>* list) {
-    WValue* gpio = list->getById(WC_GPIO);
-    Serial.print("id in json is ");
-    Serial.println(gpio != nullptr ? gpio->asByte() : 23 );
-    pin(gpio != nullptr ? gpio->asByte() : NO_PIN);
-    //SETTINGS->setByte(nullptr, pin());
-    WValue* idx = list->getById(WC_ID);
-    Serial.print("id in json is ");
-    Serial.println(idx != nullptr ? idx->asString() : "n.a." );
-    
-    id(idx != nullptr ? idx->asString() : nullptr);
-    Serial.println(id() != nullptr ? id() : "n.a." );
-    //SETTINGS->setString(nullptr, id());
+  virtual void fromJson(WList<WValue>* list) {
+    list->ifExistsId(WC_GPIO, [this] (WValue* v) { this->pin(v->asByte()); });
   }
 
   virtual void toJson(WJson* json) {
-    Serial.print("id is ");
-    Serial.println(id() != nullptr ? id() : "n.a." );
-    json->propertyString(WC_ID, id(), nullptr);
     if (pin() != NO_PIN) {
       json->propertyByte(WC_GPIO, pin());
     } else {
@@ -150,7 +119,64 @@ class WOutput : public IWStorable, public IWJsonable {
   WValue* _pin = new WValue((byte) NO_PIN);
   byte _mode = NO_MODE;
   bool _isOn;
-  WValue* _id = nullptr;
 };
+
+class WGroup : public WOutput {
+ public:
+  WGroup() : WOutput(NO_PIN, NO_MODE, nullptr) {
+  }
+
+  virtual ~WGroup() {
+    if (_items) delete _items;
+  }
+
+  virtual void registerSettings() {
+    //don't call super class
+    SETTINGS->add(_id, nullptr);
+    SETTINGS->add(_title, nullptr);
+  }  
+
+  virtual void fromJson(WList<WValue>* list) {
+    //don't call super class
+    list->ifExistsId(WC_ID, [this] (WValue* v) { this->_id->asString(v->asString()); });
+    list->ifExistsId(WC_TITLE, [this] (WValue* v) { this->_title->asString(v->asString()); });
+  }
+
+  virtual void toJson(WJson* json) {
+    //don't call super class
+    json->property(WC_ID, _id);
+    json->property(WC_TITLE, _title);
+    if (_items != nullptr) {
+      json->beginArray();
+      _items->forEach([json] (int index, WOutput* item, const char* id) {
+        json->beginObject(); 
+        item->toJson(json); 
+        json->endObject();
+      });
+      json->endArray();
+    }
+  }
+
+  virtual void addItem(WOutput* output, const char* id) {
+    if (_items == nullptr) _items = new WList<WOutput>();
+    _items->add(output, id);
+  }
+
+ protected:
+  WValue* _id = new WValue(STRING);
+  WValue* _title = new WValue(STRING);
+  WList<WOutput>* _items = nullptr;
+
+};
+
+class WMode : public WGroup {
+ public:
+  WMode() : WGroup() {
+  }
+  
+};
+
+
+
 
 #endif

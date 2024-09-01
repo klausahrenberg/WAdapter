@@ -12,8 +12,7 @@ const neoPixelType LED_TYPE_PL9823 = NEO_RGB + NEO_KHZ800;
 
 class W2812Led : public WOutput {
  public:
-  W2812Led(WNetwork* network, int ledPin, byte numberOfLeds, neoPixelType ledType = LED_TYPE_WS2812) : WOutput(ledPin) {        
-    _network = network;
+  W2812Led(int ledPin, byte numberOfLeds, neoPixelType ledType = LED_TYPE_WS2812) : WOutput(ledPin) {        
     _numberOfLeds = numberOfLeds;
     _ledProgram = 2;
     _programStatusCounter = 0;
@@ -133,7 +132,6 @@ class W2812Led : public WOutput {
 
  protected:
  private:
-  WNetwork* _network;
   byte _numberOfLeds;
   byte _ledProgram;
   int _programStatusCounter;

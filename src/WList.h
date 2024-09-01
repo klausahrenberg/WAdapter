@@ -46,6 +46,7 @@ template <typename T>
 class WList : public IWIterable<T> {
  public:  
   typedef std::function<void(int, T*, const char*)> TOnIteration;
+  typedef std::function<void(T* value)> TOnExists;
   typedef std::function<bool(T* value)> TOnCompare;
   typedef std::function<void(WListNode<T>* listNode)> TOnListNode;
 
@@ -198,6 +199,29 @@ class WList : public IWIterable<T> {
   T* getById(const char* id) {
     WListNode<T>* ln = _getListNodeById(id);
     return (ln != nullptr ? ln->value : nullptr);
+  }
+
+  bool existsId(const char* id) {    
+    return (getById(id) != nullptr);
+  }
+
+  bool existsIdAndIf(const char* id, TOnCompare onCompare) {
+    T* item = getById(id);    
+    return ((item != nullptr) && (onCompare) && (onCompare(item)));
+  }  
+
+  void ifExistsId(const char* id, TOnExists onExists) {
+    T* item = getById(id);
+    if ((item != nullptr) && (onExists)) {
+      onExists(item);
+    }
+  }
+
+  void ifExists(const char* id, TOnExists onExists) {
+    T* item = getById(id);
+    if ((item != nullptr) && (onExists)) {
+      onExists(item);
+    }
   }
 
   WListNode<T>* _getListNodeById(const char* id) {

@@ -114,14 +114,10 @@ class WNetwork {
         statusLedOnIfConnected);
   }
 
-  void setStatusLed(WLed *statusLed, bool statusLedOnIfConnected) {
-    _statusLedOnIfConnected = statusLedOnIfConnected;
+  void setStatusLed(WLed *statusLed, bool statusLedOnIfConnected = false) {
+    _statusLedOnIfConnected = statusLedOnIfConnected;  
+    _statusLed = statusLed;
     if (_statusLed != nullptr) {
-      delete _statusLed;
-    }
-    _statusLed = nullptr;
-    if (statusLed != nullptr) {
-      _statusLed = statusLed;
       _statusLed->setOn(true, 500);
     }
     _updateLedState();
@@ -243,6 +239,7 @@ class WNetwork {
           _handleDeviceStateChange(device, (device->lastStateNotify() != 0));
         }
       });
+    
 // WebThingAdapter
 #ifdef ESP8266
       if ((!isUpdateRunning()) && (MDNS.isRunning()) && (isWifiConnected())) {
@@ -253,10 +250,10 @@ class WNetwork {
     // Restart required?
     if (_restartFlag) {
       _updateRunning = false;
-      delay(1000);
       if (_onConfigurationFinished) {
         _onConfigurationFinished();
       }
+      delay(1000);
       stopWebServer();
       ESP.restart();
       delay(2000);
@@ -381,7 +378,6 @@ class WNetwork {
 
   void stopWebServer() {
     if ((isWebServerRunning()) && (!_supportsWebServer) && (!_updateRunning)) {
-      LOG->notice(F("Close web configuration."));
       delay(100);
       _webServer->end();
       _webServer = nullptr;
@@ -414,7 +410,7 @@ class WNetwork {
   }
 
   void disconnectMqtt() {
-    if (_mqttClient != nullptr) {
+    if (isMqttConnected()) {
       _mqttClient->disconnect();
     }
   }
@@ -439,11 +435,11 @@ class WNetwork {
     _lastWillEnabled = lastWillEnabled;
   }
 
-  const char *getIdx() { return _idx->c_str(); }
+  const char *getIdx() { return _idx->asString(); }
 
   const char *getHostName() { return _hostname; }
 
-  const char *getSsid() { return _ssid->c_str(); }
+  const char *getSsid() { return _ssid->asString(); }
 
   const char *getPassword() { return SETTINGS->getString(WC_PASSWORD); }
 
@@ -451,11 +447,11 @@ class WNetwork {
 
   const char *mqttPort() { return SETTINGS->getString(WC_MQTT_PORT); }
 
-  const char *mqttBaseTopic() { return _mqttBaseTopic->c_str(); }
+  const char *mqttBaseTopic() { return _mqttBaseTopic->asString(); }
 
-  const char *mqttSetTopic() { return _mqttSetTopic->c_str(); }
+  const char *mqttSetTopic() { return _mqttSetTopic->asString(); }
 
-  const char *mqttStateTopic() { return _mqttStateTopic->c_str(); }
+  const char *mqttStateTopic() { return _mqttStateTopic->asString(); }
 
   const char *mqttUser() { return SETTINGS->getString(WC_MQTT_USER); }
 
@@ -513,7 +509,7 @@ class WNetwork {
     }
   }
 
-  void restart() { _restart(nullptr, "Restart..."); }
+  void restart() { _restart(nullptr); }
 
   String apSsid() { return _getClientName(false); }
   String apPassword() { return CONFIG_PASSWORD; }
@@ -554,6 +550,7 @@ class WNetwork {
   bool _initialMqttSent;
   bool _lastWillEnabled;
   bool _waitForWifiConnection;
+  WPage* _postResponse = nullptr;
 
   bool _aDeviceNeedsWebThings() {
     return (_devices->getIf([] (WDevice* d) { return d->needsWebThings();}) != nullptr);
@@ -803,36 +800,40 @@ class WNetwork {
   }
 
   void _handleHttpEvent(AsyncWebServerRequest *request) {
-    LOG->debug("handle form action ... simple");
-    WList<WValue> *args = new WList<WValue>();
-    int params = request->params();
-    for (int i = 0; i < params; i++) {
-      AsyncWebParameter *p = request->getParam(i);
-      LOG->debug("..POST[%s]: %s", p->name().c_str(), p->value().c_str());
-      args->add(new WValue(p->value().c_str()), p->name().c_str());
+    LOG->debug(F("Simple http event handling"));
+    if (_postResponse == nullptr) {
+      WList<WValue> *args = new WList<WValue>();
+      int params = request->params();
+      for (int i = 0; i < params; i++) {
+        AsyncWebParameter *p = request->getParam(i);
+        //LOG->debug("..POST[%s]: %s", p->name().c_str(), p->value().c_str());
+        args->add(new WValue(p->value().c_str()), p->name().c_str());
+      }
+      _postResponse = _handleHttpEventArgs(request, args);
+      delete args;
     }
-    LOG->debug("handle form action ... b");
-    _handleHttpEventArgs(request, args);
-    LOG->debug("handle form action ... c");
-    delete args;
-    LOG->debug("handle form action ... d");
+    if (_postResponse != nullptr) {
+      AsyncResponseStream *stream = request->beginResponseStream(WC_TEXT_HTML);
+      _postResponse->toString(stream);
+      request->send(stream);
+      delete _postResponse;
+      _postResponse = nullptr;
+    }
   }
 
   void _handleHttpFinishEvent(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-    LOG->debug("handle form action ... complicated a");
+    LOG->debug(F("Advanced http event handling"));
     WStringStream *ss = getResponseStream();
     for (size_t i = 0; i < len; i++) {
       ss->write(data[i]);
     }
-    LOG->debug("Received post data: '%s'", ss->c_str());
     WList<WValue> *args = WJsonParser::asMap(ss->c_str());
-    LOG->debug("handle form action ... complicated b");
-    _handleHttpEventArgs(request, args);
-    LOG->debug("handle form action ... complicated c");
+    _postResponse = _handleHttpEventArgs(request, args);
     delete args;
   }
 
-  void _handleHttpEventArgs(AsyncWebServerRequest *request, WList<WValue> *args) {
+  WPage* _handleHttpEventArgs(AsyncWebServerRequest *request, WList<WValue> *args) {
+    WPage* rp = nullptr;
     WValue *formName = args->getById(WC_FORM);    
     if (formName != nullptr) {
       WPageItem *pi = _pages->getById(formName->asString());
@@ -841,17 +842,17 @@ class WNetwork {
         WFormResponse *result = p->submitForm(args);
         switch (result->operation) {
           case FO_RESTART: {
-            _restart(request, result->message);
+            rp = _restart(request, result->message);
             break;
           }
           case FO_FORCE_AP: {
             SETTINGS->forceAPNextStart();
-            _restart(request, result->message);
+            rp = _restart(request, result->message);
             break;
           }
           case FO_RESET_ALL: {
             SETTINGS->resetAll();
-            _restart(request, result->message);
+            rp = _restart(request, result->message);
             break;
           }
           default:
@@ -867,6 +868,7 @@ class WNetwork {
       LOG->debug(F("No form name found."));
       request->send(404);
     }
+    return rp;
   }
 
   String _getClientName(bool lowerCase) {
@@ -918,16 +920,17 @@ class WNetwork {
     }
   }
 
-  void _restart(AsyncWebServerRequest *request, const char *reasonMessage) {
+  WPage* _restart(AsyncWebServerRequest *request, const char *reasonMessage = nullptr) {
+    Serial.println("1");
+    WPage* result = nullptr;
     if (request != nullptr) {
+      Serial.println(reasonMessage);
       request->client()->setNoDelay(true);
-      WRestartPage *rp = new WRestartPage(reasonMessage);
-      AsyncResponseStream *stream = request->beginResponseStream(WC_TEXT_HTML);
-      rp->toString(stream);
-      request->send(stream);
-      // delay(500);
+      result = new WRestartPage(reasonMessage == nullptr ? PSTR("Restart...") : reasonMessage);
     }
+    Serial.println("2");
     _restartFlag = true;
+    return result;
   }
 
   void _loadNetworkSettings() {

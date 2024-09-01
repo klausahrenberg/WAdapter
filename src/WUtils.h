@@ -28,6 +28,7 @@ const static char WC_GPIO[] PROGMEM = "gpio";
 const static char WC_ID[] PROGMEM = "id";
 const static char WC_INVERTED[] PROGMEM = "inverted";
 const static char WC_LINK_STATE[] PROGMEM = "linkstate";
+const static char WC_TITLE[] PROGMEM = "title";
 
 const static char* APPLICATION = nullptr;
 const static char* VERSION = nullptr;
@@ -372,14 +373,19 @@ struct WValue {
     return byteArrayValue(byteIndex, v);
   }
 
-  char* c_str() { return _asString; }
-
-  char* asString() { return _asString; }
+  char* asString() { 
+    if ((_isNull) || (_type != STRING)) {
+      return "";
+    }
+    return _asString; 
+  }
 
   bool asString(const char* newValue) {
     bool changed = false;
-    if (_type == STRING) {
-      changed = ((_isNull) || (strcmp_P(_asString, newValue) != 0));      
+    if ((_type == STRING) && ((!_isNull) || (newValue != nullptr))) {
+      changed = (((_isNull) && (newValue != nullptr)) || 
+                 ((!_isNull) && (newValue == nullptr)) || 
+                 (strcmp_P(_asString, newValue) != 0));      
       if (changed) {
         if (!_isNull) delete _asString;         
         _isNull = (newValue == nullptr);  
@@ -488,7 +494,7 @@ struct WValue {
         WUtils::numberByte(stream, asByte());
         break;
       case STRING:
-        WUtils::string(stream, c_str(), nullptr);
+        WUtils::string(stream, asString(), nullptr);
         break;
       case BYTE_ARRAY:   
         WUtils::numberByteArray(stream, length(), asByteArray());
@@ -556,22 +562,12 @@ struct WValue {
   };
 };
 
-#define BIT_CONFIG_PROPERTY_MQTT 1
-#define BIT_CONFIG_PROPERTY_WEBTHING 2
-#define BIT_CONFIG_INVERTED 5
-#define BIT_CONFIG_LINKSTATE 6
-
-class IWStorable {
-public:
-  virtual void loadFromStore();
-  virtual void writeToStore();
-}; 
-
 class WJson;
 
 class IWJsonable {
 public:
-  virtual void loadFromJson(WList<WValue>* list);
+  virtual void registerSettings();
+  virtual void fromJson(WList<WValue>* list);
   virtual void toJson(WJson* json);    
 };            
 

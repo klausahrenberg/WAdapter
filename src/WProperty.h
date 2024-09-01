@@ -261,7 +261,7 @@ class WProperty {
             json->numberByte(propE->asByte());
             break;
           case STRING:
-            json->string(propE->c_str(), nullptr);
+            json->string(propE->asString(), nullptr);
             break;
         }
       });

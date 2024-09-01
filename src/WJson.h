@@ -71,6 +71,47 @@ public:
 		return *this;
 	}
 
+	WJson& property(const char* name, WValue* value) {
+		if ((value != nullptr) && (!value->isNull())) {
+			switch (value->type()) {
+				case STRING : 
+					if (!value->isStringEmpty()) {
+						propertyString(name, value->asString(), nullptr);
+					} else {
+						propertyNull(name);
+					}
+					break;
+				case BOOLEAN : 
+					propertyBoolean(name, value->asBool());
+					break;
+				case DOUBLE : 
+					propertyDouble(name, value->asDouble());
+					break;
+				case SHORT : 
+					propertyShort(name, value->asShort());
+					break;
+				case INTEGER : 
+					propertyInteger(name, value->asInt());
+					break;
+				case UNSIGNED_LONG : 
+					propertyUnsignedLong(name, value->asUnsignedLong());
+					break;
+				case BYTE : 
+					propertyByte(name, value->asByte());
+					break;
+				case BYTE_ARRAY : 
+					propertyByteArray(name, value->length(), value->asByteArray());
+					break;
+				case LIST	:
+					//tbi, not supported yet
+					break;
+			}
+		} else {
+			propertyNull(name);
+		}
+		return *this;
+	}	
+
 	WJson& propertyNull(const char* name) {
 		_ifSeparator();
 		_separatorAlreadyCalled = true;

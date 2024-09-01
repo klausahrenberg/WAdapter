@@ -33,10 +33,10 @@ enum WType {
 
 struct WMapItem {
   WType type;
-  String objectId;
+  WValue objectId;
   WList<WValue>* mapOrList = nullptr;
 
-  WMapItem(WType type, String objectId, WList<WValue>* mapOrList = nullptr) {
+  WMapItem(WType type, WValue objectId, WList<WValue>* mapOrList = nullptr) {
     this->type = type;
     this->objectId = objectId;
     this->mapOrList = mapOrList;
@@ -62,6 +62,8 @@ class WJsonParser {
   }
 
   WList<WValue>* parse(const char* payload) {
+    Serial.println("c");
+    Serial.println(payload);
     for (int i = 0; i < strlen(payload); i++) {
       _parseChar(payload[i]);
     }
@@ -85,7 +87,7 @@ class WJsonParser {
   int _characterCounter = 0;
   int _unicodeHighSurrogate = 0;
   bool _logging = false;
-  String _currentKey = "";
+  WValue _currentKey = WValue(STRING);
 
   void _log(String message) {
     if (_logging) {
@@ -94,13 +96,23 @@ class WJsonParser {
   }
 
   void _processKeyValue(const char* key, const char* value) {
+    LOG->debug("_processKeyValue a");
+    LOG->debug("_processKeyValue key '%s' / value '%s'", key, value);
     WMapItem* peeked = _stack->peek();
-    if (peeked->mapOrList != nullptr) {               
+    LOG->debug("_processKeyValue b");
+    
+    if (peeked->mapOrList != nullptr) {
+      LOG->debug("_processKeyValue c");
+                   
       if (value != nullptr) {
-        peeked->mapOrList->add(new WValue(value), (_currentKey.equals("") ? nullptr : _currentKey.c_str()));
+        LOG->debug("_processKeyValue d");
+        peeked->mapOrList->add(new WValue(value), (_currentKey.isStringEmpty() ? nullptr : _currentKey.asString()));
       }
-      _currentKey = "";
+      LOG->debug("_processKeyValue e");
+      _currentKey.asString(nullptr);
     }
+    LOG->debug("_processKeyValue f");
+    
   }
 
   void _parseChar(char c) {    
@@ -253,12 +265,16 @@ class WJsonParser {
     WMapItem* popped = _stack->pop();
     if (popped->type == WT_KEY) {
       _buffer[_bufferPos] = '\0';
-      _currentKey = String(_buffer);
+      Serial.print("buffer ");
+      Serial.println(buffer);
+      _currentKey.asString(_buffer);
+      Serial.print("currentKey ");
+      Serial.println(_currentKey.asString());
       _state = WS_END_KEY;
     } else if (popped->type == WT_STRING) {      
       _buffer[_bufferPos] = '\0';
       const char* v = _buffer;
-      _processKeyValue(_currentKey.c_str(), _buffer);      
+      _processKeyValue(_currentKey.asString(), _buffer);      
       _state = WS_AFTER_VALUE;    
     }
     _bufferPos = 0;
@@ -305,17 +321,18 @@ class WJsonParser {
     if (_stack->empty()) {
       _stack->push(popped);
       _endDocument();
-    //} else if ((_stack.peek().map() != null) && (!LString.isEmpty(popped.objectKey()))) {
-    //        _stack.peek().map().put(popped.objectKey(), popped.list());  
+    } else if ((_stack->peek()->mapOrList != nullptr) && (!popped->objectId.isStringEmpty())) {
+      _stack->peek()->mapOrList->add(new WValue(popped->mapOrList), popped->objectId.asString());
     }
   }
 
   void _startKey() {
-    _stack->push(new WMapItem(WT_KEY, "", nullptr));
+    _stack->push(new WMapItem(WT_KEY, WValue(STRING), nullptr));
     _state = WS_IN_STRING;
   }
 
   void _endObject() {
+    LOG->debug("endObject a");
     WMapItem* popped = _stack->pop();
     if (popped->type != WT_OBJECT) {
       LOG->error(F("jsonParser->endObject(): Unexpected end of object encountered."));
@@ -324,8 +341,8 @@ class WJsonParser {
       // tbi
 			if (_stack->empty()) {
 				_stack->push(popped);
-			} else {
-        _stack->peek()->mapOrList->add(new WValue(popped->mapOrList), (popped->objectId.equals("") ? nullptr : popped->objectId.c_str()));
+			} else if (_stack->peek()->mapOrList != nullptr) {
+        _stack->peek()->mapOrList->add(new WValue(popped->mapOrList), (popped->objectId.isStringEmpty() ? nullptr : popped->objectId.asString()));
 			}	
     } else {
       LOG->error(F("jsonParser->endObject(): Stack has no object map inside, can't create object."));
@@ -334,6 +351,8 @@ class WJsonParser {
     if (_stack->empty()) {
       _endDocument();
     }
+    LOG->debug("endObject b");
+    
   }
 
   void _processEscapeCharacters(char c) {
@@ -417,16 +436,16 @@ class WJsonParser {
   }
 
   void _endNumber() {
-    if (_currentKey != "") {
+    if (!_currentKey.isStringEmpty()) {
       _buffer[_bufferPos] = '\0';
 
       double t = atof(_buffer);
 
       Serial.print("end number ");
-      Serial.print(_currentKey.c_str());
+      Serial.print(_currentKey.asString());
       Serial.print(" / ");
       Serial.println(t);
-      _processKeyValue(_currentKey.c_str(), _buffer);
+      _processKeyValue(_currentKey.asString(), _buffer);
     }
     _bufferPos = 0;
     _state = WS_AFTER_VALUE;
@@ -446,10 +465,10 @@ class WJsonParser {
   }
 
   void _endTrue() {
-    if (_currentKey != "") {
+    if (!_currentKey.isStringEmpty()) {
       _buffer[_bufferPos] = '\0';
       if (strcmp_P(_buffer, WC_TRUE) == 0) {
-        _processKeyValue(_currentKey.c_str(), WC_TRUE);
+        _processKeyValue(_currentKey.asString(), WC_TRUE);
       }
     }
     _bufferPos = 0;
@@ -457,10 +476,10 @@ class WJsonParser {
   }
 
   void _endFalse() {
-    if (_currentKey != "") {
+    if (!_currentKey.isStringEmpty()) {
       _buffer[_bufferPos] = '\0';
       if (strcmp_P(_buffer, WC_FALSE) == 0) {
-        _processKeyValue(_currentKey.c_str(), WC_FALSE);
+        _processKeyValue(_currentKey.asString(), WC_FALSE);
       }
     }
     _bufferPos = 0;
@@ -475,24 +494,22 @@ class WJsonParser {
   }
 
   void _startArray() {
-    LOG->debug("startArray a");
     _state = WS_IN_ARRAY;
     _stack->push(new WMapItem(WT_ARRAY, _currentKey, new WList<WValue>()));
-    _currentKey = "";
-    LOG->debug("startArray b");
+    LOG->debug("startArray '%s'", _currentKey.asString());
+    _currentKey.asString(nullptr);
   }
 
   void _startObject() {
-    LOG->debug("startObject a");
     _state = WS_IN_OBJECT;
     _stack->push(new WMapItem(WT_OBJECT, _currentKey, new WList<WValue>()));
-    _currentKey = "";
-    LOG->debug("startObject b");
+    LOG->debug("startObject '%s'", _currentKey.asString());
+    _currentKey.asString(nullptr);
   }
 
   void _startString() {
     _state = WS_IN_STRING;
-    _stack->push(new WMapItem(WT_STRING, "", nullptr));
+    _stack->push(new WMapItem(WT_STRING, WValue(STRING), nullptr));
   }
 
   void _startNumber(char c) {

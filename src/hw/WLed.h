@@ -67,13 +67,13 @@ class WLed : public WOutput {
     return this;
   }
 
-  virtual void loadFromStore() {
-    WOutput::loadFromStore();
+  virtual void registerSettings() {
+    WOutput::registerSettings();
     SETTINGS->add(_config, nullptr);    
   }
 
-  virtual void loadFromJson(WList<WValue>* list) {
-    WOutput::loadFromJson(list);
+  virtual void fromJson(WList<WValue>* list) {
+    WOutput::fromJson(list);
     WValue* v = list->getById(WC_INVERTED);
     inverted(v != nullptr ? v->asBool() : false);
     v = list->getById(WC_LINK_STATE);

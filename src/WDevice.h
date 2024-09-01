@@ -69,6 +69,11 @@ class WDevice {
     _outputs->add(output);
   }
 
+  void clearInAndOutputs() {
+    if (_inputs) _inputs->clear();
+    if (_outputs) _outputs->clear();
+  }
+
   WProperty* getPropertyById(const char* propertyId) { return _properties->getById(propertyId); }
 
   virtual void toJsonValues(WJson* json, WPropertyVisibility visibility) {        
