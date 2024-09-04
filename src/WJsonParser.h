@@ -73,8 +73,6 @@ class WJsonParser {
   }
 
   WList<WValue>* parse(const char* payload) {
-    Serial.println("c");
-    Serial.println(payload);
     for (int i = 0; i < strlen(payload); i++) {
       _parseChar(payload[i]);
     }
@@ -271,13 +269,9 @@ class WJsonParser {
     WMapItem* popped = _stack->pop();
     if (popped->type == WT_KEY) {
       _buffer[_bufferPos] = '\0';
-      Serial.print("buffer ");
-      Serial.println(_buffer);
       if (_currentKey) delete _currentKey;
       _currentKey = new char[strlen(_buffer) + 1];
       strcpy(_currentKey, _buffer); 
-      Serial.print("currentKey ");
-      Serial.println(_currentKey);
       _state = WS_END_KEY;
     } else if (popped->type == WT_STRING) {      
       _buffer[_bufferPos] = '\0';
@@ -330,6 +324,14 @@ class WJsonParser {
       _stack->push(popped);
       _endDocument();
     } else if ((_stack->peek()->mapOrList != nullptr) && (popped->objectId != nullptr)) {
+      Serial.print("endarray '");
+      Serial.println(popped->objectId);
+      popped->mapOrList->forEach([](int index, WValue* item, const char* id) {
+          Serial.print(".>  ");
+          Serial.print(id);
+          Serial.print(" / ");
+          Serial.println(item->asString());
+        });
       _stack->peek()->mapOrList->add(new WValue(popped->mapOrList), popped->objectId);
     }
   }
@@ -350,6 +352,14 @@ class WJsonParser {
 			if (_stack->empty()) {
 				_stack->push(popped);
 			} else if (_stack->peek()->mapOrList != nullptr) {        
+        Serial.print("endobject add to array '");
+        Serial.println(popped->objectId);
+        popped->mapOrList->forEach([](int index, WValue* item, const char* id) {
+          Serial.print("ao.>  ");
+          Serial.print(id);
+          Serial.print(" / ");
+          Serial.println(item->asString());
+        });
         _stack->peek()->mapOrList->add(new WValue(popped->mapOrList), popped->objectId);
 			}	
     } else {
@@ -446,13 +456,7 @@ class WJsonParser {
   void _endNumber() {
     if (_currentKey != nullptr) {
       _buffer[_bufferPos] = '\0';
-
       double t = atof(_buffer);
-
-      Serial.print("end number ");
-      Serial.print(_currentKey);
-      Serial.print(" / ");
-      Serial.println(t);
       _processKeyValue(_currentKey, _buffer);
     }
     _bufferPos = 0;
@@ -510,12 +514,8 @@ class WJsonParser {
   }
 
   void _startObject() {
-    _state = WS_IN_OBJECT;
-    LOG->debug("startObject a '%s'", _currentKey);
-    WMapItem* mi = new WMapItem(WT_OBJECT, _currentKey, new WList<WValue>());
-    LOG->debug("startObject b '%s'", _currentKey);
-    _stack->push(mi);
-    LOG->debug("startObject c '%s'", _currentKey);
+    _state = WS_IN_OBJECT;    
+    _stack->push(new WMapItem(WT_OBJECT, _currentKey, new WList<WValue>()));
     if (_currentKey) delete _currentKey;
     _currentKey = nullptr;
   }

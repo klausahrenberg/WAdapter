@@ -374,6 +374,9 @@ struct WValue {
   }
 
   char* asString() { 
+    if ((!_isNull) && (_type == LIST)) {
+      return "<list>";
+    }
     if ((_isNull) || (_type != STRING)) {
       return "";
     }
