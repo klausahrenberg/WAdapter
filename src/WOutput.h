@@ -127,6 +127,8 @@ class WGroup : public WOutput {
   }
 
   virtual ~WGroup() {
+    if (_id) delete _id;
+    if (_title) delete _title;
     if (_items) delete _items;
   }
 
@@ -162,6 +164,10 @@ class WGroup : public WOutput {
     _items->add(output, id);
   }
 
+  WValue* id() { return _id; }
+
+  WValue* title() { return _title; }
+
  protected:
   WValue* _id = new WValue(STRING);
   WValue* _title = new WValue(STRING);
@@ -173,6 +179,31 @@ class WMode : public WGroup {
  public:
   WMode() : WGroup() {
   }
+
+  virtual ~WMode() {
+    if (_modeId) delete _modeId;
+    if (_modeTitle) delete _modeTitle;
+  }
+
+  virtual void registerSettings() {
+    WGroup::registerSettings();
+    SETTINGS->add(_modeId, nullptr);
+    SETTINGS->add(_modeTitle, nullptr);
+  }  
+
+  virtual void fromJson(WList<WValue>* list) {
+    WGroup::fromJson(list);
+    list->ifExistsId(WC_MODE_ID, [this] (WValue* v) { this->_modeId->asString(v->asString()); });
+    list->ifExistsId(WC_MODE_TITLE, [this] (WValue* v) { this->_modeTitle->asString(v->asString()); });
+  }
+
+  WValue* modeId() { return _modeId; }
+
+  WValue* modeTitle() { return _modeTitle; }
+
+ protected:
+  WValue* _modeId = new WValue(STRING);
+  WValue* _modeTitle = new WValue(STRING); 
   
 };
 

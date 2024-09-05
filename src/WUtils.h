@@ -569,6 +569,9 @@ class WJson;
 
 class IWJsonable {
 public:
+  virtual ~IWJsonable() {
+  }
+
   virtual void registerSettings();
   virtual void fromJson(WList<WValue>* list);
   virtual void toJson(WJson* json);    
