@@ -11,11 +11,38 @@
 #define BIT_CONFIG_INVERTED 5
 #define BIT_CONFIG_LINKSTATE 6
 
-//class WProperty;
+enum WGpioType {
+  //Group  
+  GPIO_TYPE_GROUP,
+  //Mode
+  GPIO_TYPE_MODE,
+  //Outputs
+  GPIO_TYPE_LED, GPIO_TYPE_RELAY,
+  GPIO_TYPE_RGB_LED, GPIO_TYPE_DIMMER,
+  //Inputs
+  GPIO_TYPE_BUTTON, GPIO_TYPE_SWITCH,  
+  GPIO_TYPE_TEMP_SENSOR,
+  //NONE
+  GPIO_TYPE_UNKNOWN = 0xFF
+};
+
+const char S_GPIO_TYPE_LED[] PROGMEM = "led";
+const char S_GPIO_TYPE_RELAY[] PROGMEM = "relay";
+const char S_GPIO_TYPE_BUTTON[] PROGMEM = "button";
+const char S_GPIO_TYPE_SWITCH[] PROGMEM = "switch";
+const char S_GPIO_TYPE_MODE[] PROGMEM = "mode";
+const char S_GPIO_TYPE_RGB_LED[] PROGMEM = "rgb";
+const char S_GPIO_TYPE_GROUP[] PROGMEM = "group";
+const char S_GPIO_TYPE_TEMP_SENSOR[] PROGMEM = "temp";
+const char S_GPIO_TYPE_DIMMER[] PROGMEM = "dimmer";
+const char* const S_GPIO_TYPE[] PROGMEM = { S_GPIO_TYPE_GROUP, S_GPIO_TYPE_MODE,
+                                            S_GPIO_TYPE_LED, S_GPIO_TYPE_RELAY, S_GPIO_TYPE_RGB_LED, S_GPIO_TYPE_DIMMER, 
+                                            S_GPIO_TYPE_BUTTON, S_GPIO_TYPE_SWITCH, S_GPIO_TYPE_TEMP_SENSOR };
 
 class WOutput : public IWJsonable {
  public:
-  WOutput(byte pin = NO_PIN, byte mode = OUTPUT, IWExpander* expander = nullptr) {    
+  WOutput(WGpioType type = GPIO_TYPE_UNKNOWN, byte pin = NO_PIN, byte mode = OUTPUT, IWExpander* expander = nullptr) {    
+    _type = type;
     _mode = mode;
     _expander = expander;
     _isOn = false;
@@ -57,7 +84,7 @@ class WOutput : public IWJsonable {
   WProperty* on() { return _on; }
 
 	void on(WProperty* on) { 
-    this->_on = on; 
+    _on = on; 
     _on->addListener([this]() { _updateOn();});    
 	}  
 
@@ -78,13 +105,12 @@ class WOutput : public IWJsonable {
       _pinMode(_pin->asByte(), _mode);      
     }
     if (changed) {  
-      _pinChanged();
+      _onChange();
     }
     return this; 
   }  
 
   virtual void registerSettings() {
-    Serial.println("add pin");
     SETTINGS->add(_pin, nullptr); 
     pin(_pin->asByte());
   }  
@@ -94,6 +120,7 @@ class WOutput : public IWJsonable {
   }
 
   virtual void toJson(WJson* json) {
+    if (_type != GPIO_TYPE_UNKNOWN) json->propertyString(WC_TYPE, S_GPIO_TYPE[_type], nullptr);
     if (pin() != NO_PIN) {
       json->propertyByte(WC_GPIO, pin());
     } else {
@@ -101,7 +128,14 @@ class WOutput : public IWJsonable {
     }
   }
 
+  WGpioType type() { return _type; }
+
+  bool isGroupOrMode() { return ((_type == GPIO_TYPE_GROUP) || (_type == GPIO_TYPE_MODE)); }
+  bool isOutput() { return ((_type >= GPIO_TYPE_LED) && (_type < GPIO_TYPE_BUTTON)); }
+  bool isInput() { return ((_type >= GPIO_TYPE_BUTTON) && (_type < GPIO_TYPE_UNKNOWN)); }
+
  protected:
+  WGpioType _type;
   WProperty* _on = nullptr;
   IWExpander* _expander;
 
@@ -113,9 +147,9 @@ class WOutput : public IWJsonable {
 
   virtual void _updateOn() {}
 
-  virtual void _pinChanged() {}
+  virtual void _onChange() {}
 
- private:  
+ private:    
   WValue* _pin = new WValue((byte) NO_PIN);
   byte _mode = NO_MODE;
   bool _isOn;
@@ -123,7 +157,7 @@ class WOutput : public IWJsonable {
 
 class WGroup : public WOutput {
  public:
-  WGroup() : WOutput(NO_PIN, NO_MODE, nullptr) {
+  WGroup() : WOutput(GPIO_TYPE_GROUP) {
   }
 
   virtual ~WGroup() {
@@ -160,6 +194,7 @@ class WGroup : public WOutput {
   }
 
   virtual void addItem(WOutput* output, const char* id) {
+    Serial.println("add item in group");
     if (_items == nullptr) _items = new WList<WOutput>();
     _items->add(output, id);
   }
@@ -173,11 +208,22 @@ class WGroup : public WOutput {
   WValue* _title = new WValue(STRING);
   WList<WOutput>* _items = nullptr;
 
+  virtual void _updateOn() {
+    Serial.println("ipdateOn");
+    if (_items != nullptr) {
+      Serial.println(_items->size());
+      _items->forEach([this] (int index, WOutput* output, const char* id) { 
+        Serial.println(output->pin());
+        output->setOn(this->isOn()); } );
+    }
+  }
+
 };
 
 class WMode : public WGroup {
  public:
   WMode() : WGroup() {
+    _type = GPIO_TYPE_MODE;
   }
 
   virtual ~WMode() {
@@ -201,13 +247,12 @@ class WMode : public WGroup {
 
   WValue* modeTitle() { return _modeTitle; }
 
- protected:
+ protected:  
   WValue* _modeId = new WValue(STRING);
   WValue* _modeTitle = new WValue(STRING); 
   
 };
 
-
-
+class WLed;
 
 #endif

@@ -72,7 +72,6 @@ const static char WC_TCP[] PROGMEM = "tcp";
 const static char WC_TEXT[] PROGMEM = "text";
 const static char WC_TEXTAREA[] PROGMEM = "textarea";
 const static char WC_TEXT_HTML[] PROGMEM = "text/html";
-const static char WC_TYPE[] PROGMEM = "type";
 const static char WC_URL[] PROGMEM = "url";
 const static char WC_VALUE[] PROGMEM = "value";
 const static char WC_WHITE_BOX[] PROGMEM = "wb";

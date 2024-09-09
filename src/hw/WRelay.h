@@ -5,11 +5,8 @@
 
 class WRelay : public WOutput {
  public:
-  WRelay(int relayPin, bool inverted = false) : WOutput(relayPin) {
+  WRelay(int relayPin, bool inverted = false) : WOutput(GPIO_TYPE_RELAY, relayPin) {
     this->inverted(inverted);
-    if (this->isInitialized()) {
-      digitalWrite(this->pin(), getOffLevel());
-    }
   }  
 
   void loop(unsigned long now) {}
@@ -18,12 +15,14 @@ class WRelay : public WOutput {
 
   WRelay* inverted(bool inverted) {
     _config->asBit(BIT_CONFIG_INVERTED, inverted);
+    _onChange();
     return this;
   }
 
   virtual void registerSettings() {
     WOutput::registerSettings();
-    SETTINGS->add(_config, nullptr);    
+    SETTINGS->add(_config, nullptr);   
+    _onChange(); 
   }
 
   virtual void fromJson(WList<WValue>* list) {
@@ -45,6 +44,12 @@ class WRelay : public WOutput {
   byte getOnLevel() { return (!inverted() ? HIGH : LOW); }
 
   byte getOffLevel() { return !getOnLevel(); }
+
+  virtual void _onChange() {    
+    if (isInitialized()) {
+      writeOutput(pin(), getOffLevel());
+    }
+  } 
 
  private:
   WValue* _config = new WValue((byte) 0b00000000);

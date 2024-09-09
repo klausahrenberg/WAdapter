@@ -8,7 +8,7 @@
 class WDimmer: public WOutput {
 public:
 	WDimmer(byte pin, uint8_t mode = OUTPUT)
-			: WOutput(pin, mode) {				
+			: WOutput(GPIO_TYPE_DIMMER, pin, mode) {				
 		_level = nullptr;
 		_levelCurrent = 0;
 		_stopLevelAdjusting();		

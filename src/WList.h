@@ -105,7 +105,7 @@ class WList : public IWIterable<T> {
       }
       if ((freeMemoryForValues) && (nodeToDelete) && (nodeToDelete->value)) {
         delete nodeToDelete->value;
-      }  
+      } 
       delete nodeToDelete;
       _size--;
       _resetCaching();

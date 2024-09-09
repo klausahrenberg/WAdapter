@@ -13,7 +13,7 @@ const byte LED_OFF = LOW;
 
 class WLed : public WOutput {
  public:
-  WLed(int ledPin, IWExpander* expander = nullptr) : WOutput(ledPin, OUTPUT, expander) {    
+  WLed(int ledPin = NO_PIN, IWExpander* expander = nullptr) : WOutput(GPIO_TYPE_LED, ledPin, OUTPUT, expander) {    
     
   }  
 
@@ -57,6 +57,7 @@ class WLed : public WOutput {
 
   WLed* inverted(bool inverted) {
     _config->asBit(BIT_CONFIG_INVERTED, inverted);
+    _onChange();
     return this;
   }
 
@@ -69,7 +70,8 @@ class WLed : public WOutput {
 
   virtual void registerSettings() {
     WOutput::registerSettings();
-    SETTINGS->add(_config, nullptr);    
+    SETTINGS->add(_config, nullptr);   
+    _onChange(); 
   }
 
   virtual void fromJson(WList<WValue>* list) {
@@ -96,7 +98,7 @@ class WLed : public WOutput {
 
 	}
 
-  virtual void _pinChanged() {    
+  virtual void _onChange() {    
     if (isInitialized()) {
       writeOutput(pin(), getOffLevel());
     }
