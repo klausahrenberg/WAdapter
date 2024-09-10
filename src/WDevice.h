@@ -3,7 +3,7 @@
 
 #include "WList.h"
 #include "WInput.h"
-#include "WOutput.h"
+#include "WGpio.h"
 #include "hw/WLed.h"
 #include "WProps.h"
 
@@ -62,9 +62,9 @@ class WDevice {
     _inputs->add(input);
   }
 
-  void addOutput(WOutput* output) {
+  void addOutput(WGpio* output) {
     if (_outputs == nullptr) {
-      _outputs = new WList<WOutput>();
+      _outputs = new WList<WGpio>();
     }
     _outputs->add(output);
   }
@@ -117,7 +117,7 @@ class WDevice {
       _inputs->forEach([this, now](int index, WInput* input, const char* id){input->loop(now);});
     }
     if (_outputs != nullptr) {
-      _outputs->forEach([this, now](int index, WOutput* output, const char* id){output->loop(now);});
+      _outputs->forEach([this, now](int index, WGpio* output, const char* id){output->loop(now);});
     }  
   }
 
@@ -190,7 +190,7 @@ class WDevice {
   unsigned long _stateNotifyInterval;
   bool _lastStateWaitForResponse;
   WList<WInput>* _inputs = nullptr;
-  WList<WOutput>* _outputs = nullptr;  
+  WList<WGpio>* _outputs = nullptr;  
 
   void onPropertyChange() { _lastStateNotify = 0; }
 };

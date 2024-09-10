@@ -1,5 +1,5 @@
-#ifndef W_OUTPUT_H
-#define W_OUTPUT_H
+#ifndef W_GPIO_H
+#define W_GPIO_H
 
 #include "WSettings.h"
 #include "WProperty.h"
@@ -39,9 +39,9 @@ const char* const S_GPIO_TYPE[] PROGMEM = { S_GPIO_TYPE_GROUP, S_GPIO_TYPE_MODE,
                                             S_GPIO_TYPE_LED, S_GPIO_TYPE_RELAY, S_GPIO_TYPE_RGB_LED, S_GPIO_TYPE_DIMMER, 
                                             S_GPIO_TYPE_BUTTON, S_GPIO_TYPE_SWITCH, S_GPIO_TYPE_TEMP_SENSOR };
 
-class WOutput : public IWJsonable {
+class WGpio : public IWJsonable {
  public:
-  WOutput(WGpioType type = GPIO_TYPE_UNKNOWN, byte pin = NO_PIN, byte mode = OUTPUT, IWExpander* expander = nullptr) {    
+  WGpio(WGpioType type = GPIO_TYPE_UNKNOWN, byte pin = NO_PIN, byte mode = OUTPUT, IWExpander* expander = nullptr) {    
     _type = type;
     _mode = mode;
     _expander = expander;
@@ -49,7 +49,7 @@ class WOutput : public IWJsonable {
     this->pin(pin);
   }
 
-  virtual ~WOutput() {
+  virtual ~WGpio() {
     if (_pin) delete _pin;
   }
 
@@ -98,7 +98,7 @@ class WOutput : public IWJsonable {
 
   int pin() { return _pin->asByte(); }  
 
-  virtual WOutput* pin(byte pin) {
+  virtual WGpio* pin(byte pin) {
     bool changed = (_pin->asByte() != pin); 
     _pin->asByte(pin);
     if ((_pin->asByte() != NO_PIN) && (_mode != NO_MODE)) {
@@ -155,9 +155,9 @@ class WOutput : public IWJsonable {
   bool _isOn;
 };
 
-class WGroup : public WOutput {
+class WGroup : public WGpio {
  public:
-  WGroup() : WOutput(GPIO_TYPE_GROUP) {
+  WGroup() : WGpio(GPIO_TYPE_GROUP) {
   }
 
   virtual ~WGroup() {
@@ -180,22 +180,15 @@ class WGroup : public WOutput {
 
   virtual void toJson(WJson* json) {
     //don't call super class
+    if (_type != GPIO_TYPE_UNKNOWN) json->propertyString(WC_TYPE, S_GPIO_TYPE[_type], nullptr);
     json->property(WC_ID, _id);
     json->property(WC_TITLE, _title);
-    if (_items != nullptr) {
-      json->beginArray();
-      _items->forEach([json] (int index, WOutput* item, const char* id) {
-        json->beginObject(); 
-        item->toJson(json); 
-        json->endObject();
-      });
-      json->endArray();
-    }
+    _toJsonListOrMap(json);
   }
 
-  virtual void addItem(WOutput* output, const char* id) {
+  virtual void addItem(WGpio* output, const char* id) {
     Serial.println("add item in group");
-    if (_items == nullptr) _items = new WList<WOutput>();
+    if (_items == nullptr) _items = new WList<WGpio>();
     _items->add(output, id);
   }
 
@@ -206,17 +199,25 @@ class WGroup : public WOutput {
  protected:
   WValue* _id = new WValue(STRING);
   WValue* _title = new WValue(STRING);
-  WList<WOutput>* _items = nullptr;
+  WList<WGpio>* _items = nullptr;
 
   virtual void _updateOn() {
-    Serial.println("ipdateOn");
-    if (_items != nullptr) {
-      Serial.println(_items->size());
-      _items->forEach([this] (int index, WOutput* output, const char* id) { 
-        Serial.println(output->pin());
-        output->setOn(this->isOn()); } );
+    if (_items != nullptr) {      
+      _items->forEach([this] (int index, WGpio* output, const char* id) { output->setOn(this->isOn()); } ); 
     }
   }
+
+  virtual void _toJsonListOrMap(WJson* json) {
+    if (_items != nullptr) {
+      json->beginArray(WC_ITEMS);
+      _items->forEach([json] (int index, WGpio* item, const char* id) {
+        json->beginObject(); 
+        item->toJson(json); 
+        json->endObject();
+      });
+      json->endArray();
+    }
+  }  
 
 };
 
@@ -250,6 +251,19 @@ class WMode : public WGroup {
  protected:  
   WValue* _modeId = new WValue(STRING);
   WValue* _modeTitle = new WValue(STRING); 
+
+  virtual void _toJsonListOrMap(WJson* json) {
+    if (_items != nullptr) {
+      json->beginObject(WC_ITEMS);
+      json->beginArray(WC_ITEMS);
+      _items->forEach([json] (int index, WGpio* item, const char* id) {
+        json->beginObject(id); 
+        item->toJson(json); 
+        json->endObject();
+      });
+      json->endObject();
+    }
+  }
   
 };
 

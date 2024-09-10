@@ -1,7 +1,7 @@
 #ifndef W_INPUT_H
 #define W_INPUT_H
 
-#include "WOutput.h"
+#include "WGpio.h"
 
 class WInput {
  public:

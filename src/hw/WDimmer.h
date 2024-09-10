@@ -5,17 +5,17 @@
 
 #include "WOutput.h"
 
-class WDimmer: public WOutput {
+class WDimmer: public WGpio {
 public:
 	WDimmer(byte pin, uint8_t mode = OUTPUT)
-			: WOutput(GPIO_TYPE_DIMMER, pin, mode) {				
+			: WGpio(GPIO_TYPE_DIMMER, pin, mode) {				
 		_level = nullptr;
 		_levelCurrent = 0;
 		_stopLevelAdjusting();		
 	}
 
 	virtual void loop(unsigned long now) {
-		WOutput::loop(now);	
+		WGpio::loop(now);	
 		if ((this->isInitialized()) && (_levelAdjusting) && ((_levelLastUpdate == 0) || (_levelLastUpdate + 200 < now))) {
 			int targetLevel = (isOn() ? (_level != nullptr ? _level->asInt() : 100) : 0);
 			if (targetLevel != _levelCurrent) {
@@ -60,7 +60,7 @@ protected:
 	}
 
 	virtual void _updateOn() {
-		WOutput::_updateOn();
+		WGpio::_updateOn();
 		_updateLevel();
   };
 

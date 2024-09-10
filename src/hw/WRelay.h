@@ -1,11 +1,11 @@
 #ifndef W_RELAY_H
 #define W_RELAY_H
 
-#include "WOutput.h"
+#include "WGpio.h"
 
-class WRelay : public WOutput {
+class WRelay : public WGpio {
  public:
-  WRelay(int relayPin, bool inverted = false) : WOutput(GPIO_TYPE_RELAY, relayPin) {
+  WRelay(int relayPin, bool inverted = false) : WGpio(GPIO_TYPE_RELAY, relayPin) {
     this->inverted(inverted);
   }  
 
@@ -20,19 +20,19 @@ class WRelay : public WOutput {
   }
 
   virtual void registerSettings() {
-    WOutput::registerSettings();
+    WGpio::registerSettings();
     SETTINGS->add(_config, nullptr);   
     _onChange(); 
   }
 
   virtual void fromJson(WList<WValue>* list) {
-    WOutput::fromJson(list);
+    WGpio::fromJson(list);
     WValue* v = list->getById(WC_INVERTED);
     inverted(v != nullptr ? v->asBool() : false);    
   }
 
   virtual void toJson(WJson* json) {
-    WOutput::toJson(json);    
+    WGpio::toJson(json);    
     json->propertyBoolean(WC_INVERTED, inverted());
   }
 

@@ -27,6 +27,7 @@ const static char* WC_TRUE = "true";
 const static char WC_GPIO[] PROGMEM = "gpio";
 const static char WC_ID[] PROGMEM = "id";
 const static char WC_INVERTED[] PROGMEM = "inverted";
+const static char WC_ITEMS[] PROGMEM = "items";
 const static char WC_LINK_STATE[] PROGMEM = "linkstate";
 const static char WC_MODE_ID[] PROGMEM = "modeId";
 const static char WC_MODE_TITLE[] PROGMEM = "modeTitle";

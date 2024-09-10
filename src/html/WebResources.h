@@ -37,7 +37,6 @@ const static char WC_HTTP[] PROGMEM = "http";
 const static char WC_HREF[] PROGMEM = "href";
 const static char WC_INFO[] PROGMEM = "info";
 const static char WC_INPUT[] PROGMEM = "input";
-const static char WC_ITEMS[] PROGMEM = "items";
 const static char WC_LABEL[] PROGMEM = "label";
 const static char WC_LANG[] PROGMEM = "lang";
 const static char WC_LINK[] PROGMEM = "link";

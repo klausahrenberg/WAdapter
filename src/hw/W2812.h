@@ -3,16 +3,16 @@
 
 #include "Adafruit_NeoPixel.h"
 #include "WProps.h"
-#include "WOutput.h"
+#include "WGpio.h"
 
 const int COUNT_LED_PROGRAMS = 3;
 const float PI180 = 0.01745329;
 const neoPixelType LED_TYPE_WS2812 = NEO_GRB + NEO_KHZ800;
 const neoPixelType LED_TYPE_PL9823 = NEO_RGB + NEO_KHZ800;
 
-class W2812Led : public WOutput {
+class W2812Led : public WGpio {
  public:
-  W2812Led(int ledPin, byte numberOfLeds, neoPixelType ledType = LED_TYPE_WS2812) : WOutput(GPIO_TYPE_RGB_LED, ledPin) {        
+  W2812Led(int ledPin, byte numberOfLeds, neoPixelType ledType = LED_TYPE_WS2812) : WGpio(GPIO_TYPE_RGB_LED, ledPin) {        
     _numberOfLeds = numberOfLeds;
     _ledProgram = 2;
     _programStatusCounter = 0;

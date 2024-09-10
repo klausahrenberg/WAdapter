@@ -1,7 +1,7 @@
 #ifndef W_LED_H
 #define W_LED_H
 
-#include "WOutput.h"
+#include "WGpio.h"
 
 #ifdef ESP8266
 const byte LED_ON = LOW;
@@ -11,9 +11,9 @@ const byte LED_ON = HIGH;
 const byte LED_OFF = LOW;
 #endif
 
-class WLed : public WOutput {
+class WLed : public WGpio {
  public:
-  WLed(int ledPin = NO_PIN, IWExpander* expander = nullptr) : WOutput(GPIO_TYPE_LED, ledPin, OUTPUT, expander) {    
+  WLed(int ledPin = NO_PIN, IWExpander* expander = nullptr) : WGpio(GPIO_TYPE_LED, ledPin, OUTPUT, expander) {    
     
   }  
 
@@ -28,10 +28,10 @@ class WLed : public WOutput {
 
   void setOn(bool ledOn, int blinkMillis = 0) {
     if ((this->isOn()) && (_blinkMillis != blinkMillis)) {
-      WOutput::setOn(false);
+      WGpio::setOn(false);
     }
     _blinkMillis = blinkMillis;
-    WOutput::setOn(ledOn);
+    WGpio::setOn(ledOn);
   }
 
   bool isBlinking() { return (_blinkMillis > 0); }
@@ -69,13 +69,13 @@ class WLed : public WOutput {
   }
 
   virtual void registerSettings() {
-    WOutput::registerSettings();
+    WGpio::registerSettings();
     SETTINGS->add(_config, nullptr);   
     _onChange(); 
   }
 
   virtual void fromJson(WList<WValue>* list) {
-    WOutput::fromJson(list);
+    WGpio::fromJson(list);
     WValue* v = list->getById(WC_INVERTED);
     inverted(v != nullptr ? v->asBool() : false);
     v = list->getById(WC_LINK_STATE);
@@ -83,7 +83,7 @@ class WLed : public WOutput {
   }
 
   virtual void toJson(WJson* json) {
-    WOutput::toJson(json);    
+    WGpio::toJson(json);    
     json->propertyBoolean(WC_INVERTED, inverted());
     json->propertyBoolean(WC_LINK_STATE, linkState());
   }
@@ -94,7 +94,7 @@ class WLed : public WOutput {
   byte getOffLevel() { return !getOnLevel(); }
 
   virtual void _updateOn() {
-    WOutput::_updateOn();
+    WGpio::_updateOn();
 
 	}
 
