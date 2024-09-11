@@ -2,7 +2,6 @@
 #define W_DEVICE_H
 
 #include "WList.h"
-#include "WInput.h"
 #include "WGpio.h"
 #include "hw/WLed.h"
 #include "WProps.h"
@@ -55,23 +54,15 @@ class WDevice {
     _properties->add(property, id);
   }
 
-  void addInput(WInput* input) {
-    if (_inputs == nullptr) {
-      _inputs = new WList<WInput>();
+  void addGpio(WGpio* output) {
+    if (_gpios == nullptr) {
+      _gpios = new WList<WGpio>();
     }
-    _inputs->add(input);
+    _gpios->add(output);
   }
 
-  void addOutput(WGpio* output) {
-    if (_outputs == nullptr) {
-      _outputs = new WList<WGpio>();
-    }
-    _outputs->add(output);
-  }
-
-  void clearInAndOutputs() {
-    if (_inputs) _inputs->clear();
-    if (_outputs) _outputs->clear();
+  void clearGpios() {
+    if (_gpios) _gpios->clear();
   }
 
   WProperty* getPropertyById(const char* propertyId) { return _properties->getById(propertyId); }
@@ -113,12 +104,10 @@ class WDevice {
   }
 
   virtual void loop(unsigned long now) {
-    if (_inputs != nullptr) {
-      _inputs->forEach([this, now](int index, WInput* input, const char* id){input->loop(now);});
+    if (_gpios != nullptr) {
+      _gpios->forEach([this, now] (int index, WGpio* gpio, const char* id) { if (gpio->isInput()) gpio->loop(now); } );
+      _gpios->forEach([this, now] (int index, WGpio* gpio, const char* id) { if (gpio->isOutput()) gpio->loop(now); } );
     }
-    if (_outputs != nullptr) {
-      _outputs->forEach([this, now](int index, WGpio* output, const char* id){output->loop(now);});
-    }  
   }
 
   virtual void bindWebServerCalls(AsyncWebServer* webServer) {}
@@ -189,8 +178,7 @@ class WDevice {
   unsigned long _lastStateNotify;
   unsigned long _stateNotifyInterval;
   bool _lastStateWaitForResponse;
-  WList<WInput>* _inputs = nullptr;
-  WList<WGpio>* _outputs = nullptr;  
+  WList<WGpio>* _gpios = nullptr;  
 
   void onPropertyChange() { _lastStateNotify = 0; }
 };

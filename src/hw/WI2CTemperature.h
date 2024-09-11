@@ -10,8 +10,8 @@
 
 class WI2CTemperature: public WI2C {
 public:
-	WI2CTemperature(byte address, int sda, int scl, TwoWire* i2cPort = &Wire)
-			: WI2C(address, sda, scl, NO_PIN, i2cPort) {				
+	WI2CTemperature(WGpioType gpioType, byte address, int sda, int scl, TwoWire* i2cPort = &Wire)
+			: WI2C(gpioType, address, sda, scl, NO_PIN, i2cPort) {				
 		_humidity = nullptr;		
 		_lastError = ERROR_NONE;
 	}

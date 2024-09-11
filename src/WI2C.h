@@ -2,12 +2,12 @@
 #define W_I2C_H
 
 #include <Wire.h>
-#include "WInput.h"
+#include "WGpio.h"
 
-class WI2C: public WInput {
+class WI2C: public WGpio {
 public:
-	WI2C(byte address, int sda, int scl, int interrupt, TwoWire* i2cPort = &Wire)
-			: WInput(interrupt, INPUT_PULLUP) {
+	WI2C(WGpioType gpioType, byte address, int sda, int scl, int interrupt, TwoWire* i2cPort = &Wire)
+			: WGpio(gpioType, interrupt, INPUT_PULLUP) {
 		_i2cPort = i2cPort;
 		_address = address;
 		_sda = sda;
@@ -22,7 +22,7 @@ public:
 	}
 
 	virtual void loop(unsigned long now) {
-		WInput::loop(now);
+		WGpio::loop(now);
 	}
 
 protected:

@@ -26,8 +26,8 @@ enum WSht30ReadState {
 
 class WSht30 : public WI2CTemperature {
  public:
-  WSht30(int sda, int scl, TwoWire* i2cPort = &Wire)
-      : WI2CTemperature(SHT30_ADDRESS, sda, scl, i2cPort) {
+  WSht30(int sda = NO_PIN, int scl = NO_PIN, TwoWire* i2cPort = &Wire)
+      : WI2CTemperature(GPIO_TYPE_SHT30, SHT30_ADDRESS, sda, scl, i2cPort) {
     _lastMeasure = 0;
     _measureInterval = 10000;
 		_correctionTemperature = -0.5;

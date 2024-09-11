@@ -21,7 +21,7 @@ enum WGpioType {
   GPIO_TYPE_RGB_LED, GPIO_TYPE_DIMMER,
   //Inputs
   GPIO_TYPE_BUTTON, GPIO_TYPE_SWITCH,  
-  GPIO_TYPE_TEMP_SENSOR,
+  GPIO_TYPE_HTU21, GPIO_TYPE_SHT30,
   //NONE
   GPIO_TYPE_UNKNOWN = 0xFF
 };
@@ -33,14 +33,16 @@ const char S_GPIO_TYPE_SWITCH[] PROGMEM = "switch";
 const char S_GPIO_TYPE_MODE[] PROGMEM = "mode";
 const char S_GPIO_TYPE_RGB_LED[] PROGMEM = "rgb";
 const char S_GPIO_TYPE_GROUP[] PROGMEM = "group";
-const char S_GPIO_TYPE_TEMP_SENSOR[] PROGMEM = "temp";
+const char S_GPIO_TYPE_HTU21[] PROGMEM = "htu21";
+const char S_GPIO_TYPE_SHT30[] PROGMEM = "sht30";
 const char S_GPIO_TYPE_DIMMER[] PROGMEM = "dimmer";
 const char* const S_GPIO_TYPE[] PROGMEM = { S_GPIO_TYPE_GROUP, S_GPIO_TYPE_MODE,
                                             S_GPIO_TYPE_LED, S_GPIO_TYPE_RELAY, S_GPIO_TYPE_RGB_LED, S_GPIO_TYPE_DIMMER, 
-                                            S_GPIO_TYPE_BUTTON, S_GPIO_TYPE_SWITCH, S_GPIO_TYPE_TEMP_SENSOR };
+                                            S_GPIO_TYPE_BUTTON, S_GPIO_TYPE_SWITCH, S_GPIO_TYPE_HTU21, S_GPIO_TYPE_SHT30 };
 
 class WGpio : public IWJsonable {
  public:
+  typedef std::function<void()> THandlerFunction;
   WGpio(WGpioType type = GPIO_TYPE_UNKNOWN, byte pin = NO_PIN, byte mode = OUTPUT, IWExpander* expander = nullptr) {    
     _type = type;
     _mode = mode;
@@ -53,10 +55,10 @@ class WGpio : public IWJsonable {
     if (_pin) delete _pin;
   }
 
-  bool isOn() { return (_on != nullptr ? _on->asBool() : _isOn); }
+  bool isOn() { return (_property != nullptr ? _property->asBool() : _isOn); }
 
   void setOn(bool isOn) {
-    if ((_on == nullptr) && (isOn != _isOn)) {
+    if ((_property == nullptr) && (isOn != _isOn)) {
       _isOn = isOn;
       _updateOn();      
     }
@@ -81,12 +83,22 @@ class WGpio : public IWJsonable {
     }    
   }
 
-  WProperty* on() { return _on; }
+  WProperty* property() { return _property; }
 
-	void on(WProperty* on) { 
-    _on = on; 
-    _on->addListener([this]() { _updateOn();});    
+	void property(WProperty* property) { 
+    _property = property; 
+    if (isInput()) {
+      this->loop(millis());
+    } else {
+      _property->addListener([this]() { _updateOn();});
+    }      
 	}  
+
+  bool hasProperty() { return (_property != nullptr); }
+
+  bool readInput(uint8_t pin) {
+    return (_expander == nullptr ? digitalRead(pin) : _expander->readInput(pin));
+  } 
 
   void writeOutput(uint8_t pin, bool value) {
     if (_expander == nullptr) {
@@ -136,7 +148,7 @@ class WGpio : public IWJsonable {
 
  protected:
   WGpioType _type;
-  WProperty* _on = nullptr;
+  WProperty* _property = nullptr;
   IWExpander* _expander;
 
   virtual bool isInitialized() { return (pin() != NO_PIN); }  
@@ -248,9 +260,30 @@ class WMode : public WGroup {
 
   WValue* modeTitle() { return _modeTitle; }
 
+  WProperty* modeProp() { return _modeProp; }
+
+  void modeProp(WProperty* modeProp) { 
+    _modeProp = modeProp; 
+    if ((_items) && (_modeProp)) {
+      _items->forEach([this] (int index, WGpio* gpio, const char* id) { this->_modeProp->addEnumString(id); } );
+    }
+    _modeProp->addListener([this]() { _updateOn();}); 
+	}
+
  protected:  
+  WProperty* _modeProp = nullptr;
   WValue* _modeId = new WValue(STRING);
   WValue* _modeTitle = new WValue(STRING); 
+
+  virtual void _updateOn() {
+    if (_items != nullptr) { 
+      //switch all off     
+      _items->forEach([this] (int index, WGpio* output, const char* id) { output->setOn(false); } );
+      if ((this->isOn()) && (_modeProp != nullptr) && (!_modeProp->isStringEmpty())) {
+        _items->ifExistsId(_modeProp->asString(), [] (WGpio* gpio) { gpio->setOn(true); } );
+      } 
+    }
+  }
 
   virtual void _toJsonListOrMap(WJson* json) {
     if (_items != nullptr) {

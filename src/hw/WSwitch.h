@@ -1,26 +1,22 @@
 #ifndef W_SWITCH_H_
 #define W_SWITCH_H_
 
-#include "WInput.h"
+#include "WGpio.h"
 
-#define MODE_BUTTON 0
-#define MODE_BUTTON_LONG_PRESS 1
-#define MODE_SWITCH 2
 #define SWITCH_PRESSED_PEGEL HIGH
 
 const unsigned long SWITCH_SENSITIVENESS = 200;
 const unsigned long BUTTON_SENSITIVENESS = 20;
 const unsigned long SWICTH_LONG_PRESS_DURATION = 5000;
 
-class WSwitch : public WInput {
+class WSwitch : public WGpio {
  public:
-  WSwitch(int switchPin, byte mode, bool inverted = false, IWExpander* expander = nullptr)
-      : WInput(switchPin, (inverted ? INPUT_PULLUP : INPUT), expander) {
+  WSwitch(WGpioType gpioType = GPIO_TYPE_BUTTON, int switchPin = NO_PIN, bool inverted = false, IWExpander* expander = nullptr)
+      : WGpio(gpioType, switchPin, (inverted ? INPUT_PULLUP : INPUT), expander) {
     _startTime = 0;
     _longPressStartTime = 0;
     _inverted = inverted;
     _triggerProperty = nullptr;
-    _mode = mode;
     if (this->isInitialized()) {
       _state = readInput(switchPin);
       _lastState = _state;
@@ -32,8 +28,8 @@ class WSwitch : public WInput {
       // 1. Eliminate flickering input
       bool stateChanged = false;
       bool newState = readInput(pin());
-      bool expectedPegel = (_mode == MODE_SWITCH ? !_state : getOnLevel());
-      unsigned long sensitiveness = (_mode == MODE_SWITCH ? SWITCH_SENSITIVENESS : BUTTON_SENSITIVENESS);
+      bool expectedPegel = (_type == GPIO_TYPE_SWITCH ? !_state : getOnLevel());
+      unsigned long sensitiveness = (_type == GPIO_TYPE_SWITCH ? SWITCH_SENSITIVENESS : BUTTON_SENSITIVENESS);
 
       if ((newState != _lastState) && (_startTime == 0)) {
         _startTime = now;
@@ -49,9 +45,9 @@ class WSwitch : public WInput {
         _state = !_state;
         _startTime = 0;
         if (_state == expectedPegel) {
-          if (_mode != MODE_SWITCH) {
+          if (_type != GPIO_TYPE_SWITCH) {
             // Button handling
-            if (_mode == MODE_BUTTON) {
+            if (!_supportLongPress) {
               // Button
               handleButtonOrSwitchPressed();
               _longPressStartTime = 0;
@@ -64,10 +60,10 @@ class WSwitch : public WInput {
             _longPressStartTime = 0;
           }
         } else {
-          if (_mode == MODE_SWITCH) {
+          if (_type == GPIO_TYPE_SWITCH) {
             // Switch handling
             handleButtonOrSwitchPressed();
-          } else if ((_mode == MODE_BUTTON_LONG_PRESS) && (_longPressStartTime > 0) && (now - _longPressStartTime < SWICTH_LONG_PRESS_DURATION)) {
+          } else if ((_supportLongPress) && (_longPressStartTime > 0) && (now - _longPressStartTime < SWICTH_LONG_PRESS_DURATION)) {
             // Long press button was released before long press time
             handleButtonOrSwitchPressed();
           }
@@ -77,7 +73,7 @@ class WSwitch : public WInput {
         // 3. If state not changed, reset trigger and handle long press buttons
         setTriggerValue(false);
         // Long press time is up
-        if ((_mode == MODE_BUTTON_LONG_PRESS) && (_longPressStartTime > 0) && (now - _longPressStartTime >= SWICTH_LONG_PRESS_DURATION)) {
+        if ((_supportLongPress) && (_longPressStartTime > 0) && (now - _longPressStartTime >= SWICTH_LONG_PRESS_DURATION)) {
           handleLongButtonPressed();
           _longPressStartTime = 0;
         }
@@ -86,7 +82,7 @@ class WSwitch : public WInput {
   }
 
   bool isLongPressing() {
-    return ((_mode == MODE_BUTTON_LONG_PRESS) && (_longPressStartTime > 0));
+    return ((_supportLongPress) && (_longPressStartTime > 0));
   }
 
   void handleButtonOrSwitchPressed() {
@@ -137,8 +133,8 @@ class WSwitch : public WInput {
  private:
   THandlerFunction _onPressed;
   THandlerFunction _onLongPressed;
-  byte _mode;
   bool _state, _lastState;
+  bool _supportLongPress = false;
   unsigned long _startTime, _longPressStartTime;
   WProperty* _triggerProperty;
 

@@ -107,6 +107,8 @@ class WProperty {
     return this;
   }  
 
+  bool isStringEmpty() { _requestValue(); return _value->isStringEmpty(); }
+
   int asInt() { _requestValue(); return _value->asInt(); }
 
   WProperty* asInt(int value) {

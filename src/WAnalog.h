@@ -1,11 +1,11 @@
 #ifndef W_ANALOG_INPUT_H
 #define W_ANALOG_INPUT_H
 
-#include "WInput.h"
+#include "WGpio.h"
 
-class WAnalog : public WInput {
+class WAnalog : public WGpio {
  public:
-  WAnalog(int analogPin, int minimum = 0, int maximum = 100) : WInput(analogPin, INPUT) {	
+  WAnalog(WGpioType gpioType, int analogPin, int minimum = 0, int maximum = 100) : WGpio(gpioType, analogPin, INPUT) {	
 		_minimum = minimum;
 		_maximum = maximum;
 		_analogMinimum = 0;

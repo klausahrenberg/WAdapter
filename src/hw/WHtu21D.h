@@ -23,8 +23,8 @@ enum WHtu21DState {
 
 class WHtu21D: public WI2CTemperature {
 public:
-	WHtu21D(int sda, int scl, TwoWire* i2cPort = &Wire)
-			: WI2CTemperature(HTU21D_ADDRESS, sda, scl, i2cPort) {
+	WHtu21D(int sda = NO_PIN, int scl = NO_PIN, TwoWire* i2cPort = &Wire)
+			: WI2CTemperature(GPIO_TYPE_HTU21, HTU21D_ADDRESS, sda, scl, i2cPort) {
 		_lastMeasure = 0;
 		_measureInterval = 10000;
 		_correctionTemperature = -0.5;
