@@ -5,6 +5,7 @@
 #include "WProps.h"
 #include "WGpio.h"
 
+const static char WRGB_NUMBER_OF_LEDS[] PROGMEM = "leds";
 const int COUNT_LED_PROGRAMS = 3;
 const float PI180 = 0.01745329;
 const neoPixelType LED_TYPE_WS2812 = NEO_GRB + NEO_KHZ800;
@@ -12,9 +13,7 @@ const neoPixelType LED_TYPE_PL9823 = NEO_RGB + NEO_KHZ800;
 
 class W2812Led : public WGpio {
  public:
-  W2812Led(int ledPin, byte numberOfLeds, neoPixelType ledType = LED_TYPE_WS2812) : WGpio(GPIO_TYPE_RGB_LED, ledPin) {        
-    _numberOfLeds = numberOfLeds;
-    _ledProgram = 2;
+  W2812Led(WGpioType gpioType = GPIO_TYPE_RGB_WS2812, int ledPin = NO_PIN, byte numberOfLeds = 0) : WGpio(gpioType, ledPin) {                
     _programStatusCounter = 0;
     _lastUpdate = 0;
     _color = new WColorProperty("Color", 255, 0, 0);
@@ -23,11 +22,13 @@ class W2812Led : public WGpio {
     _brightness->asInt(160);
     //network->getSettings()->add(this->brightness);
     _brightness->addListener([this]() { _strip->setBrightness(_brightness->asInt()); });
-    _strip = new Adafruit_NeoPixel(numberOfLeds, ledPin, ledType);
-    _strip->begin();  // INITIALIZE NeoPixel strip object (REQUIRED)    
-    _strip->show();   // Turn OFF all pixels ASAP
-    _strip->setBrightness(_brightness->asInt());  // Set BRIGHTNESS to about 1/5 (max = 255)    
+    this->numberOfLeds(numberOfLeds);    
   }  
+
+  virtual ~W2812Led() {
+    delete _numberOfLeds;
+    if (_strip) delete _strip;
+  }
 
   void onChanged() {
     if (!this->isOn()) {
@@ -36,6 +37,16 @@ class W2812Led : public WGpio {
       }
       _strip->show();
     }
+  }
+
+  byte numberOfLeds() { return _numberOfLeds->asByte(); }
+
+  W2812Led* numberOfLeds(byte numberOfLeds) {
+    if (numberOfLeds != _numberOfLeds->asByte()) {
+      _numberOfLeds->asByte(numberOfLeds);
+      _onChange();
+    }
+    return this;
   }
 
   byte countModes() { return COUNT_LED_PROGRAMS;}
@@ -48,16 +59,26 @@ class W2812Led : public WGpio {
     }
   }
 
-  byte mode() { return _ledProgram;}
+  byte rgbMode() { return _rgbMode->asByte();}
 
-  void setMode(byte ledProgram) {
-    if (ledProgram >= COUNT_LED_PROGRAMS) {
-      ledProgram = 0;
+  void setRgbMode(byte rgbMode) {
+    if (rgbMode >= COUNT_LED_PROGRAMS) {
+      rgbMode = 0;
     }
-    if (_ledProgram != ledProgram) {
-      _ledProgram = ledProgram;
+    if (_rgbMode->asByte() != rgbMode) {
+      _rgbMode->asByte(rgbMode);
       _programStatusCounter = 0;
+      if (_settingsRegistered) SETTINGS->save();
     }
+  }
+
+  virtual void setRgbModeByTitle(const char* title) {
+    for (byte b = 0; b < countModes(); b++) {
+      if (strcmp(modeTitle(b), title) == 0) {
+        setRgbMode(b);
+        break;
+      }
+    }    
   }
 
   WColorProperty* color() { return _color; }
@@ -74,11 +95,29 @@ class W2812Led : public WGpio {
     _strip->show();
   }  
 
+  virtual void registerSettings() {
+    WGpio::registerSettings();
+    SETTINGS->add(_numberOfLeds, nullptr);   
+    SETTINGS->add(_rgbMode, nullptr);
+    _onChange(); 
+  }
+
+  virtual void fromJson(WList<WValue>* list) {
+    WGpio::fromJson(list);
+    WValue* v = list->getById(WRGB_NUMBER_OF_LEDS);
+    numberOfLeds(v != nullptr ? v->asByte() : numberOfLeds());
+  }
+
+  virtual void toJson(WJson* json) {
+    WGpio::toJson(json);    
+    json->propertyByte(WRGB_NUMBER_OF_LEDS, numberOfLeds());
+  }
+
   void loop(unsigned long now) {
     if (isOn()) {
       
       if (now - _lastUpdate > 200) {
-        switch (_ledProgram) {
+        switch (rgbMode()) {
           case 0: {
             // Pulsing RGB color
             float t = sin((_programStatusCounter - 90) * PI180);
@@ -131,14 +170,29 @@ class W2812Led : public WGpio {
   }
 
  protected:
+  virtual bool isInitialized() { return ((WGpio::isInitialized()) && (_numberOfLeds->asByte() > 0)); }
+  
+  virtual void _onChange() {
+    if (_strip != nullptr) {
+      delete _strip;
+      _strip = nullptr;
+    }
+    if (isInitialized()) {
+      _strip = new Adafruit_NeoPixel(numberOfLeds(), pin(), (type() == GPIO_TYPE_RGB_WS2812 ? LED_TYPE_WS2812 : LED_TYPE_PL9823));    
+      _strip->begin();  // INITIALIZE NeoPixel strip object (REQUIRED)    
+      _strip->show();   // Turn OFF all pixels ASAP
+      _strip->setBrightness(_brightness->asInt());  // Set BRIGHTNESS to about 1/5 (max = 255)    
+    }
+  }    
+
  private:
-  byte _numberOfLeds;
-  byte _ledProgram;
+  WValue* _numberOfLeds = new WValue(BYTE);  
+  WValue* _rgbMode = new WValue((byte) 2);
+  Adafruit_NeoPixel* _strip = nullptr;  
   int _programStatusCounter;
   WColorProperty* _color;
   WRangeProperty* _brightness;
   unsigned long _lastUpdate;
-  Adafruit_NeoPixel* _strip;
 
   uint32_t wheelColor(byte wheelPos) {
     byte c;

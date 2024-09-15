@@ -18,7 +18,8 @@ enum WGpioType {
   GPIO_TYPE_MODE,
   //Outputs
   GPIO_TYPE_LED, GPIO_TYPE_RELAY,
-  GPIO_TYPE_RGB_LED, GPIO_TYPE_DIMMER,
+  GPIO_TYPE_RGB_WS2812, GPIO_TYPE_RGB_PL9823, 
+  GPIO_TYPE_DIMMER,
   //Inputs
   GPIO_TYPE_BUTTON, GPIO_TYPE_SWITCH,  
   GPIO_TYPE_HTU21, GPIO_TYPE_SHT30,
@@ -31,13 +32,14 @@ const char S_GPIO_TYPE_RELAY[] PROGMEM = "relay";
 const char S_GPIO_TYPE_BUTTON[] PROGMEM = "button";
 const char S_GPIO_TYPE_SWITCH[] PROGMEM = "switch";
 const char S_GPIO_TYPE_MODE[] PROGMEM = "mode";
-const char S_GPIO_TYPE_RGB_LED[] PROGMEM = "rgb";
+const char S_GPIO_TYPE_RGB_WS2812[] PROGMEM = "ws2812";
+const char S_GPIO_TYPE_RGB_PL9823[] PROGMEM = "pl9823";
 const char S_GPIO_TYPE_GROUP[] PROGMEM = "group";
 const char S_GPIO_TYPE_HTU21[] PROGMEM = "htu21";
 const char S_GPIO_TYPE_SHT30[] PROGMEM = "sht30";
 const char S_GPIO_TYPE_DIMMER[] PROGMEM = "dimmer";
 const char* const S_GPIO_TYPE[] PROGMEM = { S_GPIO_TYPE_GROUP, S_GPIO_TYPE_MODE,
-                                            S_GPIO_TYPE_LED, S_GPIO_TYPE_RELAY, S_GPIO_TYPE_RGB_LED, S_GPIO_TYPE_DIMMER, 
+                                            S_GPIO_TYPE_LED, S_GPIO_TYPE_RELAY, S_GPIO_TYPE_RGB_WS2812, S_GPIO_TYPE_RGB_PL9823, S_GPIO_TYPE_DIMMER, 
                                             S_GPIO_TYPE_BUTTON, S_GPIO_TYPE_SWITCH, S_GPIO_TYPE_HTU21, S_GPIO_TYPE_SHT30 };
 
 class WGpio : public IWJsonable {
@@ -66,7 +68,7 @@ class WGpio : public IWJsonable {
 
   virtual void loop(unsigned long now) {}
 
-  virtual byte countModes() { return 0;}
+  /*virtual byte countModes() { return 0;}
 
   virtual const char* modeTitle(byte index) { return ""; }
 
@@ -81,7 +83,7 @@ class WGpio : public IWJsonable {
         break;
       }
     }    
-  }
+  }*/
 
   WProperty* property() { return _property; }
 
@@ -123,6 +125,7 @@ class WGpio : public IWJsonable {
   }  
 
   virtual void registerSettings() {
+    _settingsRegistered = true;
     SETTINGS->add(_pin, nullptr); 
     pin(_pin->asByte());
   }  
@@ -150,6 +153,7 @@ class WGpio : public IWJsonable {
   WGpioType _type;
   WProperty* _property = nullptr;
   IWExpander* _expander;
+  bool _settingsRegistered = false;
 
   virtual bool isInitialized() { return (pin() != NO_PIN); }  
 
@@ -198,8 +202,7 @@ class WGroup : public WGpio {
     _toJsonListOrMap(json);
   }
 
-  virtual void addItem(WGpio* output, const char* id) {
-    Serial.println("add item in group");
+  virtual void addItem(WGpio* output, const char* id) {    
     if (_items == nullptr) _items = new WList<WGpio>();
     _items->add(output, id);
   }
@@ -235,19 +238,26 @@ class WGroup : public WGpio {
 
 class WMode : public WGroup {
  public:
-  WMode() : WGroup() {
+  WMode(bool storeLastState = true) : WGroup() {    
     _type = GPIO_TYPE_MODE;
+    if (storeLastState) {
+      _state = new WValue((byte) 0);
+    }
   }
 
   virtual ~WMode() {
     if (_modeId) delete _modeId;
     if (_modeTitle) delete _modeTitle;
+    if (_state) delete _state;
   }
 
   virtual void registerSettings() {
     WGroup::registerSettings();
     SETTINGS->add(_modeId, nullptr);
     SETTINGS->add(_modeTitle, nullptr);
+    if (_state != nullptr) {
+      SETTINGS->add(_state, nullptr);
+    }
   }  
 
   virtual void fromJson(WList<WValue>* list) {
@@ -266,6 +276,13 @@ class WMode : public WGroup {
     _modeProp = modeProp; 
     if ((_items) && (_modeProp)) {
       _items->forEach([this] (int index, WGpio* gpio, const char* id) { this->_modeProp->addEnumString(id); } );
+      if (_items->size() > 0) {
+        byte index = 0;
+        if (_state != nullptr) {
+          index = min(_state->asByte(), (byte) (_items->size() - 1));
+        }
+        _modeProp->asString(_items->getId(index));        
+      }
     }
     _modeProp->addListener([this]() { _updateOn();}); 
 	}
@@ -274,13 +291,20 @@ class WMode : public WGroup {
   WProperty* _modeProp = nullptr;
   WValue* _modeId = new WValue(STRING);
   WValue* _modeTitle = new WValue(STRING); 
+  WValue* _state = nullptr;
 
   virtual void _updateOn() {
     if (_items != nullptr) { 
       //switch all off     
       _items->forEach([this] (int index, WGpio* output, const char* id) { output->setOn(false); } );
       if ((this->isOn()) && (_modeProp != nullptr) && (!_modeProp->isStringEmpty())) {
-        _items->ifExistsId(_modeProp->asString(), [] (WGpio* gpio) { gpio->setOn(true); } );
+        _items->ifExistsId(_modeProp->asString(), [this] (WGpio* gpio) { 
+          gpio->setOn(true); 
+          if (this->_state != nullptr) {
+            this->_state->asByte(this->_items->indexOfId(this->_modeProp->asString()));
+            SETTINGS->save();
+          }
+        });        
       } 
     }
   }

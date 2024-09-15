@@ -105,14 +105,11 @@ class WJsonParser {
   }
 
   void _processKeyValue(const char* key, const char* value) {
-    LOG->debug("_processKeyValue key '%s' / value '%s'", key, value);
     WMapItem* peeked = _stack->peek();
     if (peeked->mapOrList != nullptr) {                   
       if (value != nullptr) {
-        LOG->debug("_processKeyValue a / %s", _currentKey);
         peeked->mapOrList->add(new WValue(value), _currentKey);        
       }
-      LOG->debug("_processKeyValue b");
       if (_currentKey) delete _currentKey;
       _currentKey = nullptr;
     }
@@ -324,14 +321,6 @@ class WJsonParser {
       _stack->push(popped);
       _endDocument();
     } else if ((_stack->peek()->mapOrList != nullptr) && (popped->objectId != nullptr)) {
-      Serial.print("endarray '");
-      Serial.println(popped->objectId);
-      popped->mapOrList->forEach([](int index, WValue* item, const char* id) {
-          Serial.print(".>  ");
-          Serial.print(id);
-          Serial.print(" / ");
-          Serial.println(item->asString());
-        });
       _stack->peek()->mapOrList->add(new WValue(popped->mapOrList), popped->objectId);
     }
   }
@@ -352,14 +341,6 @@ class WJsonParser {
 			if (_stack->empty()) {
 				_stack->push(popped);
 			} else if (_stack->peek()->mapOrList != nullptr) {        
-        Serial.print("endobject add to array '");
-        Serial.println(popped->objectId);
-        popped->mapOrList->forEach([](int index, WValue* item, const char* id) {
-          Serial.print("ao.>  ");
-          Serial.print(id);
-          Serial.print(" / ");
-          Serial.println(item->asString());
-        });
         _stack->peek()->mapOrList->add(new WValue(popped->mapOrList), popped->objectId);
 			}	
     } else {

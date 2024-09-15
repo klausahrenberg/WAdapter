@@ -47,6 +47,7 @@ class WProperty {
     if (_value) delete _value;
     if (_title) delete _title;    
     if (_unit) delete _unit;
+    if (_enums) delete _enums;
   }
 
   void onValueRequest(TOnPropertyChange onValueRequest) { _onValueRequest = onValueRequest; }
@@ -86,6 +87,8 @@ class WProperty {
       return false;
     }    
   }    
+
+  //WValue* value() { return _value; }
 
   bool asBool() { _requestValue(); return _value->asBool(); }
 
@@ -282,49 +285,49 @@ class WProperty {
     if (_value->type() != BOOLEAN) {
       return;
     }
-    this->addEnum(WValue::ofBool(enumBoolean));
+    this->addEnum(new WValue(enumBoolean));
   }
 
   void addEnumNumber(double enumNumber) {
     if (_value->type() != DOUBLE) {
       return;
     }    
-    this->addEnum(WValue::ofDouble(enumNumber));
+    this->addEnum(new WValue(enumNumber));
   }
 
   void addEnumInteger(int enumNumber) {
     if (_value->type() != INTEGER) {
       return;
     }
-    this->addEnum(WValue::ofInt(enumNumber));
+    this->addEnum(new WValue(enumNumber));
   }
 
   void addEnumShort(short enumNumber) {
     if (_value->type() != SHORT) {
       return;
     }
-    this->addEnum(WValue::ofShort(enumNumber));
+    this->addEnum(new WValue(enumNumber));
   }
 
   void addEnumUnsignedLong(unsigned long enumNumber) {
     if (_value->type() != UNSIGNED_LONG) {
       return;
     }
-    this->addEnum(WValue::ofUnsignedLong(enumNumber));
+    this->addEnum(new WValue(enumNumber));
   }
 
   void addEnumByte(byte enumByte) {
     if (_value->type() != BYTE) {
       return;
     }
-    this->addEnum(WValue::ofByte(enumByte));
+    this->addEnum(new WValue(enumByte));
   }
 
   void addEnumString(const char* enumString) {
     if (_value->type() != STRING) {
       return;
     }
-    this->addEnum(WValue::ofString(enumString));
+    this->addEnum(new WValue(enumString));
   }
 
   byte enumIndex() { return enumIndex(this, _value->asString()); }
@@ -363,11 +366,11 @@ class WProperty {
     }
   }
 
-  void addEnum(WValue propEnum) {
+  void addEnum(WValue* enumValue) {
     if (_enums == nullptr) {
       _enums = new WList<WValue>();
     }
-    _enums->add(&propEnum);
+    _enums->add(enumValue);
   }
 
   bool hasEnums() { return (_enums != nullptr); }

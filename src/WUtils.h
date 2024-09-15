@@ -71,6 +71,10 @@ class WUtils {
     stream->print(number, DEC);
   }
 
+  static void numberUnsignedShort(Print* stream, uint16_t number) {
+    stream->print(number, DEC);
+  }
+
   static void numberUnsignedLong(Print* stream, unsigned long number) {
     stream->print(number, DEC);
   }
@@ -103,6 +107,7 @@ enum WDataType {
   BOOLEAN,
   DOUBLE,
   SHORT,
+  UNSIGNED_SHORT,
   INTEGER,
   UNSIGNED_LONG,
   BYTE,
@@ -148,6 +153,11 @@ struct WValue {
     _type = SHORT;
     asShort(value); 
   }
+
+  WValue(uint16_t value) {
+    _type = UNSIGNED_SHORT;
+    asUnsignedShort(value);
+  } 
 
   WValue(byte value) { 
     _type = BYTE;
@@ -230,6 +240,22 @@ struct WValue {
 
   bool equalsShort(short number) {
     return ((!_isNull) && (_asShort == number));
+  }
+
+  uint16_t asUnsignedShort() { return (!_isNull ? _asUnsignedShort : 0); }
+
+  bool asUnsignedShort(uint16_t newValue) {
+    bool changed = false;
+    if (_type == UNSIGNED_SHORT) {
+      changed = ((_isNull) || (_asUnsignedShort != newValue));
+      _asUnsignedShort = newValue;
+      _isNull = false;
+    }
+    return changed;
+  }
+
+  bool equalsUnsignedShort(uint16_t number) {
+    return ((!_isNull) && (_asUnsignedShort == number));
   }
 
   int asInt() { 
@@ -428,11 +454,13 @@ struct WValue {
   byte length() {
     switch (_type) {
       case STRING:
-        return ((_asString != nullptr) ? strlen(_asString) : 0);
+        return ((!_isNull) && (_asString != nullptr) ? strlen(_asString) : 0);
       case DOUBLE:
         return sizeof(double);
       case SHORT:
         return sizeof(short);
+      case UNSIGNED_SHORT:
+        return sizeof(uint16_t);
       case INTEGER:
         return sizeof(int);
       case UNSIGNED_LONG:
@@ -455,6 +483,7 @@ struct WValue {
       }
       case DOUBLE: return asDouble(v.toDouble());
       case SHORT: return asShort(v.toInt());
+      case UNSIGNED_SHORT: return asUnsignedShort(v.toInt());
       case INTEGER: return asInt(v.toInt());
       case UNSIGNED_LONG: return asUnsignedLong(v.toInt());
       case BYTE: return asByte(v.toInt());
@@ -494,6 +523,9 @@ struct WValue {
       case SHORT:
         WUtils::numberShort(stream, asShort());
         break;
+      case UNSIGNED_SHORT:
+        WUtils::numberUnsignedShort(stream, asUnsignedShort());
+        break;  
       case UNSIGNED_LONG:
         WUtils::numberUnsignedLong(stream, asUnsignedLong());
         break;
@@ -542,6 +574,8 @@ struct WValue {
 
   static WValue ofShort(short value) { return WValue(value); }
 
+  static WValue ofUnsignedShort(uint16_t value) { return WValue(value); }
+
   static WValue ofByte(byte value) { return WValue(value); }
 
   static WValue ofUnsignedLong(unsigned long value) { return WValue(value); }
@@ -560,6 +594,7 @@ struct WValue {
     bool _asBool;
     double _asDouble;
     short _asShort;
+    uint16_t _asUnsignedShort;
     int _asInt;
     unsigned long _asUnsignedLong;
     byte _asByte;

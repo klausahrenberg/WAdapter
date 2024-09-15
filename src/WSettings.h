@@ -307,7 +307,7 @@ class WSettings {
     return value;
   }  
 
-  void _save(int address, WValue* value) {
+  void _save(int address, WValue* value) {        
     switch (value->type()) {
       case BOOLEAN: {
         EEPROM.write(address, (value->asBool() ? 0xFF : 0x00));
@@ -341,7 +341,7 @@ class WSettings {
         writeString(address, value->asString());
         break;
       }
-    }    
+    }        
   }
 
  private:
@@ -403,9 +403,9 @@ class WSettings {
     _address = 2;
     _items->forEach([this, specificSetting](int index, WValue* setting, const char* id) { 
       if ((specificSetting == nullptr) || (specificSetting == setting)) {
-				_save(_address, setting); 
+        _save(_address, setting);         
 			}
-			_address += this->getLengthInEEPROM(setting);		
+      _address += this->getLengthInEEPROM(setting);		      
 		});
     // 1. Byte - settingsStored flag
     EEPROM.write(0, networkSettingsFlag);
