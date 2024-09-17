@@ -5,7 +5,7 @@
 #include "WList.h"
 #include "WLog.h"
 
-const byte FLAG_OPTIONS_NETWORK = 0x62;
+const byte FLAG_OPTIONS_NETWORK = 0x63;
 const byte FLAG_OPTIONS_NETWORK_FORCE_AP = 0x65;
 const int EEPROM_SIZE = 1024;  // SPI_FLASH_SEC_SIZE;
 

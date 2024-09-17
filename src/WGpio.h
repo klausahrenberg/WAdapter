@@ -18,11 +18,11 @@ enum WGpioType {
   GPIO_TYPE_MODE,
   //Outputs
   GPIO_TYPE_LED, GPIO_TYPE_RELAY,
-  GPIO_TYPE_RGB_WS2812, GPIO_TYPE_RGB_PL9823, 
-  GPIO_TYPE_DIMMER,
+  GPIO_TYPE_RGB_WS2812, GPIO_TYPE_RGB_PL9823, GPIO_TYPE_RGB_SINGLE,
+  GPIO_TYPE_PWM, GPIO_TYPE_SERIAL_DIMMER,
   //Inputs
   GPIO_TYPE_BUTTON, GPIO_TYPE_SWITCH,  
-  GPIO_TYPE_HTU21, GPIO_TYPE_SHT30,
+  GPIO_TYPE_HTU21, GPIO_TYPE_SHT30, GPIO_TYPE_KY013,
   //NONE
   GPIO_TYPE_UNKNOWN = 0xFF
 };
@@ -34,13 +34,17 @@ const char S_GPIO_TYPE_SWITCH[] PROGMEM = "switch";
 const char S_GPIO_TYPE_MODE[] PROGMEM = "mode";
 const char S_GPIO_TYPE_RGB_WS2812[] PROGMEM = "ws2812";
 const char S_GPIO_TYPE_RGB_PL9823[] PROGMEM = "pl9823";
+const char S_GPIO_TYPE_RGB_SINGLE[] PROGMEM = "rgb";
 const char S_GPIO_TYPE_GROUP[] PROGMEM = "group";
 const char S_GPIO_TYPE_HTU21[] PROGMEM = "htu21";
 const char S_GPIO_TYPE_SHT30[] PROGMEM = "sht30";
-const char S_GPIO_TYPE_DIMMER[] PROGMEM = "dimmer";
+const char S_GPIO_TYPE_KY013[] PROGMEM = "ky013";
+const char S_GPIO_TYPE_PWM[] PROGMEM = "pwm";
+const char S_GPIO_TYPE_SERIAL_DIMMER[] PROGMEM = "serialdimmer";
 const char* const S_GPIO_TYPE[] PROGMEM = { S_GPIO_TYPE_GROUP, S_GPIO_TYPE_MODE,
-                                            S_GPIO_TYPE_LED, S_GPIO_TYPE_RELAY, S_GPIO_TYPE_RGB_WS2812, S_GPIO_TYPE_RGB_PL9823, S_GPIO_TYPE_DIMMER, 
-                                            S_GPIO_TYPE_BUTTON, S_GPIO_TYPE_SWITCH, S_GPIO_TYPE_HTU21, S_GPIO_TYPE_SHT30 };
+                                            S_GPIO_TYPE_LED, S_GPIO_TYPE_RELAY, S_GPIO_TYPE_RGB_WS2812, S_GPIO_TYPE_RGB_PL9823, S_GPIO_TYPE_RGB_SINGLE,
+                                            S_GPIO_TYPE_PWM, S_GPIO_TYPE_SERIAL_DIMMER,
+                                            S_GPIO_TYPE_BUTTON, S_GPIO_TYPE_SWITCH, S_GPIO_TYPE_HTU21, S_GPIO_TYPE_SHT30, S_GPIO_TYPE_KY013 };
 
 class WGpio : public IWJsonable {
  public:

@@ -6,8 +6,8 @@
 class WPwmDimmer: public WDimmer {
 public:
 	#ifdef ESP8266
-	WPwmDimmer(int pwmPin, byte pwmChannel = 0)
-	: WDimmer(pwmPin, OUTPUT) {
+	WPwmDimmer(int pwmPin = NO_PIN, byte pwmChannel = 0)
+	: WDimmer(GPIO_TYPE_PWM, pwmPin, OUTPUT) {
 		//analogWriteFreq(100);
 	#elif ESP32
 	WPwmDimmer(int pwmPin, byte pwmChannel = 0)

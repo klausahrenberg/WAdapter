@@ -112,6 +112,8 @@ class WProperty {
 
   bool isStringEmpty() { _requestValue(); return _value->isStringEmpty(); }
 
+  bool equalsString(const char* toCompare) { _requestValue(); return _value->equalsString(toCompare); }
+
   int asInt() { _requestValue(); return _value->asInt(); }
 
   WProperty* asInt(int value) {

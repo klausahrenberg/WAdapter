@@ -3,15 +3,18 @@
 
 #define LEVEL_STEPS 5
 
-#include "WOutput.h"
+#include "WGpio.h"
 
 class WDimmer: public WGpio {
 public:
-	WDimmer(byte pin, uint8_t mode = OUTPUT)
-			: WGpio(GPIO_TYPE_DIMMER, pin, mode) {				
-		_level = nullptr;
+	WDimmer(WGpioType gpioType, byte pin, uint8_t mode = OUTPUT)
+			: WGpio(gpioType, pin, mode) {						
 		_levelCurrent = 0;
 		_stopLevelAdjusting();		
+	}
+
+	virtual ~WDimmer() {
+		delete _level;
 	}
 
 	virtual void loop(unsigned long now) {
@@ -40,15 +43,18 @@ public:
 		}
 	}
 
-	WProperty* level() { return _level; }
+	byte level() { return _level->asByte(); }
 
-	void level(WProperty* level) { 
-		_level = level; 
-		_level->addListener([this]() {_updateLevel();});
+	WDimmer* level(byte level) { 
+		if (_level->asByte() != level) {
+			_level->asByte(level); 
+			_updateLevel();
+		}
+		return this;
 	}  
 
 protected:
-	WProperty* _level = nullptr;
+	WValue* _level = new WValue((byte) 100);
 
 	bool _levelAdjusting;
 	int _levelStep;
