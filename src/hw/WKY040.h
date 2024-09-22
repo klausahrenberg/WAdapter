@@ -10,13 +10,14 @@ static void _jogEventHandler(void);
 class WKY040 : public WSwitch {
  public:
   WKY040(int pinSwitch, int pinClk, int pinDt, bool inverted = false, IWExpander *expander = nullptr)
-      : WSwitch(pinSwitch, MODE_BUTTON_LONG_PRESS, true, expander) {
+      : WSwitch(GPIO_TYPE_BUTTON, pinSwitch, true, expander) {        
     _pinClk = pinClk;
     _pinDt = pinDt;
     _pinMode(_pinClk, (inverted ? INPUT_PULLUP : INPUT));
     _pinMode(_pinDt, (inverted ? INPUT_PULLUP : INPUT));    
     _irqEventLeft = _irqEventRight = false;
     _useInterrupt = (expander == nullptr);
+    supportLongPress(true);
     if (_useInterrupt) {
       _addJog(this);
       attachInterrupt(_pinClk, _jogEventHandler, (inverted ? FALLING : RISING));

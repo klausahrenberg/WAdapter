@@ -61,10 +61,6 @@ class WDevice {
     _gpios->add(output);
   }
 
-  void clearGpios() {
-    if (_gpios) _gpios->clear();
-  }
-
   WProperty* getPropertyById(const char* propertyId) { return _properties->getById(propertyId); }
 
   virtual void toJsonValues(WJson* json, WPropertyVisibility visibility) {        

@@ -56,7 +56,7 @@ class WSettings {
     return (_networkByte == FLAG_OPTIONS_NETWORK_FORCE_AP);
   }
 
-  void add(WValue* value, const char* id) { this->add(value, id, false); }
+  void add(WValue* value, const char* id = nullptr) { this->add(value, id, false); }
 
   void insert(WValue* value, int index, const char* id) {
     add(value, index, id, false);

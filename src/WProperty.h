@@ -50,7 +50,7 @@ class WProperty {
     if (_enums) delete _enums;
   }
 
-  void onValueRequest(TOnPropertyChange onValueRequest) { _onValueRequest = onValueRequest; }
+  WProperty* onValueRequest(TOnPropertyChange onValueRequest) { _onValueRequest = onValueRequest; return this; }
 
   void addListener(TOnPropertyChange onChange) { _listeners.push_back(onChange); }
 
@@ -88,7 +88,7 @@ class WProperty {
     }    
   }    
 
-  //WValue* value() { return _value; }
+  WValue* value() { return _value; }
 
   bool asBool() { _requestValue(); return _value->asBool(); }
 
@@ -136,7 +136,7 @@ class WProperty {
 
   byte* asByteArray() { _requestValue(); return _value->asByteArray(); }
 
-  bool asByteArray(byte length, const byte* value) {
+  WProperty* asByteArray(byte length, const byte* value) {
     if (!_readOnly) {
       _changed = _value->asByteArray(length, value) || _changed;
       if (_changed) _notify();
@@ -148,7 +148,7 @@ class WProperty {
 
   bool readOnly() { return _readOnly; }
 
-  void readOnly(bool readOnly) { _readOnly = readOnly; }
+  WProperty* readOnly(bool readOnly) { _readOnly = readOnly; return this; }
 
   const char* unit() { return _unit; }
 
@@ -381,9 +381,7 @@ class WProperty {
 
   WPropertyVisibility visibility() { return _visibility; }
 
-  void visibility(WPropertyVisibility visibility) {
-    _visibility = visibility;
-  }
+  WProperty* visibility(WPropertyVisibility visibility) { _visibility = visibility; return this; }
 
   void visibility(bool mqtt, bool webthing) {
     if ((mqtt) && (webthing)) {

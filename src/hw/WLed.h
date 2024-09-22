@@ -95,7 +95,6 @@ class WLed : public WGpio {
 
   virtual void _updateOn() {
     WGpio::_updateOn();
-
 	}
 
   virtual void _onChange() {    

@@ -19,22 +19,18 @@ public:
 
 	virtual void loop(unsigned long now) {
 		WGpio::loop(now);	
+		Serial.print(isInitialized()); Serial.print("-"); Serial.print(_levelAdjusting); Serial.print("-"); Serial.print(_levelLastUpdate); Serial.print("-"); Serial.println((_levelLastUpdate + 200 < now));
 		if ((this->isInitialized()) && (_levelAdjusting) && ((_levelLastUpdate == 0) || (_levelLastUpdate + 200 < now))) {
+			Serial.println(isOn());
 			int targetLevel = (isOn() ? (_level != nullptr ? _level->asInt() : 100) : 0);
 			if (targetLevel != _levelCurrent) {
 				if (_levelStep == 0) {
-					_levelStep = (targetLevel - _levelCurrent) / LEVEL_STEPS;
-					Serial.print("_levelStep is ");
-					Serial.println(_levelStep);
-					
+					_levelStep = (targetLevel - _levelCurrent) / LEVEL_STEPS;					
 				}
 				_levelCurrent += _levelStep;
-				Serial.print("_levelCurrent is ");
-				Serial.println(_levelCurrent);
 				_writeLevelCurrent(_levelCurrent);
 				if (((_levelStep >= 0) && (_levelCurrent >= targetLevel)) || ((_levelStep < 0) && (_levelCurrent <= targetLevel))) {
 					_stopLevelAdjusting();	
-					Serial.println("_finito ");
 				}
 			} else {
 				_stopLevelAdjusting();

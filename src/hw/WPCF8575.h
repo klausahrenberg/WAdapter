@@ -8,7 +8,7 @@
 class WPCF8575 : public WI2C, public IWExpander {
  public:
   WPCF8575(byte address, int sda = 21, int scl = 22, TwoWire* i2cPort = &Wire)
-      : WI2C(address, sda, scl, NO_PIN, i2cPort) {}
+      : WI2C(GPIO_TYPE_PCF8575, address, sda, scl, NO_PIN, i2cPort) {}
 
   virtual void loop(unsigned long now) {
     WI2C::loop(now);

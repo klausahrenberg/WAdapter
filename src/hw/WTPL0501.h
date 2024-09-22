@@ -3,9 +3,9 @@
 
 #include <SPI.h>
 
-class WTPL0501: public WOutput {
+class WTPL0501: public WGpio {
 public:
-    WTPL0501(int8_t SCLK, int8_t DIN, int8_t CS) : WOutput(CS) {
+    WTPL0501(int8_t SCLK, int8_t DIN, int8_t CS) : WGpio(GPIO_TYPE_TPL0501, CS) {
       tpl_spi = new SPIClass(VSPI);
       tpl_spi->begin(SCLK, -1, DIN, CS);
       //pinMode(tpl_spi->pinSS(), OUTPUT);

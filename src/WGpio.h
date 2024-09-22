@@ -20,9 +20,12 @@ enum WGpioType {
   GPIO_TYPE_LED, GPIO_TYPE_RELAY,
   GPIO_TYPE_RGB_WS2812, GPIO_TYPE_RGB_PL9823, GPIO_TYPE_RGB_SINGLE,
   GPIO_TYPE_PWM, GPIO_TYPE_SERIAL_DIMMER,
+  GPIO_TYPE_TPL0501,
   //Inputs
   GPIO_TYPE_BUTTON, GPIO_TYPE_SWITCH,  
   GPIO_TYPE_HTU21, GPIO_TYPE_SHT30, GPIO_TYPE_KY013,
+  //In- and Output
+  GPIO_TYPE_PCF8575,  
   //NONE
   GPIO_TYPE_UNKNOWN = 0xFF
 };
@@ -41,10 +44,13 @@ const char S_GPIO_TYPE_SHT30[] PROGMEM = "sht30";
 const char S_GPIO_TYPE_KY013[] PROGMEM = "ky013";
 const char S_GPIO_TYPE_PWM[] PROGMEM = "pwm";
 const char S_GPIO_TYPE_SERIAL_DIMMER[] PROGMEM = "serialdimmer";
+const char S_GPIO_TYPE_TPL0501[] PROGMEM = "tpl0501";
+const char S_GPIO_TYPE_PCF8575[] PROGMEM = "pcf8575";
 const char* const S_GPIO_TYPE[] PROGMEM = { S_GPIO_TYPE_GROUP, S_GPIO_TYPE_MODE,
                                             S_GPIO_TYPE_LED, S_GPIO_TYPE_RELAY, S_GPIO_TYPE_RGB_WS2812, S_GPIO_TYPE_RGB_PL9823, S_GPIO_TYPE_RGB_SINGLE,
-                                            S_GPIO_TYPE_PWM, S_GPIO_TYPE_SERIAL_DIMMER,
-                                            S_GPIO_TYPE_BUTTON, S_GPIO_TYPE_SWITCH, S_GPIO_TYPE_HTU21, S_GPIO_TYPE_SHT30, S_GPIO_TYPE_KY013 };
+                                            S_GPIO_TYPE_PWM, S_GPIO_TYPE_SERIAL_DIMMER, S_GPIO_TYPE_TPL0501,                                           
+                                            S_GPIO_TYPE_BUTTON, S_GPIO_TYPE_SWITCH, S_GPIO_TYPE_HTU21, S_GPIO_TYPE_SHT30, S_GPIO_TYPE_KY013,
+                                            S_GPIO_TYPE_PCF8575 };
 
 class WGpio : public IWJsonable {
  public:
@@ -71,23 +77,6 @@ class WGpio : public IWJsonable {
   }    
 
   virtual void loop(unsigned long now) {}
-
-  /*virtual byte countModes() { return 0;}
-
-  virtual const char* modeTitle(byte index) { return ""; }
-
-  virtual byte mode() { return 0;}
-
-  virtual void setMode(byte index) {}
-
-  virtual void setModeByTitle(const char* title) {
-    for (byte b = 0; b < countModes(); b++) {
-      if (strcmp(modeTitle(b), title) == 0) {
-        setMode(b);
-        break;
-      }
-    }    
-  }*/
 
   WProperty* property() { return _property; }
 
@@ -150,7 +139,7 @@ class WGpio : public IWJsonable {
   WGpioType type() { return _type; }
 
   bool isGroupOrMode() { return ((_type == GPIO_TYPE_GROUP) || (_type == GPIO_TYPE_MODE)); }
-  bool isOutput() { return ((_type >= GPIO_TYPE_LED) && (_type < GPIO_TYPE_BUTTON)); }
+  bool isOutput() { return (((_type >= GPIO_TYPE_LED) && (_type < GPIO_TYPE_BUTTON)) || ((_type >= GPIO_TYPE_PCF8575) && (_type < GPIO_TYPE_UNKNOWN))); }
   bool isInput() { return ((_type >= GPIO_TYPE_BUTTON) && (_type < GPIO_TYPE_UNKNOWN)); }
 
  protected:

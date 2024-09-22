@@ -82,7 +82,7 @@ class WProps {
     return cp;
   }
 
-  static WProperty* createOnOffProperty(const char* title) {
+  static WProperty* createOnOffProperty(const char* title = nullptr) {
     return new WProperty(title, BOOLEAN, TYPE_ON_OFF_PROPERTY);
   }
 
