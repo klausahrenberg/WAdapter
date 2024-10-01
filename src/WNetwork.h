@@ -1036,8 +1036,7 @@ class WNetwork {
   }
 
   void _setPropertyValue(AsyncWebServerRequest *request, WDevice *device) {
-    if (!isUpdateRunning()) {
-      LOG->notice(F("Set property value:"));
+    if (!isUpdateRunning()) {      
       if (!_b_has_body_data) {
         request->send(422);
         return;

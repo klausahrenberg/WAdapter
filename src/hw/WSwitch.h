@@ -30,6 +30,13 @@ class WSwitch : public WGpio {
       // 1. Eliminate flickering input
       bool stateChanged = false;
       bool newState = readInput(pin());
+      /*if (pin() == 0) {
+      Serial.print(pin());
+      Serial.print(" / ");
+      Serial.print(newState);
+      Serial.print(" / ");
+      Serial.println(digitalRead(pin()));
+      }*/
       bool expectedPegel = (_type == GPIO_TYPE_SWITCH ? !_state : getOnLevel());
       unsigned long sensitiveness = (_type == GPIO_TYPE_SWITCH ? SWITCH_SENSITIVENESS : BUTTON_SENSITIVENESS);
 

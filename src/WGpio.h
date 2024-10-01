@@ -103,12 +103,12 @@ class WGpio : public IWJsonable {
     } 
   }
 
-  int pin() { return _pin->asByte(); }  
+  byte pin() { return _pin->asByte(); }  
 
   virtual WGpio* pin(byte pin) {
     bool changed = (_pin->asByte() != pin); 
     _pin->asByte(pin);
-    if ((_pin->asByte() != NO_PIN) && (_mode != NO_MODE)) {
+    if ((_pin->asByte() != NO_PIN) && (_mode != NO_MODE)) {             
       _pinMode(_pin->asByte(), _mode);      
     }
     if (changed) {  
@@ -150,7 +150,7 @@ class WGpio : public IWJsonable {
 
   virtual bool isInitialized() { return (pin() != NO_PIN); }  
 
-  void _pinMode(uint8_t pin, uint8_t mode) {
+  virtual void _pinMode(uint8_t pin, uint8_t mode) {
     (_expander == nullptr ? pinMode(pin, mode) : _expander->mode(pin, mode));
   }
 

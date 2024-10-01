@@ -270,8 +270,7 @@ struct WValue {
 
   bool asInt(int newValue) {
     bool changed = false;
-    if (_type == INTEGER) {
-      bool changed = false;
+    if (_type == INTEGER) {            
       changed = ((_isNull) || (_asInt != newValue));
       _asInt = newValue;
       _isNull = false;

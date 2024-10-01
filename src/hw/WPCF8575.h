@@ -11,7 +11,7 @@ class WPCF8575 : public WI2C, public IWExpander {
       : WI2C(GPIO_TYPE_PCF8575, address, sda, scl, NO_PIN, i2cPort) {}
 
   virtual void loop(unsigned long now) {
-    WI2C::loop(now);
+    WI2C::loop(now);    
     _i2cPort->requestFrom(_address, (uint8_t)2);
     _lastReadMillis = millis();
     if (_i2cPort->available()) {
@@ -22,7 +22,7 @@ class WPCF8575 : public WI2C, public IWExpander {
         _byteBuffered = /*(_byteBuffered & ~_readMode) |*/ (uint16_t)iInput;
         
       //}
-      //Serial.println(_byteBuffered);
+      //Serial.println(_byteBuffered, BIN);
     }
   }
 
@@ -74,21 +74,25 @@ class WPCF8575 : public WI2C, public IWExpander {
   }
 
   virtual bool readInput(uint8_t pin) {
-    return ((bit(pin) & _byteBuffered) > 0);
+    /*if (pin == 14) {
+      Serial.print("r: ");
+      Serial.println(bitRead(_byteBuffered, pin));
+    } */ 
+    return ((bit(pin) & bitRead(_byteBuffered, pin)));
 
-    /*// uint8_t read(uint8_t pin, bool forceReadNow = false) {
-    uint8_t value = (bit(pin) & _readModePullUp) ? HIGH : LOW;
+    // uint8_t read(uint8_t pin, bool forceReadNow = false) {
+    /*uint8_t value = (bit(pin) & _readModePullUp) ? HIGH : LOW;
 
     if ((((bit(pin) & (_readModePullDown & _byteBuffered)) > 0) or
          (bit(pin) & (_readModePullUp & ~_byteBuffered)) > 0)) {
-      Serial.println("a)");
+      //Serial.println("a)");
       if ((bit(pin) & _byteBuffered) > 0) {
         value = HIGH;
       } else {
         value = LOW;
       }
     } else if ( (millis() > _lastReadMillis + READ_ELAPSED_TIME)) {
-      Serial.println("b)");
+      //Serial.println("b)");
       _i2cPort->requestFrom(_address, (uint8_t)2);
       _lastReadMillis = millis();
       if (_i2cPort->available()) {
