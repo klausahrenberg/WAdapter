@@ -40,7 +40,7 @@ class WKY040 : public WSwitch {
         _irqEventLeft = (dt == clk);
         _irqEventRight = !_irqEventLeft;
       }
-      if (_inverted) {
+      if (inverted()) {
         _irqEventLeft = !_irqEventLeft;
         _irqEventRight = !_irqEventRight;
       }
