@@ -40,24 +40,20 @@ protected:
       #ifdef ESP8266
 			analogWrite(this->pin(), 0);
 			#elif ESP32
-			/*ledcSetup(_pwmChannel, 1000, 8);
+			ledcSetup(_pwmChannel, 1000, 8);
 			ledcAttachPin(pin(), _pwmChannel);
-			ledcWrite(_pwmChannel, 0xFF);*/
+			//ledcWrite(_pwmChannel, 0xFF);
+			ledcWrite(_pwmChannel, 0x50);
 
-			ledcSetup(_pwmChannel, 5000, 0x400);
+			/*ledcSetup(_pwmChannel, 5000, 0x400);
 			ledcAttachPin(pin(), _pwmChannel);
-			ledcWrite(_pwmChannel, 0);
+			ledcWrite(_pwmChannel, 0);*/
 			#endif						
     }
   } 
 
 	virtual void _writeLevelCurrent(int levelCurrent) {
 		WDimmer::_writeLevelCurrent(levelCurrent);
-		if (levelCurrent == 100) {
-			Serial.println("max");			
-		} else if (levelCurrent == 0) {
-			Serial.println("min");
-		}
 		if (isInitialized()) {		
 			levelCurrent = levelCurrent * 0x3FF / 100;
 			#ifdef ESP8266

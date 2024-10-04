@@ -30,12 +30,10 @@ class WKY040 : public WSwitch {
   }
 
   void loop(unsigned long now) {
-    WSwitch::loop(now);
-    bool clk = (!_useInterrupt ? readInput(_pinClk) : getOffLevel());
-    //Serial.println(readInput(_pinClk));
-    if ((_irqEventLeft) || (_irqEventRight) || ((_lastClk == getOffLevel()) && (clk == getOnLevel()))) {      
-      if (!_useInterrupt) {
-        
+    WSwitch::loop(now);    
+    bool clk = (!_useInterrupt ? readInput(_pinClk) : !_onLevel());
+    if ((_irqEventLeft) || (_irqEventRight) || ((_lastClk != _onLevel()) && (clk == _onLevel()))) {      
+      if (!_useInterrupt) {        
         bool dt = readInput(_pinDt);
         _irqEventLeft = (dt == clk);
         _irqEventRight = !_irqEventLeft;
@@ -44,12 +42,6 @@ class WKY040 : public WSwitch {
         _irqEventLeft = !_irqEventLeft;
         _irqEventRight = !_irqEventRight;
       }
-      
-      Serial.print("jog changed at pin ");
-      Serial.print(_pinClk);
-      Serial.print(" rotating ");
-      Serial.println(_irqEventLeft ? "left" : "right");
-
       this->handleButtonOrSwitchPressed();
       
       if (_rotatingLeft != nullptr) {

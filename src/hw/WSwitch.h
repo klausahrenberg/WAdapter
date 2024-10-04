@@ -9,7 +9,7 @@ const static char WC_LONG_PRESS[] PROGMEM = "longPress";
 
 const unsigned long SWITCH_SENSITIVENESS = 200;
 const unsigned long BUTTON_SENSITIVENESS = 20;
-const unsigned long SWICTH_LONG_PRESS_DURATION = 5000;
+const unsigned long SWICTH_LONG_PRESS_DURATION = 4000;
 
 class WSwitch : public WGpio {
  public:
@@ -21,11 +21,6 @@ class WSwitch : public WGpio {
     if (this->isInitialized()) {
       _state = readInput(switchPin);
       _lastState = _state;
-      Serial.print("state is ");
-      Serial.println(_state);
-    } else {
-      Serial.print("ni state is ");
-      Serial.println(_state);
     }
   }
 
@@ -33,17 +28,8 @@ class WSwitch : public WGpio {
     if (this->isInitialized()) {
       // 1. Eliminate flickering input
       bool stateChanged = false;
-      bool newState = readInput(pin());
-      /*if (pin() == 0) {
-      Serial.print(pin());
-      Serial.print(" / ");
-      Serial.print(newState);
-      Serial.print(" / ");
-      Serial.println(digitalRead(pin()));
-      }*/
-      
-
-      bool expectedPegel = (_type == GPIO_TYPE_SWITCH ? !_state : getOnLevel());
+      bool newState = readInput(pin());      
+      bool expectedPegel = (_type == GPIO_TYPE_SWITCH ? !_state : _onLevel());
       unsigned long sensitiveness = (_type == GPIO_TYPE_SWITCH ? SWITCH_SENSITIVENESS : BUTTON_SENSITIVENESS);
 
       if ((newState != _lastState) && (_startTime == 0)) {
@@ -56,56 +42,33 @@ class WSwitch : public WGpio {
 
       _lastState = newState;
       // 2. If state really changed, now switch logic
-      if (stateChanged) {        
-        if (pin() == 0) {
-        
-
-if (_type == GPIO_TYPE_SWITCH) {
-        Serial.println("type is switch");
-      } else {
-        Serial.println("type is button");
-      }
-      Serial.print("!state is ");
-        Serial.println(!_state);
-        Serial.print("onLevel is ");
-        Serial.println(getOnLevel());
-
-        }
+      if (stateChanged) {                
         _state = !_state;
         _startTime = 0;
-
         if (_state == expectedPegel) {
-          Serial.println("a");
-          if (_type != GPIO_TYPE_SWITCH) {
+          if (_type == GPIO_TYPE_BUTTON) {            
             // Button handling
-            Serial.println("b");
             if (!supportLongPress()) {
               // Button
-              Serial.println("c");
               handleButtonOrSwitchPressed();
               _longPressStartTime = 0;
             } else {
-              Serial.println("d");
               _longPressStartTime = now;
             }
           } else {
-            Serial.println("e");
             // Switch handling
             handleButtonOrSwitchPressed();
             _longPressStartTime = 0;
           }
         } else {
-          Serial.println("f");
-          if (_type == GPIO_TYPE_SWITCH) {
-            Serial.println("g");
+          if (_type == GPIO_TYPE_BUTTON) {    
+            if ((supportLongPress()) && (_longPressStartTime > 0) && (now - _longPressStartTime < SWICTH_LONG_PRESS_DURATION)) {
+              // Long press button was released before long press time
+              handleButtonOrSwitchPressed();
+            } 
+          } else {              
             // Switch handling
-            handleButtonOrSwitchPressed();
-          } else if ((supportLongPress()) && (_longPressStartTime > 0) && (now - _longPressStartTime < SWICTH_LONG_PRESS_DURATION)) {
-            Serial.println("h");
-            // Long press button was released before long press time
-            handleButtonOrSwitchPressed();
-          } else {
-            Serial.println("i");
+            handleButtonOrSwitchPressed();                      
           }
           _longPressStartTime = 0;
         }
@@ -129,7 +92,7 @@ if (_type == GPIO_TYPE_SWITCH) {
     return this;
   }
 
-  bool supportLongPress() { return ((_longPressStartTime > 0) && (bitRead(_config->asByte(), BIT_CONFIG_SUPPORT_LONG_PRESS))); }
+  bool supportLongPress() { return bitRead(_config->asByte(), BIT_CONFIG_SUPPORT_LONG_PRESS); }
 
   WSwitch* supportLongPress(bool supportLongPress) {
     _config->asBit(BIT_CONFIG_SUPPORT_LONG_PRESS, supportLongPress);
@@ -138,7 +101,6 @@ if (_type == GPIO_TYPE_SWITCH) {
   }
 
   void handleButtonOrSwitchPressed() {
-    Serial.println("handleButtonOrSwitchPressed");
     setTriggerValue(true);
     if (property() != nullptr) {
       property()->asBool(!property()->asBool());
@@ -149,7 +111,6 @@ if (_type == GPIO_TYPE_SWITCH) {
   }
 
   void handleLongButtonPressed() {
-    Serial.println("handle Long...");
     if (_onLongPressed) {
       _onLongPressed();
     }
@@ -190,26 +151,20 @@ if (_type == GPIO_TYPE_SWITCH) {
   virtual void toJson(WJson* json) {
     WGpio::toJson(json);    
     json->propertyBoolean(WC_INVERTED, inverted());
-    json->propertyBoolean(WC_LONG_PRESS, supportLongPress());
+    if (_type == GPIO_TYPE_BUTTON) json->propertyBoolean(WC_LONG_PRESS, supportLongPress());
   }
 
  protected:
   WValue* _config = new WValue((byte) 0b00000000);  
 
-  byte getOnLevel() {
-    return (!inverted() ? HIGH : LOW);
-  }
-
-  byte getOffLevel() {
-    return !getOnLevel();
-  }
+  byte _onLevel() { return (!inverted() ? HIGH : LOW); }
 
  private:
   THandlerFunction _onPressed;
   THandlerFunction _onLongPressed;
   bool _state, _lastState;
   unsigned long _startTime;
-  unsigned long _longPressStartTime = 4000;
+  unsigned long _longPressStartTime = 0;
   WProperty* _triggerProperty;
 
   void setTriggerValue(bool triggered) {

@@ -20,9 +20,6 @@ public:
     uint8_t resistance() { return _value; }
 
     void resistance(uint8_t value) {
-      Serial.print("resistance to ");
-      Serial.println(value);
-      
       _value = value;
       _spi->beginTransaction(SPISettings(spiClockSpeed, MSBFIRST, SPI_MODE0));
       digitalWrite(_spi->pinSS(), LOW); //pull SS slow to prep other end for transfer

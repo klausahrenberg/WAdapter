@@ -22,7 +22,6 @@ class WPCF8575 : public WI2C, public IWExpander {
         _byteBuffered = /*(_byteBuffered & ~_readMode) |*/ (uint16_t)iInput;
         
       //}
-      //Serial.println(_byteBuffered, BIN);
     }
   }
 
@@ -48,10 +47,7 @@ class WPCF8575 : public WI2C, public IWExpander {
 
   virtual void mode(uint8_t pin, uint8_t mode) {
     // void pinMode(uint8_t pin, uint8_t mode, uint8_t output_start = HIGH) {
-    Serial.print("Set pin ");
-    Serial.print(pin);
-    Serial.print(" as ");
-    Serial.println(mode);
+    
     if (mode == OUTPUT) {
       _writeMode = _writeMode | bit(pin);
       // if (output_start == HIGH) {
@@ -78,7 +74,7 @@ class WPCF8575 : public WI2C, public IWExpander {
       Serial.print("r: ");
       Serial.println(bitRead(_byteBuffered, pin));
     } */ 
-    return ((bit(pin) & bitRead(_byteBuffered, pin)));
+    return bitRead(_byteBuffered, pin);
 
     // uint8_t read(uint8_t pin, bool forceReadNow = false) {
     /*uint8_t value = (bit(pin) & _readModePullUp) ? HIGH : LOW;
