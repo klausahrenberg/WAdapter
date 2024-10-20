@@ -40,10 +40,10 @@ protected:
       #ifdef ESP8266
 			analogWrite(this->pin(), 0);
 			#elif ESP32
-			ledcSetup(_pwmChannel, 1000, 8);
+			ledcSetup(_pwmChannel, 100000, 8);
 			ledcAttachPin(pin(), _pwmChannel);
 			//ledcWrite(_pwmChannel, 0xFF);
-			ledcWrite(_pwmChannel, 0x50);
+			ledcWrite(_pwmChannel, 0x30);
 
 			/*ledcSetup(_pwmChannel, 5000, 0x400);
 			ledcAttachPin(pin(), _pwmChannel);
@@ -53,7 +53,7 @@ protected:
   } 
 
 	virtual void _writeLevelCurrent(int levelCurrent) {
-		WDimmer::_writeLevelCurrent(levelCurrent);
+		/*WDimmer::_writeLevelCurrent(levelCurrent);
 		if (isInitialized()) {		
 			levelCurrent = levelCurrent * 0x3FF / 100;
 			#ifdef ESP8266
@@ -61,7 +61,7 @@ protected:
 			#elif ESP32
 				ledcWrite(_pwmChannel, levelCurrent);
 			#endif
-		}
+		}*/
 	}	
 
 private:
