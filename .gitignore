@@ -5,3 +5,4 @@
 *.gch
 *.pch
 .gitignore
+.vscode
