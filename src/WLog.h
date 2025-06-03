@@ -3,7 +3,6 @@
 
 #include <inttypes.h>
 #include <stdarg.h>
-#include "Arduino.h"
 #include "WUtils.h"
 
 #define LOG_LEVEL_SILENT 0

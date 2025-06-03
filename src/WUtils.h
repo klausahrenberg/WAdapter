@@ -1,7 +1,6 @@
 #ifndef W_UTILS_H
 #define W_UTILS_H
 
-#include "Arduino.h"
 #include "WStringStream.h"
 
 const static char WC__BASE[] PROGMEM = " =<>/\"{}()[],:'";
@@ -44,7 +43,7 @@ class WUtils {
   static uint32_t getChipId() {
 #ifdef ESP8266
     uint32_t ci = ESP.getChipId();
-#elif ESP32
+#else
     uint64_t macAddress = ESP.getEfuseMac();
     uint64_t macAddressTrunc = macAddress << 40;
     uint32_t ci = (macAddressTrunc >> 40);

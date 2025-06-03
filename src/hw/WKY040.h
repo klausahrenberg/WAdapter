@@ -13,8 +13,8 @@ class WKY040 : public WSwitch {
       : WSwitch(GPIO_TYPE_BUTTON, pinSwitch, true, expander) {        
     _pinClk = pinClk;
     _pinDt = pinDt;
-    _pinMode(_pinClk, (inverted ? INPUT_PULLUP : INPUT));
-    _pinMode(_pinDt, (inverted ? INPUT_PULLUP : INPUT));    
+    mode(_pinClk, (inverted ? INPUT_PULLUP : INPUT));
+    mode(_pinDt, (inverted ? INPUT_PULLUP : INPUT));    
     _irqEventLeft = _irqEventRight = false;
     _useInterrupt = (expander == nullptr);
     supportLongPress(true);
@@ -31,10 +31,15 @@ class WKY040 : public WSwitch {
 
   void loop(unsigned long now) {
     WSwitch::loop(now);    
+
     bool clk = (!_useInterrupt ? readInput(_pinClk) : !_onLevel());
+    //Serial.print("clk ");
+    //Serial.print(clk);
     if ((_irqEventLeft) || (_irqEventRight) || ((_lastClk != _onLevel()) && (clk == _onLevel()))) {      
       if (!_useInterrupt) {        
-        bool dt = readInput(_pinDt);
+        bool dt = readInput(_pinDt);        
+        Serial.print(" dt ");
+        Serial.println(dt);
         _irqEventLeft = (dt == clk);
         _irqEventRight = !_irqEventLeft;
       }
@@ -42,7 +47,10 @@ class WKY040 : public WSwitch {
         _irqEventLeft = !_irqEventLeft;
         _irqEventRight = !_irqEventRight;
       }
-      this->handleButtonOrSwitchPressed();
+      if ((_lastJogEvent == 0) || (now - _lastJogEvent >= _jogSensitiveness)) {
+        this->handleButtonOrSwitchPressed();
+      }     
+      _lastJogEvent = now; 
       
       if (_rotatingLeft != nullptr) {
         _rotatingLeft->asBool(_irqEventLeft);
@@ -79,6 +87,8 @@ class WKY040 : public WSwitch {
   WProperty *_rotatingLeft;
   WProperty *_rotatingRight;
   bool _lastClk;
+  unsigned long _jogSensitiveness = 100;
+  unsigned long _lastJogEvent = 0;
 };
 
 WList<WKY040> *_jogs = nullptr;

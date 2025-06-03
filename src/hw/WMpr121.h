@@ -38,11 +38,6 @@
  *******************************************************************************/
 
 #include "Arduino.h"
-#ifdef ESP8266
-#include <ESP8266WiFi.h>
-#else
-#include <WiFi.h>
-#endif
 #include <Wire.h>
 #include "WMpr121Defs.h"
 #include "WI2C.h"

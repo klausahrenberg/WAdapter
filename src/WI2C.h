@@ -29,7 +29,7 @@ protected:
 	TwoWire* _i2cPort;
 	byte _address;
 	int _sda;
-	int _scl;
+	int _scl;	
 
 	bool isInitialized() {
 		return ((_sda != NO_PIN) && (_scl != NO_PIN));

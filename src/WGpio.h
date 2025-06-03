@@ -20,7 +20,7 @@ enum WGpioType {
   GPIO_TYPE_LED, GPIO_TYPE_RELAY,
   GPIO_TYPE_RGB_WS2812, GPIO_TYPE_RGB_PL9823, GPIO_TYPE_RGB_SINGLE,
   GPIO_TYPE_PWM, GPIO_TYPE_SERIAL_DIMMER,
-  GPIO_TYPE_TPL0501,
+  GPIO_TYPE_TPL0501, GPIO_TYPE_X9C104, GPIO_TYPE_MCP4x000, GPIO_TYPE_MCP444x, 
   //Inputs
   GPIO_TYPE_BUTTON, GPIO_TYPE_SWITCH,  
   GPIO_TYPE_HTU21, GPIO_TYPE_SHT30, GPIO_TYPE_KY013,
@@ -45,10 +45,13 @@ const char S_GPIO_TYPE_KY013[] PROGMEM = "ky013";
 const char S_GPIO_TYPE_PWM[] PROGMEM = "pwm";
 const char S_GPIO_TYPE_SERIAL_DIMMER[] PROGMEM = "serialdimmer";
 const char S_GPIO_TYPE_TPL0501[] PROGMEM = "tpl0501";
+const char S_GPIO_TYPE_X9C104[] PROGMEM = "x9c104";
+const char S_GPIO_TYPE_MCP4x000[] PROGMEM = "mcp4x000";
+const char S_GPIO_TYPE_MCP444x[] PROGMEM = "mcp444x";
 const char S_GPIO_TYPE_PCF8575[] PROGMEM = "pcf8575";
 const char* const S_GPIO_TYPE[] PROGMEM = { S_GPIO_TYPE_GROUP, S_GPIO_TYPE_MODE,
                                             S_GPIO_TYPE_LED, S_GPIO_TYPE_RELAY, S_GPIO_TYPE_RGB_WS2812, S_GPIO_TYPE_RGB_PL9823, S_GPIO_TYPE_RGB_SINGLE,
-                                            S_GPIO_TYPE_PWM, S_GPIO_TYPE_SERIAL_DIMMER, S_GPIO_TYPE_TPL0501,                                           
+                                            S_GPIO_TYPE_PWM, S_GPIO_TYPE_SERIAL_DIMMER, S_GPIO_TYPE_TPL0501, S_GPIO_TYPE_X9C104, S_GPIO_TYPE_MCP4x000,                                            
                                             S_GPIO_TYPE_BUTTON, S_GPIO_TYPE_SWITCH, S_GPIO_TYPE_HTU21, S_GPIO_TYPE_SHT30, S_GPIO_TYPE_KY013,
                                             S_GPIO_TYPE_PCF8575 };
 
@@ -109,7 +112,7 @@ class WGpio : public IWJsonable {
     bool changed = (_pin->asByte() != pin); 
     _pin->asByte(pin);
     if ((_pin->asByte() != NO_PIN) && (_mode != NO_MODE)) {             
-      _pinMode(_pin->asByte(), _mode);      
+      mode(_pin->asByte(), _mode);      
     }
     if (changed) {  
       _onChange();
@@ -138,6 +141,10 @@ class WGpio : public IWJsonable {
 
   WGpioType type() { return _type; }
 
+  virtual void mode(uint8_t pin, uint8_t mode) {
+    (_expander == nullptr ? pinMode(pin, mode) : _expander->mode(pin, mode));
+  }
+
   bool isGroupOrMode() { return ((_type == GPIO_TYPE_GROUP) || (_type == GPIO_TYPE_MODE)); }
   bool isOutput() { return (((_type >= GPIO_TYPE_LED) && (_type < GPIO_TYPE_BUTTON)) || ((_type >= GPIO_TYPE_PCF8575) && (_type < GPIO_TYPE_UNKNOWN))); }
   bool isInput() { return ((_type >= GPIO_TYPE_BUTTON) && (_type < GPIO_TYPE_UNKNOWN)); }
@@ -149,10 +156,6 @@ class WGpio : public IWJsonable {
   bool _settingsRegistered = false;
 
   virtual bool isInitialized() { return (pin() != NO_PIN); }  
-
-  virtual void _pinMode(uint8_t pin, uint8_t mode) {
-    (_expander == nullptr ? pinMode(pin, mode) : _expander->mode(pin, mode));
-  }
 
   virtual void _updateOn() {}
 

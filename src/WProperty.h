@@ -134,6 +134,16 @@ class WProperty {
     return this;
   }  
 
+  byte asByte() { _requestValue(); return _value->asByte(); }
+
+  WProperty* asByte(byte value) {
+    if (!_readOnly) {
+      _changed = _value->asByte(value) || _changed;
+      if (_changed) _notify();
+    }
+    return this;
+  }  
+
   byte* asByteArray() { _requestValue(); return _value->asByteArray(); }
 
   WProperty* asByteArray(byte length, const byte* value) {

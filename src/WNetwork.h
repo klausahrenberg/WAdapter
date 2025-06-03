@@ -48,20 +48,17 @@ class WNetwork {
   typedef std::function<void()> THandlerFunction;
 
   WNetwork(int statusLedPin, Print *debuggingOutput = &Serial) {
-
     SETTINGS = new WSettings();
-
-    WiFi.disconnect();
-    WiFi.mode(WIFI_STA);
+    WiFi.disconnect();    
+    //WiFi.mode(WIFI_STA);    
 #ifdef ESP8266
     WiFi.encryptionType(ENC_TYPE_CCMP);
     WiFi.setOutputPower(20.5);
     WiFi.setPhyMode(WiFiPhyMode::WIFI_PHY_MODE_11N);
 #endif
-    WiFi.setAutoConnect(false);
-    WiFi.setAutoReconnect(true);
+    WiFi.setAutoConnect(false);    
+    WiFi.setAutoReconnect(true);    
     WiFi.persistent(false);
-
     _webServer = nullptr;
     _dnsApServer = nullptr;
     _wifiClient = new WiFiClient();
@@ -158,8 +155,9 @@ class WNetwork {
           String apSsid = this->apSsid();
           LOG->notice(F("Start AccessPoint for configuration. SSID '%s'; password '%s'"), apSsid.c_str(), this->apPassword().c_str());
           _dnsApServer = new DNSServer();
+          //WiFi.mode(WIFI_STA);
           WiFi.setAutoReconnect(false);
-          WiFi.softAP(apSsid.c_str(), this->apPassword().c_str());
+          WiFi.softAP(apSsid.c_str(), this->apPassword().c_str());          
           _dnsApServer->setErrorReplyCode(DNSReplyCode::NoError);
           _dnsApServer->start(53, "*", WiFi.softAPIP());
           this->startWebServer();
@@ -173,13 +171,14 @@ class WNetwork {
           // after first startup
           WiFi.disconnect();
           WiFi.hostname(_hostname);
+          
 #elif ESP32
           // Workaround: WiFi.setHostName now only works if: - You call it before calling WiFi.mode(WIFI_STA)
           // and ensure that the mode is not WIFI_STA already before calling WiFi.setHostName (by first calling WiFi.mode(WIFI_MODE_NULL)
           WiFi.mode(WIFI_MODE_NULL);
           WiFi.setHostname(_hostname);
-          WiFi.mode(WIFI_STA);
 #endif
+          WiFi.mode(WIFI_STA);
           WiFi.begin(getSsid(), getPassword());
 
           while ((_waitForWifiConnection) && (WiFi.status() != WL_CONNECTED)) {
@@ -802,7 +801,7 @@ class WNetwork {
       WList<WValue> *args = new WList<WValue>();
       int params = request->params();
       for (int i = 0; i < params; i++) {
-        AsyncWebParameter *p = request->getParam(i);
+        const AsyncWebParameter *p = request->getParam(i);
         //LOG->debug("..POST[%s]: %s", p->name().c_str(), p->value().c_str());
         args->add(new WValue(p->value().c_str()), p->name().c_str());
       }

@@ -331,7 +331,6 @@ class WJsonParser {
   }
 
   void _endObject() {
-    LOG->debug("endObject a");
     WMapItem* popped = _stack->pop();
     if (popped->type != WT_OBJECT) {
       LOG->error(F("jsonParser->endObject(): Unexpected end of object encountered."));
@@ -350,8 +349,6 @@ class WJsonParser {
     if (_stack->empty()) {
       _endDocument();
     }
-    LOG->debug("endObject b");
-    
   }
 
   void _processEscapeCharacters(char c) {
