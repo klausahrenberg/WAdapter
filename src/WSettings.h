@@ -90,6 +90,12 @@ class WSettings {
             value->asShort(s);
             break;
           }
+          case UNSIGNED_SHORT: {
+            uint16_t i = 0;
+            EEPROM.get(_address, i);
+            value->asUnsignedShort(i);
+            break;
+          }
           case INTEGER: {
             int i = 0;
             EEPROM.get(_address, i);
@@ -319,6 +325,10 @@ class WSettings {
       }
       case SHORT: {
         EEPROM.put(address, value->asShort());
+        break;
+      }
+      case UNSIGNED_SHORT: {
+        EEPROM.put(address, value->asUnsignedShort());
         break;
       }
       case INTEGER: {

@@ -24,6 +24,7 @@ enum WGpioType {
   //Inputs
   GPIO_TYPE_BUTTON, GPIO_TYPE_SWITCH,  
   GPIO_TYPE_HTU21, GPIO_TYPE_SHT30, GPIO_TYPE_KY013,
+  GPIO_TYPE_STATE,
   //In- and Output
   GPIO_TYPE_PCF8575,  
   //NONE
@@ -42,6 +43,7 @@ const char S_GPIO_TYPE_GROUP[] PROGMEM = "group";
 const char S_GPIO_TYPE_HTU21[] PROGMEM = "htu21";
 const char S_GPIO_TYPE_SHT30[] PROGMEM = "sht30";
 const char S_GPIO_TYPE_KY013[] PROGMEM = "ky013";
+const char S_GPIO_TYPE_STATE[] PROGMEM = "state";
 const char S_GPIO_TYPE_PWM[] PROGMEM = "pwm";
 const char S_GPIO_TYPE_SERIAL_DIMMER[] PROGMEM = "serialdimmer";
 const char S_GPIO_TYPE_TPL0501[] PROGMEM = "tpl0501";
@@ -52,7 +54,7 @@ const char S_GPIO_TYPE_PCF8575[] PROGMEM = "pcf8575";
 const char* const S_GPIO_TYPE[] PROGMEM = { S_GPIO_TYPE_GROUP, S_GPIO_TYPE_MODE,
                                             S_GPIO_TYPE_LED, S_GPIO_TYPE_RELAY, S_GPIO_TYPE_RGB_WS2812, S_GPIO_TYPE_RGB_PL9823, S_GPIO_TYPE_RGB_SINGLE,
                                             S_GPIO_TYPE_PWM, S_GPIO_TYPE_SERIAL_DIMMER, S_GPIO_TYPE_TPL0501, S_GPIO_TYPE_X9C104, S_GPIO_TYPE_MCP4x000,                                            
-                                            S_GPIO_TYPE_BUTTON, S_GPIO_TYPE_SWITCH, S_GPIO_TYPE_HTU21, S_GPIO_TYPE_SHT30, S_GPIO_TYPE_KY013,
+                                            S_GPIO_TYPE_BUTTON, S_GPIO_TYPE_SWITCH, S_GPIO_TYPE_HTU21, S_GPIO_TYPE_SHT30, S_GPIO_TYPE_KY013, S_GPIO_TYPE_STATE,
                                             S_GPIO_TYPE_PCF8575 };
 
 class WGpio : public IWJsonable {

@@ -802,7 +802,7 @@ class WNetwork {
       int params = request->params();
       for (int i = 0; i < params; i++) {
         const AsyncWebParameter *p = request->getParam(i);
-        //LOG->debug("..POST[%s]: %s", p->name().c_str(), p->value().c_str());
+        LOG->debug("..POST[%s]: %s", p->name().c_str(), p->value().c_str());
         args->add(new WValue(p->value().c_str()), p->name().c_str());
       }
       _postResponse = _handleHttpEventArgs(request, args);
