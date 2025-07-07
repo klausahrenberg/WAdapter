@@ -97,6 +97,9 @@ class WebControl {
   }
 
   virtual void createScripts(WStringList* scripts) {
+    if (_usingWebSocket) {
+      scripts->add(WC_SCRIPT_INITIALIZE_SOCKET);
+    }
     if (_items) _items->forEach([this, scripts](int index, WebControl* wc, const char* id) { wc->createScripts(scripts); });
   }
 
@@ -111,13 +114,18 @@ class WebControl {
     if (_closing) WHtml::command(stream, _tag, false, nullptr);
   }
 
+  bool isUsingWebSocket() { return _usingWebSocket; };
+
+  WebControl* usingWebSocket(bool usingWebSocket) { _usingWebSocket = usingWebSocket; return this; };
+
  protected:
   char* _tag = nullptr;
   char* _content = nullptr;
   WOnPrint _contentFactory;
   bool _closing = true;
   WStringList* _params = nullptr;
-  WList<WebControl>* _items = nullptr;
+  WList<WebControl>* _items = nullptr;  
+  bool _usingWebSocket = false;
 };
 
 class WebDiv : public WebControl {
@@ -139,22 +147,27 @@ class WebForm : public WebControl {
 };
 
 const static char WC_SCRIPT_TEST[] PROGMEM = R"=====(
-const xhr = new XMLHttpRequest();
-xhr.open("POST", "/events");
-xhr.setRequestHeader("Content-Type", "application/json; charset=UTF-8");
-const body = JSON.stringify({
-  form: window.location.href.substring(window.location.href.lastIndexOf('/') + 1),
-  id: elem.id,
-  value: elem.value
-});
-xhr.onload = () => {
-  if (xhr.readyState == 4 && xhr.status == 200) {    
-    document.write(xhr.responseText);
-  } else {
-    console.log(`Error: ${xhr.status}`);
+function onButtonClick(elem) {
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/events");
+  xhr.setRequestHeader("Content-Type", "application/json; charset=UTF-8");
+  var inputs = document.querySelectorAll('input');    
+  var payload = {};
+  payload["form"] = window.location.href.substring(window.location.href.lastIndexOf('/') + 1);
+  payload["id"] = elem.id;
+  payload["value"] = elem.value;
+  for (var i = 0; i < inputs.length; i++) {
+    payload[inputs[i].id] = inputs[i].value;
   }
-};
-xhr.send(body);
+  const body = JSON.stringify(payload);
+  xhr.onload = () => {
+    if (xhr.readyState == 4 && xhr.status == 200) {    
+      document.write(xhr.responseText);
+    } else {
+      console.log(`Error: ${xhr.status}`);
+    }
+  };
+  xhr.send(body);
 )=====";
 
 class WebButton : public WebControl {
@@ -173,9 +186,9 @@ class WebButton : public WebControl {
     WebControl::createStyles(styles);
   }
 
-  virtual void createScripts(WStringList* scripts) {
-    if (hasParam(WC_ON_CLICK)) scripts->add(WC_SCRIPT_TEST, "onButtonClick");
+  virtual void createScripts(WStringList* scripts) {    
     WebControl::createScripts(scripts);
+    if (hasParam(WC_ON_CLICK)) scripts->add(WC_SCRIPT_TEST);
   }
 
   void onClickNavigateBack() { addParam(WC_ON_CLICK, WC_HISTORY_BACK); }
@@ -269,7 +282,7 @@ class WebSwitch : public WebControl {
 
 class WebTextField : public WebControl {
  public:
-  WebTextField(const char* id, const char* title, const char* text, byte maxLength = 32, bool passwordField = false) : WebControl(WC_DIV, nullptr) {
+  WebTextField(const char* id, const char* title, const char* text = nullptr, byte maxLength = 32, bool passwordField = false) : WebControl(WC_DIV, nullptr) {
     this->add(new WebLabel(title, id));
     WebControl* input = new WebControl(WC_INPUT, WC_ID, id, WC_NAME, id, WC_MAXLENGTH, String(maxLength).c_str(), WC_TYPE, (passwordField ? WC_PASSWORD : WC_TEXT), nullptr);
     if (text != nullptr) {

@@ -172,6 +172,14 @@ const static char WC_STYLE_INPUT_CHECKED_SLIDER_BEFORE[] PROGMEM = R"=====(
 	transform: translateX(1.7rem)
 )=====";
 
+const static char WC_SCRIPT_INITIALIZE_SOCKET[] PROGMEM = R"=====(
+var webSocket = new WebSocket("ws://" + location.hostname + ":81/");
+webSocket.onmessage = function(event) {
+  var payload = event.data;
+  console.log(payload);
+  document.getElementById("log").innerHTML = document.getElementById("log").innerHTML + payload + "<br>";
+)=====";
+
 /*
 https://stackoverflow.com/questions/4388102/can-you-style-an-active-form-inputs-label-with-just-css
 
@@ -273,18 +281,6 @@ class WHtml {
     stream->print(WC_SEND);
   }  
 
-  static void scriptToString(Print* stream, const char* key, const char* value) {
-    stream->print(WC_SPACE);
-    stream->print(FPSTR(WC_FUNCTION));
-    stream->print(WC_SPACE);
-    stream->print(key);
-    stream->print(WC_BBEGIN);
-    stream->print("elem");
-    stream->print(WC_BEND);
-    stream->print(WC_SBEGIN);
-    stream->print(value);
-    stream->print(WC_SEND);
-  }
 };
 
 #endif

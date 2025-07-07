@@ -125,7 +125,10 @@ class WPage {
     // Scripts
     if (!scripts->empty()) {
       WHtml::command(stream, WC_SCRIPT, true);  
-      scripts->forEach([this, stream] (int index, const char* script, const char* id) { WHtml::scriptToString(stream, id, script); });
+      scripts->forEach([this, stream] (int index, const char* script, const char* id) { 
+        stream->print(script);
+        stream->print(WC_SEND);        
+      });
       WHtml::command(stream, WC_SCRIPT, false);  
     }
     WHtml::command(stream, WC_BODY, false);  // Body end    
