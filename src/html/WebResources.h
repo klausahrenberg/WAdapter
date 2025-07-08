@@ -173,7 +173,10 @@ const static char WC_STYLE_INPUT_CHECKED_SLIDER_BEFORE[] PROGMEM = R"=====(
 )=====";
 
 const static char WC_SCRIPT_INITIALIZE_SOCKET[] PROGMEM = R"=====(
-var webSocket = new WebSocket("ws://" + location.hostname + ":81/");
+var webSocket = new WebSocket("ws://" + location.hostname + "/ws");
+webSocket.onopen = function() {
+  console.log("WebSocket connected");
+};
 webSocket.onmessage = function(event) {
   var payload = event.data;
   console.log(payload);

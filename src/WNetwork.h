@@ -4,12 +4,12 @@
 #include <Arduino.h>
 #include <ESPAsyncWebServer.h>
 
-#include "WebSocketsServer.h"
 #ifdef ESP8266
 #include <ESP8266mDNS.h>
 #include <Updater.h>
 #define U_PART U_FS
 #elif ESP32
+#include <WiFi.h>
 #include <ESPmDNS.h>
 #include <Update.h>
 #define U_PART U_SPIFFS
@@ -200,9 +200,6 @@ class WNetwork {
       if (isSoftAP()) {
         _dnsApServer->processNextRequest();
       }
-      if (isWebSocketsRunning()) {
-        _webSockets->loop();
-      }
       result = ((!isSoftAP()) && (!isUpdateRunning()));
     }
     // WebServer
@@ -382,9 +379,28 @@ class WNetwork {
 
   void startWebSockets() {
     // WebSocket
-    if (!isWebSocketsRunning()) {
-      _webSockets = new WebSocketsServer(81);
-      _webSockets->begin();
+    if ((isWebServerRunning()) && (!isWebSocketsRunning())) {
+      _webSocketHandler = new AsyncWebSocketMessageHandler();
+      _webSockets = new AsyncWebSocket("/ws", _webSocketHandler->eventHandler());
+
+      _webSocketHandler->onConnect([this](AsyncWebSocket *server, AsyncWebSocketClient *client) {
+        IPAddress ip = client->remoteIP();
+        LOG->notice(F("WebSocket [%d] connected from %d.%d.%d.%d"), client->id(), ip[0], ip[1], ip[2], ip[3]); 
+        server->textAll("New client: " + String(client->id()));       
+      });
+      _webSocketHandler->onDisconnect([](AsyncWebSocket *server, uint32_t clientId) {
+        LOG->notice(F("WebSocket [%d] disconnected"), clientId);
+      });
+      _webSocketHandler->onError([](AsyncWebSocket *server, AsyncWebSocketClient *client, uint16_t errorCode, const char *reason, size_t len) {
+        LOG->notice(F("WebSocket client %d error: %d: %s"), client->id(), errorCode, reason);
+      });
+      _webSocketHandler->onMessage([](AsyncWebSocket *server, AsyncWebSocketClient *client, const uint8_t *data, size_t len) {
+        LOG->notice(F("[%d] get Text: %s"), client->id(), (const char *)data);
+      });      
+      _webServer->addHandler(_webSockets);
+      
+
+      /*_webSockets->begin();
       _webSockets->onEvent([this](uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
         switch (type) {
           case WStype_DISCONNECTED:
@@ -398,15 +414,19 @@ class WNetwork {
           case WStype_TEXT:
             LOG->notice(F("[%d] get Text: %s"), num, payload);
         }
-      });
+      });*/
       LOG->notice(F("webSockets started."));
     }
   }
 
   void stopWebSockets() {
     if (isWebSocketsRunning()) {
-      _webSockets->close();
-      _webSockets = nullptr;
+      _webSockets->closeAll();      
+      _webServer->removeHandler(_webSockets);
+      delete _webSockets;      
+      _webSockets = nullptr;      
+      delete _webSocketHandler;
+      _webSocketHandler = nullptr;
     }
   }
 
@@ -503,7 +523,7 @@ class WNetwork {
 
   AsyncWebServer *webServer() { return _webServer; }
 
-  WebSocketsServer *webSockets() { return _webSockets; }
+  AsyncWebSocket *webSockets() { return _webSockets; }
 
   WStringStream *getResponseStream() {
     if (_responseStream == nullptr) {
@@ -562,7 +582,8 @@ class WNetwork {
   bool _restartFlag = false;
   DNSServer *_dnsApServer;
   AsyncWebServer *_webServer;
-  WebSocketsServer *_webSockets;
+  AsyncWebSocket *_webSockets;
+  AsyncWebSocketMessageHandler* _webSocketHandler;
   int _networkState;
   WValue *_supportingMqtt;
   bool _supportsWebServer;
