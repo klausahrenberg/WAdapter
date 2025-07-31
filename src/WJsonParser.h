@@ -67,7 +67,7 @@ class WJsonParser {
     if (_currentKey) delete _currentKey;
   }
 
-  static WList<WValue>* asMap(const char* payload) {
+  static WList<WValue>* asMap(const char* payload) {    
     WJsonParser jp = WJsonParser();    
     return jp.parse(payload);
   }
@@ -75,10 +75,6 @@ class WJsonParser {
   WList<WValue>* parse(const char* payload) {
     for (int i = 0; i < strlen(payload); i++) {
       _parseChar(payload[i]);
-    }
-    LOG->debug("parsed..");
-    if (_stack->empty()) {
-      LOG->debug("stack is empty");
     }
     return _stack->peek()->mapOrList;
   }

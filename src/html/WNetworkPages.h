@@ -1,11 +1,11 @@
 #ifndef WNetworkPages_h
 #define WNetworkPages_h
 
-#include "WPage.h"
+#include "WebApp.h"
 
 class WRootPage : public WPage {
  public:
-  WRootPage(WList<WPageItem>* customPages) : WPage() {
+  WRootPage(WList<WebPageItem>* customPages) : WPage() {
     _customPages = customPages;
   }
 
@@ -16,14 +16,14 @@ class WRootPage : public WPage {
   virtual void createControls(WebControl* parentNode) {    
     WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);    
     parentNode->add(div); 
-    _customPages->forEach([this, div](int index, WPageItem* pageItem, const char* id) {
+    _customPages->forEach([this, div](int index, WebPageItem* pageItem, const char* id) {
       if (pageItem->showInMainMenu) {
         div->add(new WebDiv((new WebButton(pageItem->title))->onClickNavigateTo(id)));      
       }
     });
   }
  private:
-  WList<WPageItem>* _customPages;
+  WList<WebPageItem>* _customPages;
 
 };
 
@@ -54,7 +54,7 @@ class WNetworkPage : public WPage {
     form->add((new WebSubmitButton(PSTR("Save configuration"))));
   }  
 
-  virtual WFormResponse* submitForm(WList<WValue>* args) {
+  virtual WFormResponse submitForm(WList<WValue>* args) {
     SETTINGS->setString(WC_ID, args->getById(WC_ID)->asString());
     SETTINGS->setString(WC_SSID, args->getById(WC_SSID)->asString());
     SETTINGS->setString(WC_PASSWORD, args->getById(WC_PASSWORD)->asString());
@@ -64,7 +64,7 @@ class WNetworkPage : public WPage {
     SETTINGS->setString(WC_MQTT_PASSWORD, args->getById(WC_MQTT_PASSWORD)->asString());
     SETTINGS->save();
     //delay(300);
-    return new WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));   
+    return WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));   
   }
 
  protected:
@@ -90,15 +90,15 @@ class WResetPage : public WPage {
     div->add(new WebDiv((new WebButton(WC_BACK_TO_MAINMENU))->onClickNavigateTo(WC_CONFIG)));
   }
 
-  virtual WFormResponse* submitForm(WList<WValue>* args) {
+  virtual WFormResponse submitForm(WList<WValue>* args) {
     const char* v = args->getById(WC_VALUE)->asString();
     switch (v[0]) {
-      case '0' : return new WFormResponse(FO_RESTART, PSTR("Restart was caused by web interface"));        
-      case '1' : return new WFormResponse(FO_FORCE_AP, PSTR("Restart device in AccessPoint mode"));        
-      case '2' : return new WFormResponse(FO_RESET_ALL, PSTR("All settings are resetted, device restarts"));        
-      default : return new WFormResponse(FO_NONE);
+      case '0' : return WFormResponse(FO_RESTART, PSTR("Restart was caused by web interface"));        
+      case '1' : return WFormResponse(FO_FORCE_AP, PSTR("Restart device in AccessPoint mode"));        
+      case '2' : return WFormResponse(FO_RESET_ALL, PSTR("All settings are resetted, device restarts"));        
+      default : return WFormResponse(FO_NONE);
     }
-    return new WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));   
+    return WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));   
   }
 
  private:
@@ -141,10 +141,13 @@ class WFirmwarePage : public WPage {
   
   }  
 
-  virtual WFormResponse* submitForm(WList<WValue>* args) {
+  virtual WFormResponse submitForm(WList<WValue>* args) {
     LOG->debug("Update finished.");
     SETTINGS->save();
-    return new WFormResponse(FO_RESTART, (Update.hasError() ? PSTR("Some error during update") : PSTR("Update successful")));
+    if (Update.hasError()) {
+      LOG->debug("Error %s", Update.errorString());
+    }
+    return WFormResponse(FO_RESTART, (Update.hasError() ? PSTR("Some error during update") : PSTR("Update successful")));
   }  
 
 };  

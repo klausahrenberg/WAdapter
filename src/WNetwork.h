@@ -9,9 +9,9 @@
 #include <Updater.h>
 #define U_PART U_FS
 #elif ESP32
-#include <WiFi.h>
 #include <ESPmDNS.h>
 #include <Update.h>
+#include <WiFi.h>
 #define U_PART U_SPIFFS
 #endif
 #include <DNSServer.h>
@@ -25,10 +25,9 @@
 #include "WStringStream.h"
 #include "WiFiClient.h"
 #include "html/WNetworkPages.h"
-#include "html/WPage.h"
+#include "html/WebApp.h"
 #include "hw/WLed.h"
 
-#define SIZE_JSON_PACKET 1280
 #define NO_LED -1
 #define ESP_MAX_PUT_BODY_SIZE 512
 #define WIFI_RECONNECTION 50000
@@ -61,11 +60,9 @@ class WNetwork {
     WiFi.setAutoReconnect(true);
     WiFi.persistent(false);
     _webServer = nullptr;
-    _webSockets = nullptr;
     _dnsApServer = nullptr;
     _wifiClient = new WiFiClient();
     _devices = new WList<WDevice>();
-    _pages = new WList<WPageItem>();
 
     this->setDebuggingOutput(debuggingOutput);
     _updateRunning = false;
@@ -100,11 +97,11 @@ class WNetwork {
     _statusLed = nullptr;
     setStatusLedPin(statusLedPin, false);
     LOG->debug(F("firmware: %s"), VERSION);
-    this->addCustomPage(WC_CONFIG, [this]() { return new WRootPage(_pages); }, nullptr, false);
-    this->addCustomPage(WC_WIFI, [this]() { return new WNetworkPage(); }, PSTR("Configure network"));
-    this->addCustomPage(WC_FIRMWARE, [this]() { return new WFirmwarePage(); }, PSTR("Firmware"));
-    this->addCustomPage(WC_INFO, [this]() { return new WInfoPage((millis() - _startupTime) / 1000 / 60); }, PSTR("Info"));
-    this->addCustomPage(WC_RESET, [this]() { return new WResetPage(this); }, PSTR("Reboot"));
+    this->addWebPage(WC_CONFIG, [this]() { return new WRootPage(_webApp->webPages()); }, nullptr, false);
+    this->addWebPage(WC_WIFI, [this]() { return new WNetworkPage(); }, PSTR("Configure network"));
+    this->addWebPage(WC_FIRMWARE, [this]() { return new WFirmwarePage(); }, PSTR("Firmware"));
+    this->addWebPage(WC_INFO, [this]() { return new WInfoPage((millis() - _startupTime) / 1000 / 60); }, PSTR("Info"));
+    this->addWebPage(WC_RESET, [this]() { return new WResetPage(this); }, PSTR("Reboot"));
   }
 
   void setStatusLedPin(int statusLedPin, bool statusLedOnIfConnected) {
@@ -218,6 +215,9 @@ class WNetwork {
     if (!isUpdateRunning()) {
       if ((!isUpdateRunning()) && (this->isMqttConnected())) {
         _mqttClient->loop();
+      }
+      if (_webApp != nullptr) {
+        _webApp->loop(now);
       }
       // Loop led
       if (_statusLed != nullptr) {
@@ -342,7 +342,10 @@ class WNetwork {
 
       _webServer = new AsyncWebServer(80);
       _webServer->onNotFound(std::bind(&WNetwork::_handleUnknown, this, std::placeholders::_1));
-      _pages->forEach([this](int index, WPageItem *pageItem, const char *id) { WPage::bind(_webServer, pageItem, id); });
+      if (_webApp != nullptr) {
+        _webApp->bindWebServerCalls(_webServer);
+        _webServer->addHandler(_webApp->webSockets());
+      }
       _webServer->on("/events",
                      HTTP_POST,
                      std::bind(&WNetwork::_handleHttpEvent, this, std::placeholders::_1),
@@ -365,9 +368,8 @@ class WNetwork {
         // root page sends json structure for webthing
         _webServer->on(SLASH, HTTP_GET, std::bind(&WNetwork::_sendDevicesStructure, this, std::placeholders::_1));
         _devices->forEach([this](int index, WDevice *device, const char *id) { _bindWebServerCalls(device); });
-      } else if (_pages->size() > 0) {
-        // root page sends config page
-        WPage::bind(_webServer, _pages->get(0));
+      } else if (_webApp != nullptr) {
+        _webApp->bindRootPage(_webServer);
       }
       // Start http server
       _webServer->begin();
@@ -377,61 +379,10 @@ class WNetwork {
     }
   }
 
-  void startWebSockets() {
-    // WebSocket
-    if ((isWebServerRunning()) && (!isWebSocketsRunning())) {
-      _webSocketHandler = new AsyncWebSocketMessageHandler();
-      _webSockets = new AsyncWebSocket("/ws", _webSocketHandler->eventHandler());
-
-      _webSocketHandler->onConnect([this](AsyncWebSocket *server, AsyncWebSocketClient *client) {
-        IPAddress ip = client->remoteIP();
-        LOG->notice(F("WebSocket [%d] connected from %d.%d.%d.%d"), client->id(), ip[0], ip[1], ip[2], ip[3]); 
-        server->textAll("New client: " + String(client->id()));       
-      });
-      _webSocketHandler->onDisconnect([](AsyncWebSocket *server, uint32_t clientId) {
-        LOG->notice(F("WebSocket [%d] disconnected"), clientId);
-      });
-      _webSocketHandler->onError([](AsyncWebSocket *server, AsyncWebSocketClient *client, uint16_t errorCode, const char *reason, size_t len) {
-        LOG->notice(F("WebSocket client %d error: %d: %s"), client->id(), errorCode, reason);
-      });
-      _webSocketHandler->onMessage([](AsyncWebSocket *server, AsyncWebSocketClient *client, const uint8_t *data, size_t len) {
-        LOG->notice(F("[%d] get Text: %s"), client->id(), (const char *)data);
-      });      
-      _webServer->addHandler(_webSockets);
-      
-
-      /*_webSockets->begin();
-      _webSockets->onEvent([this](uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
-        switch (type) {
-          case WStype_DISCONNECTED:
-            LOG->notice(F("WebSocket [%d] disconnected"), num);            
-            break;
-          case WStype_CONNECTED: {
-            IPAddress ip = _webSockets->remoteIP(num);
-            LOG->notice(F("WebSocket [%d] connected from %d.%d.%d.%d"), num, ip[0], ip[1], ip[2], ip[3]);
-            this->_webSockets->sendTXT(num, "Connected");
-          } break;
-          case WStype_TEXT:
-            LOG->notice(F("[%d] get Text: %s"), num, payload);
-        }
-      });*/
-      LOG->notice(F("webSockets started."));
-    }
-  }
-
-  void stopWebSockets() {
-    if (isWebSocketsRunning()) {
-      _webSockets->closeAll();      
-      _webServer->removeHandler(_webSockets);
-      delete _webSockets;      
-      _webSockets = nullptr;      
-      delete _webSocketHandler;
-      _webSocketHandler = nullptr;
-    }
-  }
-
   void stopWebServer() {
-    stopWebSockets();
+    if (_webApp != nullptr) {
+      _webServer->removeHandler(_webApp->webSockets());
+    }
     if ((isWebServerRunning()) && (!_supportsWebServer) && (!_updateRunning)) {
       delay(100);
       _webServer->end();
@@ -449,8 +400,6 @@ class WNetwork {
   }
 
   bool isWebServerRunning() { return (_webServer != nullptr); }
-
-  bool isWebSocketsRunning() { return (_webSockets != nullptr); }
 
   bool isUpdateRunning() { return _updateRunning; }
 
@@ -517,21 +466,12 @@ class WNetwork {
     _bindWebServerCalls(device);
   }
 
-  void addCustomPage(const char *id, WPageInitializer initializer, const char *title, bool showInMainMenu = true) {
-    _pages->add(new WPageItem(initializer, title, showInMainMenu), id);
+  void addWebPage(const char *id, WPageInitializer initializer, const char *title, bool showInMainMenu = true) {
+    if (_webApp == nullptr) _webApp = new WebApp();
+    _webApp->addWebPage(id, initializer, title, showInMainMenu);
   }
 
   AsyncWebServer *webServer() { return _webServer; }
-
-  AsyncWebSocket *webSockets() { return _webSockets; }
-
-  WStringStream *getResponseStream() {
-    if (_responseStream == nullptr) {
-      _responseStream = new WStringStream(SIZE_JSON_PACKET);
-    }
-    _responseStream->flush();
-    return _responseStream;
-  }
 
   template <class T, typename... Args>
   void error(T msg, Args... args) {
@@ -566,24 +506,21 @@ class WNetwork {
     }
   }
 
-  void restart() { _restart(nullptr); }
+  void restart() { _restartFlag = true; }
 
   String apSsid() { return _getClientName(false); }
   String apPassword() { return CONFIG_PASSWORD; }
 
-  WList<WPageItem> *pageItems() { return _pages; }
+  WebApp* webApp() { return _webApp; }
 
  private:
   WList<WDevice> *_devices;
-  WList<WPageItem> *_pages;
   THandlerFunction _onNotify;
   THandlerFunction _onConfigurationFinished;
   bool _updateRunning;
   bool _restartFlag = false;
   DNSServer *_dnsApServer;
   AsyncWebServer *_webServer;
-  AsyncWebSocket *_webSockets;
-  AsyncWebSocketMessageHandler* _webSocketHandler;
   int _networkState;
   WValue *_supportingMqtt;
   bool _supportsWebServer;
@@ -596,10 +533,8 @@ class WNetwork {
   PubSubClient *_mqttClient;
   unsigned long _lastMqttConnect, _lastWifiConnect, _lastWifiConnectFirstTry;
   byte _wifiConnectTrys;
-  WStringStream *_responseStream = nullptr;
   WLed *_statusLed;
   bool _statusLedOnIfConnected;
-  // WSettings *_settings;
   WDevice *_deepSleepFlag;
   unsigned long _startupTime;
   char _body_data[ESP_MAX_PUT_BODY_SIZE];
@@ -608,7 +543,8 @@ class WNetwork {
   bool _initialMqttSent;
   bool _lastWillEnabled;
   bool _waitForWifiConnection;
-  WPage *_postResponse = nullptr;
+  WFormResponse _postResponse = WFormResponse(FO_NONE);
+  WebApp *_webApp = nullptr;
 
   bool _aDeviceNeedsWebThings() {
     return (_devices->getIf([](WDevice *d) { return d->needsWebThings(); }) != nullptr);
@@ -859,7 +795,7 @@ class WNetwork {
 
   void _handleHttpEvent(AsyncWebServerRequest *request) {
     LOG->debug(F("Simple http event handling"));
-    if (_postResponse == nullptr) {
+    if (_postResponse.operation == FO_NONE) {
       WList<WValue> *args = new WList<WValue>();
       int params = request->params();
       for (int i = 0; i < params; i++) {
@@ -867,15 +803,34 @@ class WNetwork {
         LOG->debug("..POST[%s]: %s", p->name().c_str(), p->value().c_str());
         args->add(new WValue(p->value().c_str()), p->name().c_str());
       }
-      _postResponse = _handleHttpEventArgs(request, args);
+      _postResponse = _webApp->handleHttpEventArgs(request, args);
       delete args;
     }
-    if (_postResponse != nullptr) {
+    if (_postResponse.operation != FO_NONE) {
       AsyncResponseStream *stream = request->beginResponseStream(WC_TEXT_HTML);
-      _postResponse->toString(stream);
+      WPage *result = new WRestartPage(_postResponse.message == nullptr ? PSTR("Restart...") : _postResponse.message);
+      result->toString(stream);            
+      request->client()->setNoDelay(true);
       request->send(stream);
-      delete _postResponse;
-      _postResponse = nullptr;
+      delete result;
+      switch (_postResponse.operation) {
+      case FO_RESTART: {
+        restart();
+        break;
+      }
+      case FO_FORCE_AP: {
+        SETTINGS->forceAPNextStart();
+        restart();
+        break;
+      }
+      case FO_RESET_ALL: {
+        SETTINGS->resetAll();
+        restart();
+        break;
+      }
+      default:
+        request->send(200);
+    }
     }
   }
 
@@ -886,47 +841,9 @@ class WNetwork {
       ss->write(data[i]);
     }
     WList<WValue> *args = WJsonParser::asMap(ss->c_str());
-    _postResponse = _handleHttpEventArgs(request, args);
+    _postResponse = _webApp->handleHttpEventArgs(request, args);    
+    if (_postResponse.operation == FO_NONE) request->send(200);
     delete args;
-  }
-
-  WPage *_handleHttpEventArgs(AsyncWebServerRequest *request, WList<WValue> *args) {
-    WPage *rp = nullptr;
-    WValue *formName = args->getById(WC_FORM);
-    if (formName != nullptr) {
-      WPageItem *pi = _pages->getById(formName->asString());
-      if (pi != nullptr) {
-        WPage *p = pi->initializer();
-        WFormResponse *result = p->submitForm(args);
-        switch (result->operation) {
-          case FO_RESTART: {
-            rp = _restart(request, result->message);
-            break;
-          }
-          case FO_FORCE_AP: {
-            SETTINGS->forceAPNextStart();
-            rp = _restart(request, result->message);
-            break;
-          }
-          case FO_RESET_ALL: {
-            SETTINGS->resetAll();
-            rp = _restart(request, result->message);
-            break;
-          }
-          default:
-            LOG->debug(F("No operation. Send 200"));
-            request->send(200);
-        }
-        delete result;
-      } else {
-        LOG->debug(F("No page '%s' found."), formName);
-        request->send(404);
-      }
-    } else {
-      LOG->debug(F("No form name found."));
-      request->send(404);
-    }
-    return rp;
   }
 
   String _getClientName(bool lowerCase) {
@@ -976,16 +893,6 @@ class WNetwork {
         LOG->debug(F("Can't finish update"));
       }
     }
-  }
-
-  WPage *_restart(AsyncWebServerRequest *request, const char *reasonMessage = nullptr) {
-    WPage *result = nullptr;
-    if (request != nullptr) {
-      request->client()->setNoDelay(true);
-      result = new WRestartPage(reasonMessage == nullptr ? PSTR("Restart...") : reasonMessage);
-    }
-    _restartFlag = true;
-    return result;
   }
 
   void _loadNetworkSettings() {

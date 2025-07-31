@@ -3,61 +3,63 @@
 
 #include <Stream.h>
 
+#define SIZE_JSON_PACKET 1280
+
 class WStringStream : public Stream {
-public:
+ public:
   WStringStream(unsigned int maxLength, bool deleteCharInDestructor = true) {
-  	_maxLength = maxLength;
+    _maxLength = maxLength;
     _deleteCharInDestructor = deleteCharInDestructor;
-  	_string = new char[maxLength + 1];
-  	this->flush();
+    _string = new char[maxLength + 1];
+    this->flush();
   }
 
   ~WStringStream() {
-  	if ((_deleteCharInDestructor) && (_string)) {
-  		delete[] _string;
-  	}
+    if ((_deleteCharInDestructor) && (_string)) {
+      delete[] _string;
+    }
   }
 
   // Stream methods
   virtual int available() {
-  	return maxLength() - _position;
+    return maxLength() - _position;
   }
 
   virtual int read() {
-  	if (_position > 0) {
-  		char c = _string[0];
-  		for (int i = 1; i <= _position; i++) {
-  			_string[i - 1] = _string[i];
-  		}
-		_position--;
-  		return c;
-  	}
-  	return -1;
+    if (_position > 0) {
+      char c = _string[0];
+      for (int i = 1; i <= _position; i++) {
+        _string[i - 1] = _string[i];
+      }
+      _position--;
+      return c;
+    }
+    return -1;
   }
 
   virtual int peek() {
-  	if (_position > 0) {
-  	    char c = _string[0];
-  	    return c;
-  	}
-  	return -1;
+    if (_position > 0) {
+      char c = _string[0];
+      return c;
+    }
+    return -1;
   }
 
   virtual void flush() {
-  	_position = 0;
-  	_string[0] = '\0';
+    _position = 0;
+    _string[0] = '\0';
   }
 
   // Print methods
   virtual size_t write(uint8_t c) {
-  	if (_position < _maxLength) {
-  		_string[_position] = (char) c;
-  		_position++;
-  		_string[_position] = '\0';
-  		return 1;
-  	} else {
-  		return 0;
-  	}
+    if (_position < _maxLength) {
+      _string[_position] = (char)c;
+      _position++;
+      _string[_position] = '\0';
+      return 1;
+    } else {
+      return 0;
+    }
   }
 
   unsigned int length() {
@@ -65,43 +67,46 @@ public:
   }
 
   unsigned int maxLength() {
-  	return _maxLength;
+    return _maxLength;
   }
 
   char charAt(int index) {
-  	return _string[index];
+    return _string[index];
   }
 
-  template<class T, typename ... Args> size_t printAndReplace(T msg, ...) {
+  template <class T, typename... Args>
+  size_t printAndReplace(T msg, ...) {
     va_list args;
-		va_start(args, msg);
+    va_start(args, msg);
     return printAndReplaceImpl(msg, args);
     va_end(args);
   }
 
-  const char* c_str() {
-  	return _string;
+  const char *c_str() {
+    return _string;
   }
 
   size_t printAndReplaceImpl(const __FlashStringHelper *format, va_list args) {
     size_t n = 0;
     PGM_P p = reinterpret_cast<PGM_P>(format);
-		char c = pgm_read_byte(p++);
-		for(;c != 0; c = pgm_read_byte(p++)) {
-			if (c == '%') {
-				c = pgm_read_byte(p++);
-				n = n + printFormat(c, &args);
-			} else {
-        //just copy
-  			if (write(c)) n++;
-  			else break;
-			}
-		}
+    char c = pgm_read_byte(p++);
+    for (; c != 0; c = pgm_read_byte(p++)) {
+      if (c == '%') {
+        c = pgm_read_byte(p++);
+        n = n + printFormat(c, &args);
+      } else {
+        // just copy
+        if (write(c))
+          n++;
+        else
+          break;
+      }
+    }
     return n;
-	}
+  }
 
-private:
-  char* _string;
+ private:
+  char *_string;
   unsigned int _maxLength;
   unsigned int _position;
   bool _deleteCharInDestructor;
@@ -109,19 +114,30 @@ private:
   size_t printFormat(const char c, va_list *args) {
     size_t n = 0;
     if (c == 's') {
-      //wildcard
+      // wildcard
       register char *wc = (char *)va_arg(*args, int);
       for (int b = 0; b < strlen(wc); b++) {
-        if (write(wc[b])) n++;
-        else break;
+        if (write(wc[b]))
+          n++;
+        else
+          break;
       }
     } else {
       if (write('%')) n++;
       if (write(c)) n++;
     }
-		return n;
-	}
-
+    return n;
+  }
 };
 
-#endif // _STRING_STREAM_H_
+WStringStream *_responseStream = nullptr;
+
+WStringStream *getResponseStream(int size = SIZE_JSON_PACKET) {
+  if (_responseStream == nullptr) {
+    _responseStream = new WStringStream(size);
+  }
+  _responseStream->flush();
+  return _responseStream;
+}
+
+#endif  // _STRING_STREAM_H_

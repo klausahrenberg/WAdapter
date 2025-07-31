@@ -15,22 +15,6 @@ struct WFormResponse {
   WFormOperation operation; 
 };
 
-struct WPageItem {
-  WPageItem(WPageInitializer initializer, const char* title, bool showInMainMenu = true) {
-    this->initializer = initializer;
-    this->title = title;
-    this->showInMainMenu = showInMainMenu;
-  }
-
-  virtual ~WPageItem() {
-   
-  }
-
-  WPageInitializer initializer;
-  const char* title; 
-  bool showInMainMenu;
-};
-
 class WPage {
  public:
   WPage() {    
@@ -41,27 +25,16 @@ class WPage {
   }
 
   virtual ~WPage() {
-  }
+    if (_parentNode) delete _parentNode;
+  }    
 
   typedef std::function<void(WPage*)> TPrintPage;
   typedef std::function<void(AsyncWebServerRequest*)> TSubmitPage;
   void onPrintPage(TPrintPage onPrintPage) { _onPrintPage = onPrintPage; }
   void onSubmitPage(TSubmitPage onSubmitPage) { _onSubmitPage = onSubmitPage; }
 
-  static void bind(AsyncWebServer* webServer, WPageItem* pi, const char* id = nullptr) {    
-    String target = "/" + (id != nullptr ? String(id) : "");    
-    webServer->on(target.c_str(), HTTP_GET, std::bind(&WPage::handleGet, std::placeholders::_1, pi));    
-  }
-
-  static void handleGet(AsyncWebServerRequest* request, WPageItem* pi) {
-    AsyncResponseStream* stream = request->beginResponseStream(WC_TEXT_HTML);
-    WPage* page = pi->initializer();
-    page->toString(stream);
-    delete page;
-    request->send(stream);
-  }
-
   void _handleHttp(AsyncWebServerRequest* request) {
+    //WebApp->registerSession(WValue.of("hallo"));
     AsyncResponseStream* stream = request->beginResponseStream(WC_TEXT_HTML, 6100U);    
     this->toString(stream);    
     request->send(stream);    
@@ -71,20 +44,19 @@ class WPage {
 
   }
 
-  virtual WFormResponse* submitForm(WList<WValue>* args) {
-    LOG->debug("handle sf in page");
-    return new WFormResponse();
+  virtual WFormResponse submitForm(WList<WValue>* args) {    
+    return WFormResponse();
   }
 
   void toString(Print* stream) {
-    WebControl* parentNode = new WebControl(WC_DIV, nullptr);
-    this->createControls(parentNode);
+    if (_parentNode == nullptr) _parentNode = new WebControl(WC_DIV, nullptr);
+    this->createControls(_parentNode);
     WStringList* styles = new WStringList();   
     styles->add(WC_STYLE_BODY, WC_BODY);
     styles->add(WC_STYLE_FORM_WHITE_BOX, WC_CSS_FORM_WHITE_BOX);        
-    parentNode->createStyles(styles);
+    _parentNode->createStyles(styles);
     WStringList* scripts = new WStringList();        
-    parentNode->createScripts(scripts);
+    _parentNode->createScripts(scripts);
     //Print
     WHtml::commandParamsAndNullptr(stream, WC_DOCTYPE_HTML, true, WC_HTML, nullptr);
     WHtml::commandParamsAndNullptr(stream, WC_HTML, true, WC_LANG, F("en"), nullptr);
@@ -121,13 +93,16 @@ class WPage {
       if (DEBUG) stream->print(F(" (debug)"));
       WHtml::command(stream, WC_H2, false);
     }
-    parentNode->toString(stream);
+    _parentNode->toString(stream);
     // Scripts
     if (!scripts->empty()) {
       WHtml::command(stream, WC_SCRIPT, true);  
+      if (statefulWebPage()) {
+        scripts->add(WC_SCRIPT_INITIALIZE_SOCKET);
+      }
       scripts->forEach([this, stream] (int index, const char* script, const char* id) { 
         stream->print(script);
-        stream->print(WC_SEND);        
+        stream->print(WC_SEND); 
       });
       WHtml::command(stream, WC_SCRIPT, false);  
     }
@@ -135,8 +110,7 @@ class WPage {
     WHtml::command(stream, WC_HTML, false);  // Page end   
     //Cleanup
     delete styles;
-    delete scripts;
-    delete parentNode;
+    delete scripts;    
   }
 
   virtual void printPage() {
@@ -166,14 +140,24 @@ class WPage {
     _stream->println(cv);
   }
 
+  bool statefulWebPage() { return _statefulWebPage; }
+
+  WPage* statefulWebPage(bool statefulWebPage) { _statefulWebPage = statefulWebPage; return this; }
+
+  WebControl* getElementById(const char* id) {
+    if (_parentNode != nullptr) return _parentNode->getElementById(id);
+  }
+
  protected:
-  
+  bool _statefulWebPage = false;
  private:
   const char* _title;
   Print* _stream;
   WPage* _targetAfterSubmitting;  
   TPrintPage _onPrintPage;
   TSubmitPage _onSubmitPage;
+  WebControl* _parentNode = nullptr;
 };
+
 
 #endif

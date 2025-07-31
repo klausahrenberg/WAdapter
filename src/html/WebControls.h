@@ -5,6 +5,7 @@
 
 class WebControl {
  public:
+  typedef std::function<void(const char*)> WebControlHandler;
   WebControl(const char* tag, const char* params, ...) {
     _tag = new char[strlen_P(tag) + 1];
     strcpy_P(_tag, tag);
@@ -40,7 +41,7 @@ class WebControl {
   }
 
   typedef std::function<void(Print* stream)> WOnPrint;
-  void content(WOnPrint contentFactory) {
+  void contentFactory(WOnPrint contentFactory) {
     _contentFactory = contentFactory;
   }
 
@@ -63,7 +64,7 @@ class WebControl {
   void add(WebControl* kv) {
     if (kv != nullptr) {
       if (_items == nullptr) _items = new WList<WebControl>();
-      _items->add(kv);
+      _items->add(kv, kv->getParam(WC_ID));
     }
   }
 
@@ -89,7 +90,15 @@ class WebControl {
   }
 
   bool hasParam(const char* key) {
-    return ((_params != nullptr) && (_params->getById(key) != nullptr));
+    return (getParam(key) != nullptr);
+  }
+
+  const char* getParam(const char* key) {
+    return (_params != nullptr ? _params->getById(key) : nullptr);
+  }
+
+  const char* id() {
+    return getParam(WC_ID);
   }
 
   virtual void createStyles(WStringList* styles) {
@@ -97,9 +106,6 @@ class WebControl {
   }
 
   virtual void createScripts(WStringList* scripts) {
-    if (_usingWebSocket) {
-      scripts->add(WC_SCRIPT_INITIALIZE_SOCKET);
-    }
     if (_items) _items->forEach([this, scripts](int index, WebControl* wc, const char* id) { wc->createScripts(scripts); });
   }
 
@@ -107,25 +113,37 @@ class WebControl {
     WHtml::command(stream, _tag, true, _params);
     if (_contentFactory) {
       _contentFactory(stream);
-    } else {
+    } else if (_content) {
       stream->print(_content);
     }
     if (_items) _items->forEach([this, stream](int index, WebControl* wc, const char* id) { wc->toString(stream); });
     if (_closing) WHtml::command(stream, _tag, false, nullptr);
   }
 
-  bool isUsingWebSocket() { return _usingWebSocket; };
+  WList<WebControl>* items() { return _items; }
 
-  WebControl* usingWebSocket(bool usingWebSocket) { _usingWebSocket = usingWebSocket; return this; };
+  WebControl* getElementById(const char* id) {
+    if (_items != nullptr) {
+      WebControl* result = _items->getById(id);
+      for (int i = 0; ((result == nullptr) && (i < _items->size())); i++) {
+        result = _items->get(i)->getElementById(id);
+      }
+      return result;
+    } else {
+      return nullptr;
+    }
+  }
+
+  virtual void handleEvent(WValue* event, WList<WValue>* data) {
+  }
 
  protected:
   char* _tag = nullptr;
   char* _content = nullptr;
-  WOnPrint _contentFactory;
+  WOnPrint _contentFactory = nullptr;
   bool _closing = true;
   WStringList* _params = nullptr;
-  WList<WebControl>* _items = nullptr;  
-  bool _usingWebSocket = false;
+  WList<WebControl>* _items = nullptr;
 };
 
 class WebDiv : public WebControl {
@@ -186,9 +204,9 @@ class WebButton : public WebControl {
     WebControl::createStyles(styles);
   }
 
-  virtual void createScripts(WStringList* scripts) {    
+  virtual void createScripts(WStringList* scripts) {
     WebControl::createScripts(scripts);
-    if (hasParam(WC_ON_CLICK)) scripts->add(WC_SCRIPT_TEST);
+    if (hasParam(WC_ON_CLICK)) scripts->add(WC_SCRIPT_CONTROL_EVENT, WC_SCRIPT_NAME_CONTROL_EVENT);
   }
 
   void onClickNavigateBack() { addParam(WC_ON_CLICK, WC_HISTORY_BACK); }
@@ -200,7 +218,7 @@ class WebButton : public WebControl {
 
   WebButton* onClickSendValue(const char* value) {
     this->addParam(WC_VALUE, value);
-    this->addParam(WC_ON_CLICK, PSTR("onButtonClick(this)"));
+    this->addParam(WC_ON_CLICK, WC_SCRIPT_NAME_CONTROL_EVENT, WC_ON_CLICK, nullptr);    
     return this;
   }
 
@@ -208,7 +226,19 @@ class WebButton : public WebControl {
     WebControl::toString(stream);
   }
 
- protected:
+  WebButton* onClick(WebControlHandler onClick) {
+    _onClick = onClick;
+    return this;
+  }
+
+  virtual void handleEvent(WValue* event, WList<WValue>* data) {
+    WebControl::handleEvent(event, data);
+    LOG->debug("handle click ");
+    if ((event->equalsString(WC_ON_CLICK)) && (_onClick)) _onClick(nullptr);
+  }
+
+ private:
+  WebControlHandler _onClick = nullptr;
 };
 
 class WebSubmitButton : public WebControl {
@@ -280,16 +310,37 @@ class WebSwitch : public WebControl {
   }
 };
 
+class WebInput : public WebControl {
+ public:
+  WebInput(const char* id, const char* value = nullptr, byte maxLength = 32, bool passwordField = false) : 
+    WebControl(WC_INPUT, WC_ID, id, WC_MAXLENGTH, String(maxLength).c_str(), WC_TYPE, (passwordField ? WC_PASSWORD : WC_TEXT), nullptr) {
+    if (value != nullptr) {
+      addParam(WC_VALUE, value);
+    }
+    addParam(WC_ON_CHANGE, WC_SCRIPT_NAME_CONTROL_EVENT, WC_ON_CHANGE, nullptr);
+    closing(false);
+  } 
+
+  virtual void createScripts(WStringList* scripts) {
+    WebControl::createScripts(scripts);
+    scripts->add(WC_SCRIPT_CONTROL_EVENT, WC_SCRIPT_NAME_CONTROL_EVENT);
+  }
+
+  virtual void handleEvent(WValue* event, WList<WValue>* data) {
+    WebControl::handleEvent(event, data);
+    if (event->equalsString(WC_ON_CHANGE)) {
+      LOG->debug("handle change ");
+      addParam(WC_VALUE, data->getById(WC_VALUE)->asString());
+    }
+  }
+
+};
+
 class WebTextField : public WebControl {
  public:
   WebTextField(const char* id, const char* title, const char* text = nullptr, byte maxLength = 32, bool passwordField = false) : WebControl(WC_DIV, nullptr) {
-    this->add(new WebLabel(title, id));
-    WebControl* input = new WebControl(WC_INPUT, WC_ID, id, WC_NAME, id, WC_MAXLENGTH, String(maxLength).c_str(), WC_TYPE, (passwordField ? WC_PASSWORD : WC_TEXT), nullptr);
-    if (text != nullptr) {
-      input->addParam(WC_VALUE, text);
-    }
-    input->closing(false);
-    this->add(input);
+    this->add(new WebLabel(title, id));    
+    this->add(new WebInput(id, text, maxLength, passwordField));
   }
 };
 
@@ -298,8 +349,13 @@ class WebTextArea : public WebControl {
   WebTextArea(const char* id, const char* title, WOnPrint textFactory, byte rows = 20) : WebControl(WC_DIV, nullptr) {
     this->add(new WebLabel(title, id));
     WebControl* input = new WebControl(WC_TEXTAREA, WC_ID, id, WC_NAME, id, WC_ROWS, String(rows).c_str(), nullptr);
-    input->content(textFactory);
+    if (textFactory != nullptr) input->contentFactory(textFactory);
     this->add(input);
+  }
+
+  virtual void createScripts(WStringList* scripts) {
+    WebControl::createScripts(scripts);
+    scripts->add(WC_SCRIPT_TEXTAREA);
   }
 };
 
@@ -390,9 +446,10 @@ class WebCombobox : public WebControl {
   }
 
   WebCombobox* option(const char* option, bool selected) {
-    _select->add((new WebControl(WC_OPTION, 
-                                 WC_VALUE, option, 
-                                 (selected ? WC_SELECTED : ""), (selected ? "" : nullptr), nullptr))->content(option));
+    _select->add((new WebControl(WC_OPTION,
+                                 WC_VALUE, option,
+                                 (selected ? WC_SELECTED : ""), (selected ? "" : nullptr), nullptr))
+                     ->content(option));
     return this;
   }
 

@@ -294,7 +294,7 @@ class WSettings {
   WValue* setBoolean(const char* id, bool b, bool networkSetting) {
     WValue* value = _items->getById(id);
     if (value == nullptr) {
-      value = new WValue(b);
+      value = new WValue((bool) b);
       add(value, id, networkSetting);
     } else {
       value->asBool(b);

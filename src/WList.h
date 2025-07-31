@@ -166,7 +166,8 @@ class WList : public IWIterable<T> {
       WListNode<T>* node = _firstNode;
       int i = 0;
       while (node != nullptr) {
-        consumer(i, node->value, node->id);
+        if (node->value != nullptr)
+          consumer(i, node->value, node->id);
         i++;
         node = node->next;
       }

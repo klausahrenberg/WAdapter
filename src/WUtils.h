@@ -118,7 +118,7 @@ enum WDataType {
 typedef std::function<void()> WOnValueChange;
 
 struct WValue {
- public:  
+ public:
   WValue(WDataType type = BOOLEAN) {
     _type = type;
   }
@@ -133,44 +133,44 @@ struct WValue {
     asList(list);
   }
 
-  WValue(double value) { 
+  WValue(double value) {
     _type = DOUBLE;
-    asDouble(value); 
+    asDouble(value);
   }
 
-  WValue(int value) { 
+  WValue(int value) {
     _type = INTEGER;
-    asInt(value); 
+    asInt(value);
   }
 
   WValue(uint32_t value) {
     _type = INTEGER;
-    asInt(value); 
+    asInt(value);
   }
 
-  WValue(short value) { 
+  WValue(short value) {
     _type = SHORT;
-    asShort(value); 
+    asShort(value);
   }
 
   WValue(uint16_t value) {
     _type = UNSIGNED_SHORT;
     asUnsignedShort(value);
-  } 
+  }
 
-  WValue(byte value) { 
+  WValue(byte value) {
     _type = BYTE;
-    asByte(value); 
+    asByte(value);
   }
 
-  WValue(unsigned long value) { 
+  WValue(unsigned long value) {
     _type = UNSIGNED_LONG;
-    asUnsignedLong(value); 
+    asUnsignedLong(value);
   }
 
-  WValue(bool value) { 
+  WValue(bool value) {
     _type = BOOLEAN;
-    asBool(value); 
+    asBool(value);
   }
 
   WValue(byte length, const byte* ba) {
@@ -188,23 +188,25 @@ struct WValue {
   WDataType type() { return _type; }
 
   bool isNull() { return _isNull; }
-  
+
   bool asBool() {
     if (!_isNull) {
       switch (_type) {
-        case BOOLEAN : return _asBool;
-        case STRING : return equalsString(WC_TRUE);
+        case BOOLEAN:
+          return _asBool;
+        case STRING:
+          return equalsString(WC_TRUE);
       }
     }
-    return false; 
+    return false;
   }
 
   bool asBool(bool newValue) {
     bool changed = false;
     if (_type == BOOLEAN) {
       changed = ((_isNull) || (_asBool != newValue));
-      _asBool = newValue;       
-      _isNull = false; 
+      _asBool = newValue;
+      _isNull = false;
     }
     return changed;
   }
@@ -215,7 +217,7 @@ struct WValue {
     bool changed = false;
     if (_type == DOUBLE) {
       changed = ((_isNull) || (!isEqual(_asDouble, newValue, 0.01)));
-      _asDouble = newValue;      
+      _asDouble = newValue;
       _isNull = false;
     }
     return changed;
@@ -257,19 +259,21 @@ struct WValue {
     return ((!_isNull) && (_asUnsignedShort == number));
   }
 
-  int asInt() { 
+  int asInt() {
     if (!_isNull) {
       switch (_type) {
-        case INTEGER : return _asInt;
-        case STRING : return atoi(_asString);
+        case INTEGER:
+          return _asInt;
+        case STRING:
+          return atoi(_asString);
       }
     }
-    return 0; 
+    return 0;
   }
 
   bool asInt(int newValue) {
     bool changed = false;
-    if (_type == INTEGER) {            
+    if (_type == INTEGER) {
       changed = ((_isNull) || (_asInt != newValue));
       _asInt = newValue;
       _isNull = false;
@@ -289,7 +293,7 @@ struct WValue {
 
   bool asUnsignedLong(unsigned long newValue) {
     bool changed = false;
-    if (_type == UNSIGNED_LONG) {      
+    if (_type == UNSIGNED_LONG) {
       changed = ((_isNull) || (_asUnsignedLong != newValue));
       _asUnsignedLong = newValue;
       _isNull = false;
@@ -305,14 +309,16 @@ struct WValue {
     return ((!_isNull) && (_asUnsignedLong >= lowerLimit) && (_asUnsignedLong < upperLimit));
   }
 
-  byte asByte() { 
+  byte asByte() {
     if (!_isNull) {
       switch (_type) {
-        case BYTE : return _asByte;
-        case STRING : return atoi(_asString);
+        case BYTE:
+          return _asByte;
+        case STRING:
+          return atoi(_asString);
       }
     }
-    return 0x00;  
+    return 0x00;
   }
 
   bool asByte(byte newValue) {
@@ -333,7 +339,7 @@ struct WValue {
     bool oldValue = asBit(bit);
     if (_type == BYTE) {
       bitWrite(_asByte, bit, value);
-    }  
+    }
     return (oldValue != value);
   }
 
@@ -350,12 +356,12 @@ struct WValue {
       return result;
     } else {
       return 0;
-    }  
+    }
   }
 
   bool asByteArray(byte length, const byte* newValue) {
     bool changed = false;
-    if (_type == BYTE_ARRAY) {     
+    if (_type == BYTE_ARRAY) {
       changed = ((_isNull) || (length != this->length()));
       if ((!_isNull) && (length != this->length())) {
         free(_asByteArray);
@@ -377,9 +383,9 @@ struct WValue {
 
   bool byteArrayValue(byte index, byte newValue) {
     bool changed = false;
-    if (_type == BYTE_ARRAY) {      
+    if (_type == BYTE_ARRAY) {
       changed = ((_isNull) || (_asByteArray[index + 1] != newValue));
-      _asByteArray[index + 1] = newValue;            
+      _asByteArray[index + 1] = newValue;
     }
     return changed;
   }
@@ -401,51 +407,51 @@ struct WValue {
     return byteArrayValue(byteIndex, v);
   }
 
-  char* asString() { 
+  char* asString() {
     if ((!_isNull) && (_type == LIST)) {
       return "<list>";
     }
     if ((_isNull) || (_type != STRING)) {
       return "";
     }
-    return _asString; 
+    return _asString;
   }
 
   bool asString(const char* newValue) {
     bool changed = false;
     if ((_type == STRING) && ((!_isNull) || (newValue != nullptr))) {
-      changed = (((_isNull) && (newValue != nullptr)) || 
-                 ((!_isNull) && (newValue == nullptr)) || 
-                 (strcmp_P(_asString, newValue) != 0));      
+      changed = (((_isNull) && (newValue != nullptr)) ||
+                 ((!_isNull) && (newValue == nullptr)) ||
+                 (strcmp_P(_asString, newValue) != 0));
       if (changed) {
-        if (!_isNull) delete _asString;         
-        _isNull = (newValue == nullptr);  
+        if (!_isNull) delete _asString;
+        _isNull = (newValue == nullptr);
         if (!_isNull) {
           _asString = new char[strlen_P(newValue) + 1];
-          strcpy_P(_asString, newValue);          
-        }  
-      }  
+          strcpy_P(_asString, newValue);
+        }
+      }
     }
     return changed;
   }
 
-  bool equalsString(const char* toCompare) {    
+  bool equalsString(const char* toCompare) {
     return ((!_isNull) && (_type == STRING) && (strcmp_P(_asString, toCompare) == 0));
   }
 
   bool isStringEmpty() {
     return ((isNull()) || (equalsString("")));
   }
-  
+
   WList<WValue>* asList() { return _asList; };
 
   bool asList(WList<WValue>* list) {
     bool changed = false;
-    if (_type == LIST) {      
+    if (_type == LIST) {
       changed = ((_isNull) || (_asList != list));
       _asList = list;
       _isNull = (_asList == nullptr);
-    }    
+    }
     return changed;
   }
 
@@ -479,14 +485,22 @@ struct WValue {
         v.toLowerCase();
         return asBool(v.equals(WC_TRUE));
       }
-      case DOUBLE: return asDouble(v.toDouble());
-      case SHORT: return asShort(v.toInt());
-      case UNSIGNED_SHORT: return asUnsignedShort(v.toInt());
-      case INTEGER: return asInt(v.toInt());
-      case UNSIGNED_LONG: return asUnsignedLong(v.toInt());
-      case BYTE: return asByte(v.toInt());
-      case STRING: return asString(value);
-      case BYTE_ARRAY: /* tbi not implemented yet*/ return false;      
+      case DOUBLE:
+        return asDouble(v.toDouble());
+      case SHORT:
+        return asShort(v.toInt());
+      case UNSIGNED_SHORT:
+        return asUnsignedShort(v.toInt());
+      case INTEGER:
+        return asInt(v.toInt());
+      case UNSIGNED_LONG:
+        return asUnsignedLong(v.toInt());
+      case BYTE:
+        return asByte(v.toInt());
+      case STRING:
+        return asString(value);
+      case BYTE_ARRAY: /* tbi not implemented yet*/
+        return false;
     }
     return false;
   }
@@ -494,7 +508,7 @@ struct WValue {
   // byte byteArrayLength() { return (!_valueNull ? _value.asByteArray[0] : 0); }
 
   const char* toString() {
-    if (_type != STRING) {      
+    if (_type != STRING) {
       if (!_toString) {
         WStringStream* ss = new WStringStream(20, false);
         this->toString(ss);
@@ -507,7 +521,7 @@ struct WValue {
     }
   }
 
-  virtual void toString(Print* stream) {    
+  virtual void toString(Print* stream) {
     switch (_type) {
       case BOOLEAN:
         WUtils::boolean(stream, asBool());
@@ -523,7 +537,7 @@ struct WValue {
         break;
       case UNSIGNED_SHORT:
         WUtils::numberUnsignedShort(stream, asUnsignedShort());
-        break;  
+        break;
       case UNSIGNED_LONG:
         WUtils::numberUnsignedLong(stream, asUnsignedLong());
         break;
@@ -533,16 +547,16 @@ struct WValue {
       case STRING:
         WUtils::string(stream, asString(), nullptr);
         break;
-      case BYTE_ARRAY:   
+      case BYTE_ARRAY:
         WUtils::numberByteArray(stream, length(), asByteArray());
         break;
       case LIST:
         stream->print(F("List: "));
         stream->print(asList()->size());
         stream->print(F(" items"));
-        break;  
+        break;
       default:
-        stream->print(F("n.a"));  
+        stream->print(F("n.a"));
     }
   }
 
@@ -555,7 +569,7 @@ struct WValue {
 
   static WValue ofString(const char* string) { return WValue(string); }
 
-  static WValue ofPattern(const char* pattern, ...) {    
+  static WValue ofPattern(const char* pattern, ...) {
     va_list args;
     va_start(args, pattern);
     char buffer[128];
@@ -582,8 +596,7 @@ struct WValue {
 
   static WValue ofByteArray(byte length, const byte* ba) { return WValue(length, ba); }
 
- protected:  
-
+ protected:
  private:
   WDataType _type;
   bool _isNull = true;
@@ -605,13 +618,51 @@ struct WValue {
 class WJson;
 
 class IWJsonable {
-public:
+ public:
   virtual ~IWJsonable() {
   }
 
   virtual void registerSettings();
   virtual void fromJson(WList<WValue>* list);
-  virtual void toJson(WJson* json);    
-};            
+  virtual void toJson(WJson* json);
+};
+
+class UUID {
+ public: 
+  static WValue randomUUID() {
+    char _buffer[37];
+    randomSeed(millis());
+    uint32_t ar[4];
+    for (int i = 0; i < 4; i++) {
+      ar[i] = random();
+    }
+
+    //  process 16 bytes build up the char array.
+    for (int i = 0, j = 0; i < 16; i++) {
+      //  multiples of 4 between 8 and 20 get a -.
+      //  note we are processing 2 digits in one loop.
+      if ((i & 0x1) == 0) {
+        if ((4 <= i) && (i <= 10)) {
+          _buffer[j++] = '-';
+        }
+      }
+
+      //  process one byte at the time instead of a nibble
+      uint8_t nr = i / 4;
+      uint8_t xx = ar[nr];
+      uint8_t ch = xx & 0x0F;
+      _buffer[j++] = (ch < 10) ? '0' + ch : ('a' - 10) + ch;
+
+      ch = (xx >> 4) & 0x0F;
+      ar[nr] >>= 8;
+      _buffer[j++] = (ch < 10) ? '0' + ch : ('a' - 10) + ch;
+    }
+
+    _buffer[36] = 0;
+    Serial.print(F("Generated uuid: "));
+    Serial.println(_buffer);
+    return WValue((char*) &_buffer);
+  }
+};
 
 #endif

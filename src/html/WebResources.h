@@ -20,6 +20,8 @@ const static char WC_CSS_CHECK_BOX_LABEL_BEFORE[] PROGMEM = ".cb input[type='che
 const static char WC_CSS_CHECK_BOX_CHECKED_LABEL_BEFORE[] PROGMEM = ".cb input[type='checkbox']:checked+label:before";
 const static char WC_DIV[] PROGMEM = "div";
 const static char WC_ENCTYPE[] PROGMEM = "enctype";
+const static char WC_EVENT[] PROGMEM = "event";
+const static char WC_DATA[] PROGMEM = "data";
 const static char WC_DOCTYPE_HTML[] PROGMEM = "!DOCTYPE";
 const static char WC_FIELDSET[] PROGMEM = "fieldset";
 const static char WC_FILE[] PROGMEM = "file";
@@ -56,6 +58,7 @@ const static char WC_ON_CHANGE[] PROGMEM = "onchange";
 const static char WC_ON_CLICK[] PROGMEM = "onclick";
 const static char WC_OPTION[] PROGMEM = "option";
 const static char WC_PASSWORD[] PROGMEM = "password";
+const static char WC_PING[] PROGMEM = "PING";
 const static char WC_POST[] PROGMEM = "post";
 const static char WC_REL[] PROGMEM = "rel";
 const static char WC_RESET[] PROGMEM = "reset";
@@ -173,14 +176,67 @@ const static char WC_STYLE_INPUT_CHECKED_SLIDER_BEFORE[] PROGMEM = R"=====(
 )=====";
 
 const static char WC_SCRIPT_INITIALIZE_SOCKET[] PROGMEM = R"=====(
+let form = window.location.href.substring(window.location.href.lastIndexOf('/') + 1);
 var webSocket = new WebSocket("ws://" + location.hostname + "/ws");
+
 webSocket.onopen = function() {
-  console.log("WebSocket connected");
+  console.log("WebSocket connected: " + form);
 };
+
 webSocket.onmessage = function(event) {
   var payload = event.data;
   console.log(payload);
-  document.getElementById("log").innerHTML = document.getElementById("log").innerHTML + payload + "<br>";
+  var json = JSON.parse(event.data);
+  switch (json.event) {
+      case "PING":
+          sendWebSocketMessage("PING", null, null);
+          break;
+      default:
+          executeFunctionByName(json.event, window, json);
+  } 
+}
+
+function sendWebSocketMessage(event, id, data) {
+    if (webSocket !== null) {
+        var payload = {};
+        payload["event"] = event;
+        payload["form"] = form;
+        if (id != null) payload["id"] = id;        
+        if (data !== null) payload["data"] = data;
+        webSocket.send(JSON.stringify(payload));
+    }
+}
+
+function executeFunctionByName(functionName, context /*, args */) {
+    var args = Array.prototype.slice.call(arguments, 2);
+    var namespaces = functionName.split(".");
+    var func = namespaces.pop();
+    for (var i = 0; i < namespaces.length; i++) {
+        context = context[namespaces[i]];
+    }
+    if (func in context) {
+        return context[func].apply(context, args);
+    } else {
+        console.log("Unknown function: " + func)
+    }
+
+)=====";
+
+const static char WC_SCRIPT_NAME_CONTROL_EVENT[] PROGMEM = "controlEvent(this, '%s')";
+
+const static char WC_SCRIPT_CONTROL_EVENT[] PROGMEM = R"=====(
+function controlEvent(elem, event) {
+  sendWebSocketMessage(event, elem.id, {"value":elem.value});
+)=====";
+
+const static char WC_SCRIPT_NAME_TEXTAREA[] PROGMEM = "textAreaUpdate(json)";
+
+const static char WC_SCRIPT_TEXTAREA[] PROGMEM = R"=====(
+function textAreaUpdate(json) {
+  var textArea = document.getElementById(json.id);
+  if (textArea !== null) {
+    textArea.innerHTML = json.data;
+  }
 )=====";
 
 /*

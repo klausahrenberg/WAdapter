@@ -19,10 +19,6 @@ class WPCF8575 : public WI2C, public IWExpander {
         uint16_t iInput = _i2cPort->read();
         iInput |= _i2cPort->read() << 8;
         _byteBuffered = (uint16_t)iInput;
-        /*for (int i = 0; i < 16; i++) {
-          Serial.print(bitRead(_byteBuffered, i));
-        }
-        Serial.println();*/
       }
     }
   }
@@ -38,7 +34,9 @@ class WPCF8575 : public WI2C, public IWExpander {
       _byteBuffered = _initialBuffer;
       _writeByteBuffered = _writeModeUp;
       _transmissionStatus = _i2cPort->endTransmission();
-    }    
+    } else {
+      LOG->debug(F("Can't start io expander, missing in-/outputs"));
+    }
     _lastReadMillis = millis();
     _started = this->isLastTransmissionSuccess();
     return _started;
