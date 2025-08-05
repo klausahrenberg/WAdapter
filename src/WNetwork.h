@@ -344,7 +344,9 @@ class WNetwork {
       _webServer->onNotFound(std::bind(&WNetwork::_handleUnknown, this, std::placeholders::_1));
       if (_webApp != nullptr) {
         _webApp->bindWebServerCalls(_webServer);
-        _webServer->addHandler(_webApp->webSockets());
+      }
+      if (WEB_SOCKETS != nullptr) {
+        _webServer->addHandler(WEB_SOCKETS);
       }
       _webServer->on("/events",
                      HTTP_POST,
@@ -380,10 +382,10 @@ class WNetwork {
   }
 
   void stopWebServer() {
-    if (_webApp != nullptr) {
-      _webServer->removeHandler(_webApp->webSockets());
-    }
     if ((isWebServerRunning()) && (!_supportsWebServer) && (!_updateRunning)) {
+      if (WEB_SOCKETS != nullptr) {
+        _webServer->removeHandler(WEB_SOCKETS);
+      }
       delay(100);
       _webServer->end();
       _webServer = nullptr;

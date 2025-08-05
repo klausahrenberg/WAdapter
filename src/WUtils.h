@@ -628,7 +628,7 @@ class IWJsonable {
 };
 
 class UUID {
- public: 
+ public:
   static WValue randomUUID() {
     char _buffer[37];
     randomSeed(millis());
@@ -661,7 +661,7 @@ class UUID {
     _buffer[36] = 0;
     Serial.print(F("Generated uuid: "));
     Serial.println(_buffer);
-    return WValue((char*) &_buffer);
+    return WValue((char*)&_buffer);
   }
 };
 

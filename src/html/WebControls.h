@@ -2,6 +2,7 @@
 #define W_WEB_CONTROLS_H
 
 #include "WebResources.h"
+#include "WebSockets.h"
 
 class WebControl {
  public:
@@ -49,6 +50,7 @@ class WebControl {
     if (_content) delete _content;
     _content = new char[strlen_P(content) + 1];
     strcpy_P(_content, content);
+    WebSockets::sendMessage("textAreaUpdate", id(), _content);
     return this;
   }
 
@@ -313,7 +315,7 @@ class WebSwitch : public WebControl {
 class WebInput : public WebControl {
  public:
   WebInput(const char* id, const char* value = nullptr, byte maxLength = 32, bool passwordField = false) : 
-    WebControl(WC_INPUT, WC_ID, id, WC_MAXLENGTH, String(maxLength).c_str(), WC_TYPE, (passwordField ? WC_PASSWORD : WC_TEXT), nullptr) {
+    WebControl(WC_INPUT, WC_ID, id, WC_NAME, id, WC_MAXLENGTH, String(maxLength).c_str(), WC_TYPE, (passwordField ? WC_PASSWORD : WC_TEXT), nullptr) {
     if (value != nullptr) {
       addParam(WC_VALUE, value);
     }
@@ -329,7 +331,8 @@ class WebInput : public WebControl {
   virtual void handleEvent(WValue* event, WList<WValue>* data) {
     WebControl::handleEvent(event, data);
     if (event->equalsString(WC_ON_CHANGE)) {
-      LOG->debug("handle change ");
+      LOG->debug("handle change %d", data->size());
+      for (byte b = 0; b < data->size(); b++) LOG->debug("item: %s", data->_getNode(0)->id());//->get(b)->asString());
       addParam(WC_VALUE, data->getById(WC_VALUE)->asString());
     }
   }

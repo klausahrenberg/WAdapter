@@ -55,6 +55,7 @@ class WNetworkPage : public WPage {
   }  
 
   virtual WFormResponse submitForm(WList<WValue>* args) {
+    LOG->debug("submit %d", args->size());
     SETTINGS->setString(WC_ID, args->getById(WC_ID)->asString());
     SETTINGS->setString(WC_SSID, args->getById(WC_SSID)->asString());
     SETTINGS->setString(WC_PASSWORD, args->getById(WC_PASSWORD)->asString());

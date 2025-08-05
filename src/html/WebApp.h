@@ -1,8 +1,7 @@
 #ifndef W_WEBAPP_H
 #define W_WEBAPP_H
 
-#include <ESPAsyncWebServer.h>
-#include "html/WPage.h"
+#include "WebPage.h"
 
 struct WebPageItem {
   WebPageItem(WPageInitializer initializer, const char* title, bool showInMainMenu = true) {
@@ -22,7 +21,7 @@ class WebApp {
  public:
   WebApp() {
     _webSocketHandler = new AsyncWebSocketMessageHandler();    
-    _ws = new AsyncWebSocket("/ws", _webSocketHandler->eventHandler());    
+    WEB_SOCKETS = new AsyncWebSocket("/ws", _webSocketHandler->eventHandler());    
 
     _webSocketHandler->onConnect([this](AsyncWebSocket *server, AsyncWebSocketClient *client) {
       IPAddress ip = client->remoteIP();
@@ -64,14 +63,14 @@ class WebApp {
   }
 
   ~WebApp() {
-    _ws->closeAll();
-    delete _ws;
-    _ws = nullptr;
+    WEB_SOCKETS->closeAll();
+    delete WEB_SOCKETS;
+    WEB_SOCKETS = nullptr;
     delete _webSocketHandler;
     _webSocketHandler = nullptr;
   }
 
-  AsyncWebSocket *webSockets() { return _ws; }
+  //AsyncWebSocket *webSockets() { return WEB_SOCKETS; }
 
   WList<WebPageItem> *webPages() { return _webPages; }
 
@@ -80,14 +79,14 @@ class WebApp {
   }  
 
   void webSocketBroadcast(const char *payload) {
-    _ws->textAll(payload);
+    WEB_SOCKETS->textAll(payload);
   }
 
   void loop(unsigned long now) {  
     if ((_lastPing == 0) || (now - _lastPing > 10000)) {
       _lastPing = now;
       LOG->debug("ping  %d ... ", now);
-      _sendWebSocketMessage(WC_PING, nullptr, nullptr);
+      WebSockets::sendMessage(WC_PING, nullptr, nullptr);
       _cleanUpDeadSessions();
     }    
   }
@@ -122,26 +121,7 @@ class WebApp {
     return WFormResponse();
   }
 
-
-  bool _sendWebSocketMessage(const char* event, const char *id, const char *data) {
-    if ((_ws != nullptr) && (_ws->availableForWriteAll())) {    
-      WStringStream *response = _prepareStream();
-      WJson json(response);
-      json.beginObject();
-      json.propertyString(WC_EVENT, event, nullptr);
-      if (id != nullptr) json.propertyString(WC_ID, id, nullptr);
-      if (data != nullptr) {
-        json.propertyString(WC_DATA, data, nullptr);
-      }
-      json.endObject();
-      LOG->debug("Send> %s", response->c_str());
-      return _ws->textAll(response->c_str());
-    }
-    return false;
-  }
-
  private:
-  AsyncWebSocket *_ws;
   AsyncWebSocketMessageHandler *_webSocketHandler;    
   WStringStream *_stream = nullptr;
   unsigned long _lastPing = 0;
@@ -178,7 +158,7 @@ class WebApp {
         LOG->debug("Removed dead session '%s'", id);
       }
     });
-    _ws->cleanupClients();
+    WEB_SOCKETS->cleanupClients();
   }
 
   WStringStream *_prepareStream() {
