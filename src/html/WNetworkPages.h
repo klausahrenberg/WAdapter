@@ -133,7 +133,7 @@ class WFirmwarePage : public WPage {
   virtual void createControls(WebControl* parentNode) {    
 
     WebControl* form = new WebForm(WC_FIRMWARE, nullptr);
-    form->addParam(WC_ENCTYPE, WC_MULTIPART_FORM_DATA);
+    form->param(WC_ENCTYPE, WC_MULTIPART_FORM_DATA);
     parentNode->add(form);    
     //network
     form->add(new WebInputFile("update"));

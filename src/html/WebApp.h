@@ -50,9 +50,12 @@ class WebApp {
               WValue* cdata = args->getById(WC_DATA);
               if (id != nullptr) {
                 WebControl* control = pi->instance->getElementById(id->asString());
-                if (control != nullptr) {                  
-                  control->handleEvent(event, (WList<WValue>*) cdata);
-                }  
+                if (control != nullptr)  {  
+                  LOG->debug("control found");                       
+                  control->handleEvent(event, ((cdata != nullptr) && (cdata->type() == LIST)) ? cdata->asList() : nullptr);
+                } else {
+                  LOG->debug(F("Control for handling not found %s"), id->asString());
+                }
               }
             }
           }

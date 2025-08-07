@@ -20,14 +20,14 @@ class WebControl {
         strcpy_P(key, params);
       } else {
         // WKeyValue* kv = new WKeyValue(key, params);
-        addParam(key, params);
+        param(key, params);
         delete key;
         key = nullptr;
       }
       params = va_arg(arg, const char*);
     }
     if (key != nullptr) {
-      addParam(key, nullptr);
+      param(key, nullptr);
       delete key;
       key = nullptr;
     }
@@ -66,17 +66,15 @@ class WebControl {
   void add(WebControl* kv) {
     if (kv != nullptr) {
       if (_items == nullptr) _items = new WList<WebControl>();
-      _items->add(kv, kv->getParam(WC_ID));
+      _items->add(kv, kv->param(WC_ID));
     }
   }
 
-  // void addParam(WKeyValue* kv) {
-
-  WebControl* addParam(const char* key, const char* param) {
-    return addParam(key, param, nullptr);
+  virtual WebControl* param(const char* key, const char* value) {
+    return param(key, value, nullptr);
   }
 
-  WebControl* addParam(const char* key, const char* pattern, const char* params, ...) {
+  virtual WebControl* param(const char* key, const char* pattern, const char* params, ...) {
     if (_params == nullptr) _params = new WStringList();
     if ((pattern != nullptr) && (params != nullptr)) {
       va_list args2;
@@ -91,16 +89,30 @@ class WebControl {
     return this;
   }
 
-  bool hasParam(const char* key) {
-    return (getParam(key) != nullptr);
+  virtual bool hasParam(const char* key) {
+    return (param(key) != nullptr);
   }
 
-  const char* getParam(const char* key) {
+  virtual const char* param(const char* key) {
     return (_params != nullptr ? _params->getById(key) : nullptr);
   }
 
-  const char* id() {
-    return getParam(WC_ID);
+  virtual const char* id() {
+    return param(WC_ID);
+  }
+
+  virtual WebControl* id(const char* id) {
+    param(WC_ID, id);
+    return this;
+  }
+
+  virtual const char* value() {
+    return param(WC_VALUE);
+  }
+
+  virtual WebControl* value(const char* value) {
+    param(WC_VALUE, value);
+    return this;
   }
 
   virtual void createStyles(WStringList* styles) {
@@ -193,7 +205,7 @@ function onButtonClick(elem) {
 class WebButton : public WebControl {
  public:
   WebButton(const char* title, const char* id = nullptr) : WebControl(WC_BUTTON, nullptr) {
-    if (id) addParam(WC_ID, id);
+    if (id) param(WC_ID, id);
     content(title);
   }
 
@@ -211,16 +223,16 @@ class WebButton : public WebControl {
     if (hasParam(WC_ON_CLICK)) scripts->add(WC_SCRIPT_CONTROL_EVENT, WC_SCRIPT_NAME_CONTROL_EVENT);
   }
 
-  void onClickNavigateBack() { addParam(WC_ON_CLICK, WC_HISTORY_BACK); }
+  void onClickNavigateBack() { param(WC_ON_CLICK, WC_HISTORY_BACK); }
 
   WebButton* onClickNavigateTo(const char* target) {
-    addParam(WC_ON_CLICK, WC_LOCATION_HREF, target, nullptr);
+    param(WC_ON_CLICK, WC_LOCATION_HREF, target, nullptr);
     return this;
   }
 
   WebButton* onClickSendValue(const char* value) {
-    this->addParam(WC_VALUE, value);
-    this->addParam(WC_ON_CLICK, WC_SCRIPT_NAME_CONTROL_EVENT, WC_ON_CLICK, nullptr);    
+    this->param(WC_VALUE, value);
+    this->param(WC_ON_CLICK, WC_SCRIPT_NAME_CONTROL_EVENT, WC_ON_CLICK, nullptr);    
     return this;
   }
 
@@ -259,7 +271,7 @@ class WebSubmitButton : public WebControl {
 class WebLabel : public WebControl {
  public:
   WebLabel(const char* title, const char* forId = nullptr) : WebControl(WC_LABEL, nullptr) {
-    if (forId) addParam(WC_FOR, forId);
+    if (forId) param(WC_FOR, forId);
     content(title);
   }
 
@@ -317,9 +329,9 @@ class WebInput : public WebControl {
   WebInput(const char* id, const char* value = nullptr, byte maxLength = 32, bool passwordField = false) : 
     WebControl(WC_INPUT, WC_ID, id, WC_NAME, id, WC_MAXLENGTH, String(maxLength).c_str(), WC_TYPE, (passwordField ? WC_PASSWORD : WC_TEXT), nullptr) {
     if (value != nullptr) {
-      addParam(WC_VALUE, value);
+      param(WC_VALUE, value);
     }
-    addParam(WC_ON_CHANGE, WC_SCRIPT_NAME_CONTROL_EVENT, WC_ON_CHANGE, nullptr);
+    param(WC_ON_CHANGE, WC_SCRIPT_NAME_CONTROL_EVENT, WC_ON_CHANGE, nullptr);
     closing(false);
   } 
 
@@ -329,11 +341,11 @@ class WebInput : public WebControl {
   }
 
   virtual void handleEvent(WValue* event, WList<WValue>* data) {
+    LOG->debug("handle change %s", event);
     WebControl::handleEvent(event, data);
     if (event->equalsString(WC_ON_CHANGE)) {
-      LOG->debug("handle change %d", data->size());
-      for (byte b = 0; b < data->size(); b++) LOG->debug("item: %s", data->_getNode(0)->id());//->get(b)->asString());
-      addParam(WC_VALUE, data->getById(WC_VALUE)->asString());
+      LOG->debug("value set to '%s'", data->getById(WC_VALUE)->asString());
+      value(data->getById(WC_VALUE)->asString());
     }
   }
 
@@ -343,8 +355,40 @@ class WebTextField : public WebControl {
  public:
   WebTextField(const char* id, const char* title, const char* text = nullptr, byte maxLength = 32, bool passwordField = false) : WebControl(WC_DIV, nullptr) {
     this->add(new WebLabel(title, id));    
-    this->add(new WebInput(id, text, maxLength, passwordField));
+    _input = new WebInput(id, text, maxLength, passwordField);
+    this->add(_input);
   }
+
+  /*virtual const char* value() {
+    LOG->debug("value requested '%s'", _input->value());
+    return _input->value();
+  }
+
+  virtual WebControl* value(const char* value) {
+    _input->value(value);
+    return this;
+  }*/
+
+  virtual WebControl* param(const char* key, const char* value) {
+    _input->param(key, value);
+    return this;
+  }
+
+  /*virtual WebControl* param(const char* key, const char* pattern, const char* params, ...) {
+    _input->param(key, pattern, params);
+    return this;
+  }*/
+
+  virtual bool hasParam(const char* key) {
+    return _input->hasParam(key);
+  }
+  
+  virtual const char* param(const char* key) {
+    return _input->param(key);
+  }
+
+  private:
+   WebInput* _input;
 };
 
 class WebTextArea : public WebControl {
@@ -369,7 +413,7 @@ class WebInputFile : public WebControl {
     WebControl* input = new WebControl(WC_INPUT, WC_ID, id, WC_NAME, id, WC_TYPE, WC_FILE, WC_ACCEPT, PSTR(".bin"), nullptr);
     input->closing(false);
     this->add(input);
-    this->addParam(WC_CLASS, WC_BUTTON);
+    this->param(WC_CLASS, WC_BUTTON);
   }
 
   virtual void createStyles(WStringList* styles) {
