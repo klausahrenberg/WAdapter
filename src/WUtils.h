@@ -86,7 +86,19 @@ class WUtils {
     va_list arg;
     va_start(arg, text);
     while (text) {
-      stream->printf_P(text);
+      int index = 0;
+      while (text[index] != '\0') {
+        switch (text[index]) {
+          case '\n' : {
+            stream->print("\\n");
+            break;
+          }
+          default:
+            stream->print((char)text[index]);
+        }
+        index++;
+      }
+      // stream->printf_P(text);
       text = va_arg(arg, const char*);
     }
     va_end(arg);

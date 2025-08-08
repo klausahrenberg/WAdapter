@@ -85,15 +85,19 @@ class W2812Led : public WGpio {
 
   WRangeProperty* brightness() { return _brightness; }
 
-  void pixelColor(uint16_t ledNumber, uint8_t red, uint8_t green, uint8_t blue) {
+  void pixelColor(uint16_t ledNumber, uint8_t red, uint8_t green, uint8_t blue, bool updateImmediatly = true) {
     _strip->setPixelColor(ledNumber, red, green, blue);
-    _strip->show();
+    if (updateImmediatly) _strip->show();
   }
 
-  void pixelColor(uint16_t ledNumber, uint32_t color) {
+  void pixelColor(uint16_t ledNumber, uint32_t color, bool updateImmediatly = true) {
     _strip->setPixelColor(ledNumber, color);
-    _strip->show();
+    if (updateImmediatly) _strip->show();
   }  
+
+  void show() {
+    _strip->show();
+  }
 
   virtual void registerSettings() {
     WGpio::registerSettings();

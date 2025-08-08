@@ -18,6 +18,7 @@ const static char WC_CSS_CHECK_BOX[] PROGMEM = ".cb input[type='checkbox']";
 const static char WC_CSS_CHECK_BOX_LABEL[] PROGMEM = ".cb input[type='checkbox']+label";
 const static char WC_CSS_CHECK_BOX_LABEL_BEFORE[] PROGMEM = ".cb input[type='checkbox']+label:before";
 const static char WC_CSS_CHECK_BOX_CHECKED_LABEL_BEFORE[] PROGMEM = ".cb input[type='checkbox']:checked+label:before";
+const static char WC_COLS[] PROGMEM = "cols";
 const static char WC_DIV[] PROGMEM = "div";
 const static char WC_ENCTYPE[] PROGMEM = "enctype";
 const static char WC_EVENT[] PROGMEM = "event";

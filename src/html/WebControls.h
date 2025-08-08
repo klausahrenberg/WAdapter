@@ -338,72 +338,71 @@ class WebInput : public WebControl {
   virtual void createScripts(WStringList* scripts) {
     WebControl::createScripts(scripts);
     scripts->add(WC_SCRIPT_CONTROL_EVENT, WC_SCRIPT_NAME_CONTROL_EVENT);
+  }  
+
+};
+
+class WebLabeledControl : public WebControl {
+ public:
+  WebLabeledControl(const char* title, WebControl* control) : WebControl(WC_DIV, nullptr) {
+    _control = control;
+    this->add(new WebLabel(title, control->id()));
+    this->add(_control);
   }
 
-  virtual void handleEvent(WValue* event, WList<WValue>* data) {
-    LOG->debug("handle change %s", event);
+  virtual WebControl* param(const char* key, const char* value) {
+    _control->param(key, value);
+    return this;
+  }
+
+  virtual WebControl* param(const char* key, const char* pattern, const char* params, ...) {
+    _control->param(key, pattern, params);
+    return this;
+  }
+
+  virtual bool hasParam(const char* key) {
+    return _control->hasParam(key);
+  }
+  
+  virtual const char* param(const char* key) {
+    return _control->param(key);
+  }
+
+  virtual void handleEvent(WValue* event, WList<WValue>* data) {        
+    _control->handleEvent(event, data);
+  }
+
+  protected:
+   WebControl* _control;
+};
+
+class WebTextField : public WebLabeledControl {
+ public:
+  WebTextField(const char* id, const char* title, const char* text = nullptr, byte maxLength = 32, bool passwordField = false) 
+   : WebLabeledControl(title, new WebInput(id, text, maxLength, passwordField)) {    
+  }
+
+  virtual void handleEvent(WValue* event, WList<WValue>* data) {    
     WebControl::handleEvent(event, data);
     if (event->equalsString(WC_ON_CHANGE)) {
-      LOG->debug("value set to '%s'", data->getById(WC_VALUE)->asString());
       value(data->getById(WC_VALUE)->asString());
     }
   }
 
 };
 
-class WebTextField : public WebControl {
+class WebTextArea : public WebLabeledControl {
  public:
-  WebTextField(const char* id, const char* title, const char* text = nullptr, byte maxLength = 32, bool passwordField = false) : WebControl(WC_DIV, nullptr) {
-    this->add(new WebLabel(title, id));    
-    _input = new WebInput(id, text, maxLength, passwordField);
-    this->add(_input);
-  }
-
-  /*virtual const char* value() {
-    LOG->debug("value requested '%s'", _input->value());
-    return _input->value();
-  }
-
-  virtual WebControl* value(const char* value) {
-    _input->value(value);
-    return this;
-  }*/
-
-  virtual WebControl* param(const char* key, const char* value) {
-    _input->param(key, value);
-    return this;
-  }
-
-  /*virtual WebControl* param(const char* key, const char* pattern, const char* params, ...) {
-    _input->param(key, pattern, params);
-    return this;
-  }*/
-
-  virtual bool hasParam(const char* key) {
-    return _input->hasParam(key);
-  }
-  
-  virtual const char* param(const char* key) {
-    return _input->param(key);
-  }
-
-  private:
-   WebInput* _input;
-};
-
-class WebTextArea : public WebControl {
- public:
-  WebTextArea(const char* id, const char* title, WOnPrint textFactory, byte rows = 20) : WebControl(WC_DIV, nullptr) {
-    this->add(new WebLabel(title, id));
-    WebControl* input = new WebControl(WC_TEXTAREA, WC_ID, id, WC_NAME, id, WC_ROWS, String(rows).c_str(), nullptr);
-    if (textFactory != nullptr) input->contentFactory(textFactory);
-    this->add(input);
+  WebTextArea(const char* id, const char* title, WOnPrint textFactory, byte rows = 20, byte cols = 80) 
+   : WebLabeledControl(title, new WebControl(WC_TEXTAREA, WC_ID, id, WC_NAME, id, WC_ROWS, String(rows).c_str(), WC_COLS, String(cols).c_str(), nullptr)) {    
+    if (textFactory != nullptr) _control->contentFactory(textFactory);    
   }
 
   virtual void createScripts(WStringList* scripts) {
     WebControl::createScripts(scripts);
     scripts->add(WC_SCRIPT_TEXTAREA);
   }
+
 };
 
 class WebInputFile : public WebControl {
