@@ -230,9 +230,10 @@ class WebButton : public WebControl {
     return this;
   }
 
-  WebButton* onClickSendValue(const char* value) {
-    this->param(WC_VALUE, value);
-    this->param(WC_ON_CLICK, WC_SCRIPT_NAME_CONTROL_EVENT, WC_ON_CLICK, nullptr);    
+  WebButton* onClickSubmit(const char* value) {
+    param(WC_VALUE, value);
+    param(WC_NAME, WC_VALUE);
+    param(WC_TYPE, WC_SUBMIT);
     return this;
   }
 
@@ -241,6 +242,7 @@ class WebButton : public WebControl {
   }
 
   WebButton* onClick(WebControlHandler onClick) {
+    param(WC_ON_CLICK, WC_SCRIPT_NAME_CONTROL_EVENT, WC_ON_CLICK, nullptr);    
     _onClick = onClick;
     return this;
   }

@@ -83,11 +83,13 @@ class WResetPage : public WPage {
   }  
 
   virtual void createControls(WebControl* parentNode) {
-    WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
+    WebControl* div = new WebForm("reset", nullptr);
     parentNode->add(div);
-    div->add(new WebDiv((new WebButton(PSTR("Restart")))->onClickSendValue("0")));    
-    div->add(new WebDiv((new WebButton(PSTR("Restart in AccessPoint mode")))->onClickSendValue("1")));
-    div->add(new WebDiv((new WebButton(PSTR("Reset all settings")))->onClickSendValue("2")));
+    //WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
+    //parentNode->add(div);
+    div->add(new WebDiv((new WebButton(PSTR("Restart")))->onClickSubmit("0")));    
+    div->add(new WebDiv((new WebButton(PSTR("Restart in AccessPoint mode")))->onClickSubmit("1")));
+    div->add(new WebDiv((new WebButton(PSTR("Reset all settings")))->onClickSubmit("2")));
     div->add(new WebDiv((new WebButton(WC_BACK_TO_MAINMENU))->onClickNavigateTo(WC_CONFIG)));
   }
 

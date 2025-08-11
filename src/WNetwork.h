@@ -513,7 +513,7 @@ class WNetwork {
   String apSsid() { return _getClientName(false); }
   String apPassword() { return CONFIG_PASSWORD; }
 
-  WebApp* webApp() { return _webApp; }
+  WebApp *webApp() { return _webApp; }
 
  private:
   WList<WDevice> *_devices;
@@ -811,28 +811,28 @@ class WNetwork {
     if (_postResponse.operation != FO_NONE) {
       AsyncResponseStream *stream = request->beginResponseStream(WC_TEXT_HTML);
       WPage *result = new WRestartPage(_postResponse.message == nullptr ? PSTR("Restart...") : _postResponse.message);
-      result->toString(stream);            
+      result->toString(stream);
       request->client()->setNoDelay(true);
       request->send(stream);
       delete result;
       switch (_postResponse.operation) {
-      case FO_RESTART: {
-        restart();
-        break;
+        case FO_RESTART: {
+          restart();
+          break;
+        }
+        case FO_FORCE_AP: {
+          SETTINGS->forceAPNextStart();
+          restart();
+          break;
+        }
+        case FO_RESET_ALL: {
+          SETTINGS->resetAll();
+          restart();
+          break;
+        }
+        default:
+          request->send(200);
       }
-      case FO_FORCE_AP: {
-        SETTINGS->forceAPNextStart();
-        restart();
-        break;
-      }
-      case FO_RESET_ALL: {
-        SETTINGS->resetAll();
-        restart();
-        break;
-      }
-      default:
-        request->send(200);
-    }
     }
   }
 
@@ -843,7 +843,7 @@ class WNetwork {
       ss->write(data[i]);
     }
     WList<WValue> *args = WJsonParser::asMap(ss->c_str());
-    _postResponse = _webApp->handleHttpEventArgs(request, args);    
+    _postResponse = _webApp->handleHttpEventArgs(request, args);
     if (_postResponse.operation == FO_NONE) request->send(200);
     delete args;
   }
