@@ -19,7 +19,7 @@ class IWIterable {
  public:
   typedef std::function<void(int, T*, const char*)> TOnIteration;
   virtual void forEach(TOnIteration consumer);
-};  
+};
 
 template <class T>
 struct WListNode {
@@ -36,7 +36,40 @@ struct WListNode {
 
   T* value;
   char* id = nullptr;
-  WListNode<T>* next = nullptr; 
+  WListNode<T>* next = nullptr;
+};
+
+enum WListChangeType {
+  ADDED,
+  REMOVED,
+  CHANGED
+};
+
+template <typename T>
+struct WListChange {
+  WListChange(WListChangeType type, T* item, T* oldItem, int index) {
+    this->type = type;
+    this->item = item;
+    this->oldItem = oldItem;
+    this->index = index;
+  }
+
+  WListChangeType type;
+  T* item;
+  T* oldItem;
+  int index;
+
+  bool isAdded() {
+    return (type == ADDED);
+  }
+
+  bool isRemoved() {
+    return (type == REMOVED);
+  }
+
+  bool isChanged() {
+    return (type == CHANGED);
+  }
 };
 
 template <typename T>
@@ -44,11 +77,12 @@ class WIterator;
 
 template <typename T>
 class WList : public IWIterable<T> {
- public:  
+ public:
   typedef std::function<void(int, T*, const char*)> TOnIteration;
   typedef std::function<void(T* value)> TOnExists;
   typedef std::function<bool(T* value)> TOnCompare;
   typedef std::function<void(WListNode<T>* listNode)> TOnListNode;
+  typedef std::function<void(WListChange<T> change)> WListListener;
 
   WList(bool noDoubleIds = false) {
     _noDoubleIds = noDoubleIds;
@@ -63,34 +97,37 @@ class WList : public IWIterable<T> {
 
   void add(T* value, const char* id = nullptr) { this->insert(value, _size, id); }
 
-  virtual void insert(T* value, int index, const char* id = nullptr) {    
-    WListNode<T>* newNode = (_noDoubleIds ? _getListNodeById(id) : nullptr);    
-    if (newNode == nullptr) {      
-      WListNode<T>* newNode = new WListNode<T>(id);    
+  virtual void insert(T* value, int index, const char* id = nullptr) {
+    WListNode<T>* newNode = (_noDoubleIds ? _getListNodeById(id) : nullptr);
+    if (newNode == nullptr) {
+      WListNode<T>* newNode = new WListNode<T>(id);
 
       bool isString = std::is_same<T, const char>::value;
-      newNode->value = value;        
+      newNode->value = value;
       if (index == 0) {
-          newNode->next = _firstNode;
-          _firstNode = newNode;
+        newNode->next = _firstNode;
+        _firstNode = newNode;
       } else {
-          WListNode<T>* prevNode = _getNode(index - 1);
-          newNode->next  = prevNode->next;
-          prevNode->next = newNode;
+        WListNode<T>* prevNode = _getNode(index - 1);
+        newNode->next = prevNode->next;
+        prevNode->next = newNode;
       }
       _isCached = true;
       _lastIndexGot = index;
       _lastNodeGot = newNode;
       _size++;
+      _notifyAdd(index, newNode->value);
     } else {
-      if (newNode->value) delete newNode->value;
+      T* oldItem = newNode->value;
       newNode->value = value;
-    }
+      _notifyChanged(index, value, newNode->value); 
+      if (oldItem) delete oldItem;      
+    }    
   };
 
   virtual void clear() {
     while (_size > 0) {
-      this->remove(0, true);      
+      this->remove(0, true);
     }
   }
 
@@ -103,9 +140,10 @@ class WList : public IWIterable<T> {
       } else {
         nodePrev->next = nodeToDelete->next;
       }
+      _notifyRemove(index, nodeToDelete->value);
       if ((freeMemoryForValues) && (nodeToDelete) && (nodeToDelete->value)) {
         delete nodeToDelete->value;
-      } 
+      }
       delete nodeToDelete;
       _size--;
       _resetCaching();
@@ -121,7 +159,7 @@ class WList : public IWIterable<T> {
       }
       index++;
       node = node->next;
-    }    
+    }
     return -1;
   }
 
@@ -150,7 +188,7 @@ class WList : public IWIterable<T> {
             nodePrev->next = nodeToDelete->next;
           }
           node = nodeToDelete->next;
-          delete nodeToDelete;          
+          delete nodeToDelete;
           result = true;
         } else {
           nodePrev = node;
@@ -177,11 +215,11 @@ class WList : public IWIterable<T> {
   T* getIf(TOnCompare comparator) {
     if (comparator) {
       WListNode<T>* node = _firstNode;
-      while (node != nullptr) {        
+      while (node != nullptr) {
         if (comparator(node->value)) {
           return node->value;
         }
-        node = node->next;        
+        node = node->next;
       }
     }
     return nullptr;
@@ -202,14 +240,14 @@ class WList : public IWIterable<T> {
     return (ln != nullptr ? ln->value : nullptr);
   }
 
-  bool existsId(const char* id) {    
+  bool existsId(const char* id) {
     return (getById(id) != nullptr);
   }
 
   bool existsIdAndIf(const char* id, TOnCompare onCompare) {
-    T* item = getById(id);    
+    T* item = getById(id);
     return ((item != nullptr) && (onCompare) && (onCompare(item)));
-  }  
+  }
 
   void ifExistsId(const char* id, TOnExists onExists) {
     T* item = getById(id);
@@ -228,11 +266,11 @@ class WList : public IWIterable<T> {
   WListNode<T>* _getListNodeById(const char* id) {
     if (id != nullptr) {
       WListNode<T>* node = _firstNode;
-      while (node != nullptr) {    
+      while (node != nullptr) {
         if ((node->id != nullptr) && (strcmp_P(node->id, id) == 0)) {
           return node;
         }
-        node = node->next;        
+        node = node->next;
       }
     }
     return nullptr;
@@ -243,9 +281,9 @@ class WList : public IWIterable<T> {
     this->add(lv, newId);
   }
 
-  bool exists(T* value) {    
+  bool exists(T* value) {
     return (indexOf(value) > -1);
-  }  
+  }
 
   int indexOf(T* value) {
     if (value != nullptr) {
@@ -260,7 +298,7 @@ class WList : public IWIterable<T> {
       }
     }
     return -1;
-  }  
+  }
 
   int size() { return _size; }
 
@@ -289,6 +327,14 @@ class WList : public IWIterable<T> {
     }
   }
 
+  void addListener(WListListener listener) {
+    _listener = listener;
+  }
+
+  void removeListener() {
+    _listener = nullptr;
+  }
+
  protected:
   int _size;
   bool _noDoubleIds;
@@ -297,6 +343,7 @@ class WList : public IWIterable<T> {
   bool _isCached;
   int _lastIndexGot;
   WListNode<T>* _lastNodeGot;
+  WListListener _listener = nullptr;
 
   void _resetCaching() {
     _isCached = false;
@@ -304,24 +351,38 @@ class WList : public IWIterable<T> {
     _lastNodeGot = nullptr;
   }
 
-};  
+  void _notifyAdd(int index, T* item) {       
+    if (_listener != nullptr) 
+      _listener(WListChange<T>(ADDED, item, nullptr, index));
+  }
+
+  void _notifyRemove(int index, T* item) {       
+    if (_listener != nullptr) 
+      _listener(WListChange<T>(REMOVED, nullptr, item, index));
+  }
+
+  void _notifyChanged(int index, T* item, T* oldItem) {       
+    if (_listener != nullptr) 
+      _listener(WListChange<T>(CHANGED, item, oldItem, index));
+  }
+
+};
 
 class WStringList : public WList<const char> {
  public:
   WStringList() : WList<const char>(true) {
+  }
 
-  }  
+  virtual ~WStringList() {
+  }
 
-  virtual ~WStringList() {    
-  }  
-
-  virtual void insert(const char* value, int index, const char* id = nullptr) {     
+  virtual void insert(const char* value, int index, const char* id = nullptr) {
     if (value) {
       char* temp = new char[strlen_P(value) + 1];
       strcpy_P(temp, value);
-      WList::insert(temp, index, id);          
+      WList::insert(temp, index, id);
     }
-  }  
+  }
 };
 
 template <typename T>
@@ -331,8 +392,8 @@ class WStack : public WList<T> {
     _lifo = lifo;
   }
 
-  T* peek() {    
-    if (this->size() != 0) {    
+  T* peek() {
+    if (this->size() != 0) {
       if (_lifo) {
         return this->get(this->size() - 1);
       } else {
@@ -355,7 +416,7 @@ class WStack : public WList<T> {
 
   void push(T* item) { this->add(item); }
 
- private:  
+ private:
   bool _lifo;
 };
 

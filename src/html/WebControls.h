@@ -427,9 +427,6 @@ class WebInputFile : public WebControl {
 template <typename T>
 class WebTable : public WebControl {
  public:
-  static bool test() {
-    return true;
-  }
 
   static void headerCell(Print* stream, const char* header) {
     WHtml::command(stream, WC_TABLE_HEADER, true, nullptr);
@@ -443,11 +440,27 @@ class WebTable : public WebControl {
     WHtml::command(stream, WC_TABLE_DATA, false, nullptr);
   }
 
-  WebTable(IWIterable<T>* datas) : WebControl(WC_TABLE, nullptr) {
+  WebTable(WList<T>* datas) : WebControl(WC_TABLE, nullptr) {
     _datas = datas;
+    if (_datas != nullptr) {
+      _datas->addListener([this](WListChange<T> change){
+        switch (change.type) {
+            case CHANGED :
+
+              break;
+            case ADDED :
+
+              break;    
+            case REMOVED :
+
+              break;
+        }
+      });
+    }
   }
 
   virtual ~WebTable() {
+    if (_datas != nullptr) _datas->removeListener();
   }
 
   typedef std::function<void(Print*, int, T*, const char*)> TOnPrintRow;
@@ -471,7 +484,7 @@ class WebTable : public WebControl {
   }
 
  private:
-  IWIterable<T>* _datas;
+  WList<T>* _datas;
   TOnPrintRow _onPrintRow;
 };
 

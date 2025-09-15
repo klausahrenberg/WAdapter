@@ -49,8 +49,10 @@ class WPage {
   }
 
   void toString(Print* stream) {
-    if (_parentNode == nullptr) _parentNode = new WebControl(WC_DIV, nullptr);
-    this->createControls(_parentNode);
+    if (_parentNode == nullptr) {
+      _parentNode = new WebControl(WC_DIV, nullptr);
+      this->createControls(_parentNode);
+    }  
     WStringList* styles = new WStringList();   
     styles->add(WC_STYLE_BODY, WC_BODY);
     styles->add(WC_STYLE_FORM_WHITE_BOX, WC_CSS_FORM_WHITE_BOX);        
