@@ -9,6 +9,10 @@ class WJson {
     _stream = stream;
   }
 
+  ~WJson() {
+    _stream = nullptr;
+  }
+
   WJson& beginObject() {
     return beginObject("");
   }

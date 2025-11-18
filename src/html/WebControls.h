@@ -2,7 +2,7 @@
 #define W_WEB_CONTROLS_H
 
 #include "WebResources.h"
-#include "WebSockets.h"
+#include "WebAppSockets.h"
 
 class WebControl {
  public:
@@ -50,7 +50,7 @@ class WebControl {
     if (_content) delete _content;
     _content = new char[strlen_P(content) + 1];
     strcpy_P(_content, content);
-    WebSockets::sendMessage("textAreaUpdate", id(), _content);
+    WebAppSockets::sendMessage("textAreaUpdate", id(), _content);
     return this;
   }
 

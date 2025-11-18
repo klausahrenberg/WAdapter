@@ -178,7 +178,7 @@ const static char WC_STYLE_INPUT_CHECKED_SLIDER_BEFORE[] PROGMEM = R"=====(
 
 const static char WC_SCRIPT_INITIALIZE_SOCKET[] PROGMEM = R"=====(
 let form = window.location.href.substring(window.location.href.lastIndexOf('/') + 1);
-var webSocket = new WebSocket("ws://" + location.hostname + "/ws");
+var webSocket = new WebSocket("ws://" + location.hostname + ":81/");
 
 webSocket.onopen = function() {
   console.log("WebSocket connected: " + form);

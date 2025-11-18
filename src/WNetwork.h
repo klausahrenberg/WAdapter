@@ -346,7 +346,8 @@ class WNetwork {
         _webApp->bindWebServerCalls(_webServer);
       }
       if (WEB_SOCKETS != nullptr) {
-        _webServer->addHandler(WEB_SOCKETS);
+        WEB_SOCKETS->begin();
+        //_webServer->addHandler(WEB_SOCKETS);
       }
       _webServer->on("/events",
                      HTTP_POST,
@@ -384,7 +385,8 @@ class WNetwork {
   void stopWebServer() {
     if ((isWebServerRunning()) && (!_supportsWebServer) && (!_updateRunning)) {
       if (WEB_SOCKETS != nullptr) {
-        _webServer->removeHandler(WEB_SOCKETS);
+        WEB_SOCKETS->close();
+        //_webServer->removeHandler(WEB_SOCKETS);
       }
       delay(100);
       _webServer->end();

@@ -1,14 +1,15 @@
-#ifndef W_WEBSOCKETS_H
-#define W_WEBSOCKETS_H
+#ifndef W_WEBAPPSOCKETS_H
+#define W_WEBAPPSOCKETS_H
 
-#include <ESPAsyncWebServer.h>
+#include "WebSocketsServer.h"
+#include "WebResources.h"
 
-AsyncWebSocket* WEB_SOCKETS = nullptr;
+WebSocketsServer* WEB_SOCKETS = nullptr;
 
-class WebSockets {
+class WebAppSockets {
  public:
   static bool sendMessage(const char* event, const char* id, const char* data) {
-    if ((WEB_SOCKETS != nullptr) && (WEB_SOCKETS->availableForWriteAll())) {
+    if (WEB_SOCKETS != nullptr) { //} && (WEB_SOCKETS->availableForWriteAll())) {
       WStringStream* response = getResponseStream();
       WJson json(response);
       json.beginObject();
@@ -19,7 +20,7 @@ class WebSockets {
       }
       json.endObject();
       LOG->debug("Send> %s", response->c_str());
-      return WEB_SOCKETS->textAll(response->c_str());
+      return WEB_SOCKETS->broadcastTXT(response->c_str());
     }
     return false;
   }
