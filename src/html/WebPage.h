@@ -147,7 +147,7 @@ class WPage {
   WPage* statefulWebPage(bool statefulWebPage) { _statefulWebPage = statefulWebPage; return this; }
 
   WebControl* getElementById(const char* id) {
-    if (_parentNode != nullptr) return _parentNode->getElementById(id);
+    return (_parentNode != nullptr ? _parentNode->getElementById(id) : nullptr);
   }
 
  protected:

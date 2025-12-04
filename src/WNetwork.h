@@ -8,7 +8,7 @@
 #include <ESP8266mDNS.h>
 #include <Updater.h>
 #define U_PART U_FS
-#elif ESP32
+#else ESP32
 #include <ESPmDNS.h>
 #include <Update.h>
 #include <WiFi.h>
@@ -56,7 +56,6 @@ class WNetwork {
     WiFi.setOutputPower(20.5);
     WiFi.setPhyMode(WiFiPhyMode::WIFI_PHY_MODE_11N);
 #endif
-    WiFi.setAutoConnect(false);
     WiFi.setAutoReconnect(true);
     WiFi.persistent(false);
     _webServer = nullptr;
@@ -88,7 +87,7 @@ class WNetwork {
         [this](const WiFiEventStationModeDisconnected &event) {
           onDisconnected();
         });
-#elif ESP32
+#else
     WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info) { onGotIP(); },
                  WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
     WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info) { onDisconnected(); },
@@ -171,21 +170,25 @@ class WNetwork {
           WiFi.disconnect();
           WiFi.hostname(_hostname);
 
-#elif ESP32
+#else
           // Workaround: WiFi.setHostName now only works if: - You call it before calling WiFi.mode(WIFI_STA)
           // and ensure that the mode is not WIFI_STA already before calling WiFi.setHostName (by first calling WiFi.mode(WIFI_MODE_NULL)
+          LOG->notice("Connecting a");
           WiFi.mode(WIFI_MODE_NULL);
           WiFi.setHostname(_hostname);
 #endif
+LOG->notice("Connecting b");
           WiFi.mode(WIFI_STA);
+          LOG->notice("Connecting b.");
           WiFi.begin(getSsid(), getPassword());
-
+LOG->notice("Connecting c");
           while ((_waitForWifiConnection) && (WiFi.status() != WL_CONNECTED)) {
             delay(100);
             if (millis() - now >= 5000) {
               break;
             }
           }
+          LOG->notice("Connecting d");
           if (_wifiConnectTrys == 1) {
             _lastWifiConnectFirstTry = now;
           }
@@ -879,7 +882,7 @@ class WNetwork {
 #ifdef ESP8266
       Update.runAsync(true);
       if (!Update.begin(content_len, cmd)) {
-#elif ESP32
+#else
       if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) {
 #endif
         LOG->debug(F("Can't start update"));

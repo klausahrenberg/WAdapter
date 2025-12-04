@@ -9,7 +9,7 @@ public:
 	WPwmDimmer(int pwmPin = NO_PIN, byte pwmChannel = 0)
 	: WDimmer(GPIO_TYPE_PWM, pwmPin, OUTPUT) {
 		//analogWriteFreq(100);
-	#elif ESP32
+	#else
 	WPwmDimmer(int pwmPin = NO_PIN, byte pwmChannel = 0)
 	: WDimmer(GPIO_TYPE_PWM, pwmPin, NO_MODE) {
 	#endif
@@ -19,7 +19,7 @@ public:
 	/*bool isOn() {
 		#ifdef ESP8266
 		return (analogRead(this->pin()) > 0);
-		#elif ESP32
+		#else
 		return ledcRead(_pwmChannel);
 		#endif
 	}*/
@@ -39,7 +39,7 @@ protected:
     if (isInitialized()) {
       #ifdef ESP8266
 			analogWrite(this->pin(), 0);
-			#elif ESP32
+			#else
 			ledcSetup(_pwmChannel, 100000, 8);
 			ledcAttachPin(pin(), _pwmChannel);
 			//ledcWrite(_pwmChannel, 0xFF);
@@ -58,7 +58,7 @@ protected:
 			levelCurrent = levelCurrent * 0x3FF / 100;
 			#ifdef ESP8266
 				analogWrite(this->pin(), levelCurrent);
-			#elif ESP32
+			#else
 				ledcWrite(_pwmChannel, levelCurrent);
 			#endif
 		}*/

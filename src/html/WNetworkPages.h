@@ -172,7 +172,7 @@ class WInfoPage : public WPage {
     parentNode->add(div);    
 #ifdef ESP8266    
     _datas->add(new WValue("ESP8266"), PSTR("Chip"));      
-#elif ESP32
+#else
     _datas->add(new WValue("ESP 32"), PSTR("Chip"));      
 #endif
     _datas->add(new WValue(WUtils::getChipId()), PSTR("Chip ID"));      
@@ -206,7 +206,7 @@ class WInfoPage : public WPage {
       page->print(F("<tr><th>Chip:</th><td>"));
 #ifdef ESP8266
       page->print(F("ESP 8266"));
-#elif ESP32
+#else
       page->print(F("ESP 32"));
 #endif
       page->print(F("</td></tr>"));

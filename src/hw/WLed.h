@@ -6,7 +6,7 @@
 #ifdef ESP8266
 const byte LED_ON = LOW;
 const byte LED_OFF = HIGH;
-#elif ESP32
+#else
 const byte LED_ON = HIGH;
 const byte LED_OFF = LOW;
 #endif

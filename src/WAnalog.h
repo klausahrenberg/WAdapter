@@ -11,7 +11,7 @@ class WAnalog : public WGpio {
 		_analogMinimum = 0;
 		#ifdef ESP8266
 		_analogMaximum = 1023;
-		#elif ESP32
+		#else
 		_analogMaximum = 4095;
 		#endif
 	}

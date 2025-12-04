@@ -131,25 +131,17 @@ class WMCP444x : public WI2C {
       c_byte |= MCP4461_STATUS;
       c_byte |= MCP4461_READ;
       // send command byte
-      Serial.println("a");
       Wire.beginTransmission(address());
-      Serial.println("b");
       Wire.write(c_byte);
-      Serial.println("c");
       Wire.endTransmission(false);  // do not release bus
-      Serial.println("d");
       Wire.requestFrom((uint8_t)address(), (uint8_t)2);
-      Serial.println("e");
       // read the register
       int i = 0;
       while (Wire.available()) {
-          Serial.println("f");
           ret |= Wire.read();
           if (i == 0) ret = ret << 8;
           i++;
       }
-      Serial.print("g ");
-      Serial.println(ret);
       return ret;
   }
 

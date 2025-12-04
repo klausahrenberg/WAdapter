@@ -156,7 +156,7 @@ struct WValue {
   }
 
   WValue(uint32_t value) {
-    _type = INTEGER;
+    _type = UNSIGNED_LONG;
     asInt(value);
   }
 
@@ -173,11 +173,6 @@ struct WValue {
   WValue(byte value) {
     _type = BYTE;
     asByte(value);
-  }
-
-  WValue(unsigned long value) {
-    _type = UNSIGNED_LONG;
-    asUnsignedLong(value);
   }
 
   WValue(bool value) {
@@ -671,8 +666,6 @@ class UUID {
     }
 
     _buffer[36] = 0;
-    Serial.print(F("Generated uuid: "));
-    Serial.println(_buffer);
     return WValue((char*)&_buffer);
   }
 };

@@ -33,13 +33,9 @@ class WKY040 : public WSwitch {
     WSwitch::loop(now);    
 
     bool clk = (!_useInterrupt ? readInput(_pinClk) : !_onLevel());
-    //Serial.print("clk ");
-    //Serial.print(clk);
     if ((_irqEventLeft) || (_irqEventRight) || ((_lastClk != _onLevel()) && (clk == _onLevel()))) {      
       if (!_useInterrupt) {        
         bool dt = readInput(_pinDt);        
-        Serial.print(" dt ");
-        Serial.println(dt);
         _irqEventLeft = (dt == clk);
         _irqEventRight = !_irqEventLeft;
       }

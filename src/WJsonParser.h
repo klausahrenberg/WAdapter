@@ -94,12 +94,6 @@ class WJsonParser {
   bool _logging = false;
   char* _currentKey = nullptr;
 
-  void _log(String message) {
-    if (_logging) {
-      Serial.println(message);
-    }
-  }
-
   void _processKeyValue(const char* key, const char* value) {
     WMapItem* peeked = _stack->peek();
     if (peeked->mapOrList != nullptr) {                   
