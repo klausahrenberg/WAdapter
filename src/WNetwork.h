@@ -173,22 +173,17 @@ class WNetwork {
 #else
           // Workaround: WiFi.setHostName now only works if: - You call it before calling WiFi.mode(WIFI_STA)
           // and ensure that the mode is not WIFI_STA already before calling WiFi.setHostName (by first calling WiFi.mode(WIFI_MODE_NULL)
-          LOG->notice("Connecting a");
           WiFi.mode(WIFI_MODE_NULL);
           WiFi.setHostname(_hostname);
 #endif
-LOG->notice("Connecting b");
           WiFi.mode(WIFI_STA);
-          LOG->notice("Connecting b.");
           WiFi.begin(getSsid(), getPassword());
-LOG->notice("Connecting c");
           while ((_waitForWifiConnection) && (WiFi.status() != WL_CONNECTED)) {
             delay(100);
             if (millis() - now >= 5000) {
               break;
             }
           }
-          LOG->notice("Connecting d");
           if (_wifiConnectTrys == 1) {
             _lastWifiConnectFirstTry = now;
           }
