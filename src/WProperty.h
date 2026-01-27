@@ -37,6 +37,9 @@ enum WPropertyVisibility { ALL,
 
 typedef std::function<void()> TOnPropertyChange;
 
+class WRangeProperty;
+class WColorProperty;
+
 class WProperty {
  public:
   WProperty(const char* title, WDataType type, const char* atType = "") {
@@ -49,6 +52,70 @@ class WProperty {
     if (_unit) delete _unit;
     if (_enums) delete _enums;
   }
+
+  static WProperty* onOff(const char* title = nullptr) {
+    return new WProperty(title, WDataType::BOOLEAN, TYPE_ON_OFF_PROPERTY);
+  }
+
+  static WProperty* string(const char* title = nullptr) {
+    return new WProperty(title, WDataType::STRING, "");
+  }
+
+  static WProperty* integer(const char* title = nullptr) {
+    return new WProperty(title, WDataType::INTEGER, "");
+  }
+
+  static WProperty* byteP(const char* title = nullptr) {
+    return new WProperty(title, WDataType::BYTE, "");
+  }
+
+  static WProperty* byteArray(const char* title, byte arrayLength, const byte* values) {
+    WProperty* result = new WProperty(title, WDataType::BYTE_ARRAY, "");
+    result->asByteArray(arrayLength, values);
+    return result;
+  }
+
+  static WProperty* doubleP(const char* title = nullptr) {
+    return new WProperty(title, WDataType::DOUBLE, "");
+  }
+
+  static WProperty* unsignedLong(const char* title = nullptr) {
+    return new WProperty(title, WDataType::UNSIGNED_LONG, "");
+  }
+
+  static WProperty* shortP(const char* title = nullptr) {
+    return new WProperty(title, WDataType::SHORT, "");
+  }
+
+  static WProperty* boolean(const char* title = nullptr) {
+    return new WProperty(title, WDataType::BOOLEAN, "");
+  }
+
+  static WProperty* temperature(const char* title) {
+    WProperty* p = new WProperty(title, WDataType::DOUBLE, TYPE_TEMPERATURE_PROPERTY);
+    p->readOnly(true);
+    p->unit(UNIT_CELSIUS);
+    return p;
+  }
+
+  static WProperty* pushed(const char* title) {
+    return new WProperty(title, WDataType::BOOLEAN, TYPE_PUSHED_PROPERTY);
+  }
+
+  static WProperty* heatingCooling(const char* title) {
+    WProperty* p = new WProperty(title, WDataType::STRING, TYPE_HEATING_COOLING_PROPERTY);
+    p->readOnly(true);
+    p->addEnumString(VALUE_OFF);
+    p->addEnumString(VALUE_HEATING);
+    p->addEnumString(VALUE_COOLING);
+    return p;
+  }
+
+  static WRangeProperty* targetTemperature(const char* title = nullptr);
+  static WRangeProperty* level(const char* title, double min, double max);
+  static WRangeProperty* levelInt(const char* title, int min, int max);
+  static WRangeProperty* brightness(const char* title, byte min = 0, byte max = 100);
+  static WColorProperty* color(const char* title, byte red, byte green, byte blue);
 
   WProperty* onValueRequest(TOnPropertyChange onValueRequest) { _onValueRequest = onValueRequest; return this; }
 
@@ -112,7 +179,7 @@ class WProperty {
 
   bool isStringEmpty() { _requestValue(); return _value->isStringEmpty(); }
 
-  bool equalsString(const char* toCompare) { _requestValue(); return _value->equalsString(toCompare); }
+  bool equalsString(const char* toCompare) { _requestValue(); return _value->equals(toCompare); }
 
   int asInt() { _requestValue(); return _value->asInt(); }
 
@@ -176,31 +243,31 @@ class WProperty {
   virtual void toJsonValue(WJson* json, const char* memberName = nullptr) {
     _requestValue();
     switch (_value->type()) {
-      case BOOLEAN:
+      case WDataType::BOOLEAN:
         json->propertyBoolean(memberName, _value->asBool());
         break;
-      case DOUBLE:
+      case WDataType::DOUBLE:
         json->propertyDouble(memberName, _value->asDouble());
         break;
-      case INTEGER:
+      case WDataType::INTEGER:
         json->propertyInteger(memberName, _value->asInt());
         break;
-      case SHORT:
+      case WDataType::SHORT:
         json->propertyShort(memberName, _value->asShort());
         break;
-      case UNSIGNED_LONG:
+      case WDataType::UNSIGNED_LONG:
         json->propertyUnsignedLong(memberName, _value->asUnsignedLong());
         break;
-      case BYTE:
+      case WDataType::BYTE:
         json->propertyByte(memberName, _value->asByte());
         break;
-      case STRING:
+      case WDataType::STRING:
         if (memberName != nullptr)
           json->propertyString(memberName, _value->asString(), nullptr);
         else
           json->onlyString(_value->asString());
         break;
-      case BYTE_ARRAY:        
+      case WDataType::BYTE_ARRAY:        
         json->propertyByteArray(memberName, length(), _value->asByteArray());
         break;
     }
@@ -225,17 +292,17 @@ class WProperty {
     }
     // type
     switch (_value->type()) {
-      case BOOLEAN:
+      case WDataType::BOOLEAN:
         json->propertyString("type", "boolean", nullptr);
         break;
-      case DOUBLE:
-      case SHORT:
-      case INTEGER:
-      case UNSIGNED_LONG:
-      case BYTE:
+      case WDataType::DOUBLE:
+      case WDataType::SHORT:
+      case WDataType::INTEGER:
+      case WDataType::UNSIGNED_LONG:
+      case WDataType::BYTE:
         json->propertyString("type", "number", nullptr);
         break;
-      case BYTE_ARRAY:
+      case WDataType::BYTE_ARRAY:
         json->propertyString("type", "object", nullptr);
         break;
       default:
@@ -259,25 +326,25 @@ class WProperty {
       json->beginArray("enum");
       _enums->forEach([this, json](int index, WValue* propE, const char* id) {
         switch (_value->type()) {
-          case BOOLEAN:
+          case WDataType::BOOLEAN:
             json->boolean(propE->asBool());
             break;
-          case DOUBLE:
+          case WDataType::DOUBLE:
             json->numberDouble(propE->asDouble());
             break;
-          case SHORT:
+          case WDataType::SHORT:
             json->numberShort(propE->asShort());
             break;
-          case INTEGER:
+          case WDataType::INTEGER:
             json->numberInteger(propE->asInt());
             break;
-          case UNSIGNED_LONG:
+          case WDataType::UNSIGNED_LONG:
             json->numberUnsignedLong(propE->asUnsignedLong());
             break;
-          case BYTE:
+          case WDataType::BYTE:
             json->numberByte(propE->asByte());
             break;
-          case STRING:
+          case WDataType::STRING:
             json->string(propE->asString(), nullptr);
             break;
         }
@@ -294,49 +361,49 @@ class WProperty {
   }
 
   void addEnumBoolean(bool enumBoolean) {
-    if (_value->type() != BOOLEAN) {
+    if (_value->type() != WDataType::BOOLEAN) {
       return;
     }
     this->addEnum(new WValue(enumBoolean));
   }
 
   void addEnumNumber(double enumNumber) {
-    if (_value->type() != DOUBLE) {
+    if (_value->type() != WDataType::DOUBLE) {
       return;
     }    
     this->addEnum(new WValue(enumNumber));
   }
 
   void addEnumInteger(int enumNumber) {
-    if (_value->type() != INTEGER) {
+    if (_value->type() != WDataType::INTEGER) {
       return;
     }
     this->addEnum(new WValue(enumNumber));
   }
 
   void addEnumShort(short enumNumber) {
-    if (_value->type() != SHORT) {
+    if (_value->type() != WDataType::SHORT) {
       return;
     }
     this->addEnum(new WValue(enumNumber));
   }
 
   void addEnumUnsignedLong(unsigned long enumNumber) {
-    if (_value->type() != UNSIGNED_LONG) {
+    if (_value->type() != WDataType::UNSIGNED_LONG) {
       return;
     }
     this->addEnum(new WValue(enumNumber));
   }
 
   void addEnumByte(byte enumByte) {
-    if (_value->type() != BYTE) {
+    if (_value->type() != WDataType::BYTE) {
       return;
     }
     this->addEnum(new WValue(enumByte));
   }
 
   void addEnumString(const char* enumString) {
-    if (_value->type() != STRING) {
+    if (_value->type() != WDataType::STRING) {
       return;
     }
     this->addEnum(new WValue(enumString));
@@ -345,7 +412,7 @@ class WProperty {
   byte enumIndex() { return enumIndex(this, _value->asString()); }
 
   static byte enumIndex(WProperty* property, const char* enumString) {
-    if ((property->hasEnums()) && (enumString != nullptr) && (property->type() == STRING)) {
+    if ((property->hasEnums()) && (enumString != nullptr) && (property->type() == WDataType::STRING)) {
       WValue* en = property->_enums->getIf([property, enumString](WValue* en) {
         return (strcmp(en->asString(), enumString) == 0);
       });
@@ -354,7 +421,7 @@ class WProperty {
       return 0xFF;
     }
 
-    if ((property->type() != STRING) || (!property->hasEnums())) {
+    if ((property->type() != WDataType::STRING) || (!property->hasEnums())) {
       return 0xFF;
     }
   }
@@ -364,7 +431,7 @@ class WProperty {
   }
 
   static const char* enumString(WProperty* property, byte enumIndex) {
-    if ((property->hasEnums()) && (property->type() == STRING)) {
+    if ((property->hasEnums()) && (property->type() == WDataType::STRING)) {
       WValue* en = property->_enums->get(enumIndex);
       return (en != nullptr ? en->asString() : nullptr);
     } else {
@@ -523,11 +590,11 @@ class WRangeProperty : public WProperty {
   byte getScaledToMax0xFF() {
     int v = 0;
     switch (this->type()) {
-      case DOUBLE: {
+      case WDataType::DOUBLE: {
         v = (int)round(_value->asDouble() * 0xFF / getMaxAsDouble());
         break;
       }
-      case INTEGER: {
+      case WDataType::INTEGER: {
         v = _value->asInt() * 0xFF / getMaxAsInteger();
         break;
       }
@@ -537,12 +604,12 @@ class WRangeProperty : public WProperty {
 
   void toJsonStructureAdditionalParameters(WJson* json) {
     switch (this->type()) {
-      case DOUBLE: {
+      case WDataType::DOUBLE: {
         json->propertyDouble("minimum", getMinAsDouble());
         json->propertyDouble("maximum", getMaxAsDouble());
         break;
       }
-      case INTEGER: {
+      case WDataType::INTEGER: {
         json->propertyInteger("minimum", getMinAsInteger());
         json->propertyInteger("maximum", getMaxAsInteger());
         break;
@@ -559,7 +626,7 @@ class WRangeProperty : public WProperty {
 class WColorProperty : public WProperty {
  public:
   WColorProperty(const char* title, byte red, byte green, byte blue)
-      : WProperty(title, STRING, TYPE_COLOR_PROPERTY) {
+      : WProperty(title, WDataType::STRING, TYPE_COLOR_PROPERTY) {
     _red = red;
     _green = green;
     _blue = blue;
@@ -654,5 +721,33 @@ class WColorProperty : public WProperty {
   bool _changeValue;
   byte _red, _green, _blue;
 };
+
+inline WRangeProperty* WProperty::targetTemperature(const char* title) {
+  WRangeProperty* p = new WRangeProperty(title, WDataType::DOUBLE, WValue::ofDouble(15.0), WValue::ofDouble(25.0), TYPE_TARGET_TEMPERATURE_PROPERTY);
+  p->multipleOf(0.5);
+  p->unit(UNIT_CELSIUS);
+  return p;
+}
+
+inline WRangeProperty* WProperty::level(const char* title, double min, double max) {
+  WRangeProperty* p = new WRangeProperty(title, WDataType::DOUBLE, WValue::ofDouble(min), WValue::ofDouble(max), TYPE_LEVEL_PROPERTY);
+  return p;
+}
+
+inline WRangeProperty* WProperty::levelInt(const char* title, int min, int max) {
+  WRangeProperty* p = new WRangeProperty(title, WDataType::INTEGER, WValue::ofInt(min), WValue::ofInt(max), TYPE_LEVEL_PROPERTY);
+  return p;
+}
+
+inline WRangeProperty* WProperty::brightness(const char* title, byte min, byte max) {
+  WRangeProperty* p = new WRangeProperty(title, WDataType::INTEGER, WValue::ofInt(min), WValue::ofInt(max), TYPE_BRIGHTNESS_PROPERTY);
+  p->asInt(max);
+  return p;
+}
+
+inline WColorProperty* WProperty::color(const char* title, byte red, byte green, byte blue) {
+  WColorProperty* cp = new WColorProperty(title, red, green, blue);
+  return cp;
+}
 
 #endif

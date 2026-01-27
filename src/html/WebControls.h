@@ -250,7 +250,7 @@ class WebButton : public WebControl {
   virtual void handleEvent(WValue* event, WList<WValue>* data) {
     WebControl::handleEvent(event, data);
     LOG->debug("handle click ");
-    if ((event->equalsString(WC_ON_CLICK)) && (_onClick)) _onClick(nullptr);
+    if ((event->equals(WC_ON_CLICK)) && (_onClick)) _onClick(nullptr);
   }
 
  private:
@@ -386,7 +386,7 @@ class WebTextField : public WebLabeledControl {
 
   virtual void handleEvent(WValue* event, WList<WValue>* data) {    
     WebControl::handleEvent(event, data);
-    if (event->equalsString(WC_ON_CHANGE)) {
+    if (event->equals(WC_ON_CHANGE)) {
       value(data->getById(WC_VALUE)->asString());
     }
   }

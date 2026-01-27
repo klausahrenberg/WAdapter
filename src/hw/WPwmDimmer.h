@@ -5,7 +5,7 @@
 
 class WPwmDimmer: public WDimmer {
 public:
-	#ifdef ESP8266
+	#ifdef ARDUINO_ARCH_ESP8266
 	WPwmDimmer(int pwmPin = NO_PIN, byte pwmChannel = 0)
 	: WDimmer(GPIO_TYPE_PWM, pwmPin, OUTPUT) {
 		//analogWriteFreq(100);

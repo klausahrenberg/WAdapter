@@ -77,35 +77,35 @@ class WJson {
   WJson& property(const char* name, WValue* value) {
     if ((value != nullptr) && (!value->isNull())) {
       switch (value->type()) {
-        case STRING:
+        case WDataType::STRING:
           if (!value->isStringEmpty()) {
             propertyString(name, value->asString(), nullptr);
           } else {
             propertyNull(name);
           }
           break;
-        case BOOLEAN:
+        case WDataType::BOOLEAN:
           propertyBoolean(name, value->asBool());
           break;
-        case DOUBLE:
+        case WDataType::DOUBLE:
           propertyDouble(name, value->asDouble());
           break;
-        case SHORT:
+        case WDataType::SHORT:
           propertyShort(name, value->asShort());
           break;
-        case INTEGER:
+        case WDataType::INTEGER:
           propertyInteger(name, value->asInt());
           break;
-        case UNSIGNED_LONG:
+        case WDataType::UNSIGNED_LONG:
           propertyUnsignedLong(name, value->asUnsignedLong());
           break;
-        case BYTE:
+        case WDataType::BYTE:
           propertyByte(name, value->asByte());
           break;
-        case BYTE_ARRAY:
+        case WDataType::BYTE_ARRAY:
           propertyByteArray(name, value->length(), value->asByteArray());
           break;
-        case LIST:
+        case WDataType::LIST:
           // tbi, not supported yet
           break;
       }
@@ -195,7 +195,7 @@ class WJson {
     va_list arg;
     va_start(arg, value);
     while (value) {
-      WUtils::string(_stream, value, nullptr);
+      WValue::string(_stream, value, nullptr);
       value = va_arg(arg, const char*);
     }
     va_end(arg);
@@ -211,7 +211,7 @@ class WJson {
     va_list arg;
     va_start(arg, text);
     while (text) {
-      WUtils::string(_stream, text, nullptr);
+      WValue::string(_stream, text, nullptr);
       text = va_arg(arg, const char*);
     }
     va_end(arg);
@@ -234,35 +234,35 @@ class WJson {
   WJson& numberShort(short number) {
     if (!_separatorAlreadyCalled)
       _ifSeparator();
-    WUtils::numberShort(_stream, number);
+    WValue::numberShort(_stream, number);
     return *this;
   }
 
   WJson& numberUnsignedLong(unsigned long number) {
     if (!_separatorAlreadyCalled)
       _ifSeparator();
-    WUtils::numberUnsignedLong(_stream, number);
+    WValue::numberUnsignedLong(_stream, number);
     return *this;
   }
 
   WJson& numberByte(byte number) {
     if (!_separatorAlreadyCalled)
       _ifSeparator();
-    WUtils::numberByte(_stream, number);
+    WValue::numberByte(_stream, number);
     return *this;
   }
 
   WJson& numberByteArray(byte length, byte* value) {
     if (!_separatorAlreadyCalled)
       _ifSeparator();
-    WUtils::numberByteArray(_stream, length, value);
+    WValue::numberByteArray(_stream, length, value);
     return *this;
   }
 
   WJson& numberDouble(double number) {
     if (!_separatorAlreadyCalled)
       _ifSeparator();
-    WUtils::numberDouble(_stream, number);
+    WValue::numberDouble(_stream, number);
     return *this;
   }
 
@@ -276,7 +276,7 @@ class WJson {
   WJson& boolean(bool value) {
     if (!_separatorAlreadyCalled)
       _ifSeparator();
-    WUtils::boolean(_stream, value);
+    WValue::boolean(_stream, value);
     return *this;
   }
 

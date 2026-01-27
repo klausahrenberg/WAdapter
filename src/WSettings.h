@@ -74,52 +74,52 @@ class WSettings {
           (((networkSetting) && (this->existsNetworkSettings())) ||
            ((!networkSetting) && (_existsSettingsApplication)))) {
         switch (value->type()) {
-          case BOOLEAN: {
+          case WDataType::BOOLEAN: {
             value->asBool(EEPROM.read(_address) == 0xFF);
             break;
           }
-          case DOUBLE: {
+          case WDataType::DOUBLE: {
             double d;
             EEPROM.get(_address, d);
             value->asDouble(d);
             break;
           }
-          case SHORT: {
+          case WDataType::SHORT: {
             short s = 0;
             EEPROM.get(_address, s);
             value->asShort(s);
             break;
           }
-          case UNSIGNED_SHORT: {
+          case WDataType::UNSIGNED_SHORT: {
             uint16_t i = 0;
             EEPROM.get(_address, i);
             value->asUnsignedShort(i);
             break;
           }
-          case INTEGER: {
+          case WDataType::INTEGER: {
             int i = 0;
             EEPROM.get(_address, i);
             value->asInt(i);
             break;
           }
-          case UNSIGNED_LONG: {
+          case WDataType::UNSIGNED_LONG: {
             unsigned long l = 0;
             EEPROM.get(_address, l);
             value->asUnsignedLong(l);
             break;
           }
-          case BYTE: {
+          case WDataType::BYTE: {
             int b2 = EEPROM.read(_address);
             value->asByte(b2);
             break;
           }
-          case BYTE_ARRAY: {
+          case WDataType::BYTE_ARRAY: {
             const byte* ba = readByteArray(_address);
             value->asByteArray(readByteArrayLength(_address), ba);
             delete ba;
             break;
           }
-          case STRING: {
+          case WDataType::STRING: {
             const char* rs = readString(_address);
             value->asString(rs);
             delete rs;
@@ -315,39 +315,39 @@ class WSettings {
 
   void _save(int address, WValue* value) {        
     switch (value->type()) {
-      case BOOLEAN: {
+      case WDataType::BOOLEAN: {
         EEPROM.write(address, (value->asBool() ? 0xFF : 0x00));
         break;
       }
-      case BYTE: {
+      case WDataType::BYTE: {
         EEPROM.write(address, value->asByte());
         break;
       }
-      case SHORT: {
+      case WDataType::SHORT: {
         EEPROM.put(address, value->asShort());
         break;
       }
-      case UNSIGNED_SHORT: {
+      case WDataType::UNSIGNED_SHORT: {
         EEPROM.put(address, value->asUnsignedShort());
         break;
       }
-      case INTEGER: {
+      case WDataType::INTEGER: {
         EEPROM.put(address, value->asInt());
         break;
       }
-      case UNSIGNED_LONG: {
+      case WDataType::UNSIGNED_LONG: {
         EEPROM.put(address, value->asUnsignedLong());
         break;
       }
-      case DOUBLE: {
+      case WDataType::DOUBLE: {
         EEPROM.put(address, value->asDouble());
         break;
       }
-      case BYTE_ARRAY: {
+      case WDataType::BYTE_ARRAY: {
         writeByteArray(address, value->length(),  value->asByteArray());
         break;
       }
-      case STRING: {
+      case WDataType::STRING: {
         writeString(address, value->asString());
         break;
       }
@@ -363,8 +363,8 @@ class WSettings {
 
   byte getLengthInEEPROM(WValue* setting) {
     switch (setting->type()) {
-      case BYTE_ARRAY:
-      case STRING:
+      case WDataType::BYTE_ARRAY:
+      case WDataType::STRING:
         return (setting->length() + 1);
     }
     return setting->length();

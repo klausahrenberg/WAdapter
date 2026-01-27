@@ -9,7 +9,7 @@ class WAnalog : public WGpio {
 		_minimum = minimum;
 		_maximum = maximum;
 		_analogMinimum = 0;
-		#ifdef ESP8266
+		#ifdef ARDUINO_ARCH_ESP8266
 		_analogMaximum = 1023;
 		#else
 		_analogMaximum = 4095;

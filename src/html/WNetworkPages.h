@@ -170,14 +170,14 @@ class WInfoPage : public WPage {
   virtual void createControls(WebControl* parentNode) {
     WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
     parentNode->add(div);    
-#ifdef ESP8266    
+#ifdef ARDUINO_ARCH_ESP8266    
     _datas->add(new WValue("ESP8266"), PSTR("Chip"));      
-#else
+#elif ARDUINO_ARCH_ESP32
     _datas->add(new WValue("ESP 32"), PSTR("Chip"));      
 #endif
     _datas->add(new WValue(WUtils::getChipId()), PSTR("Chip ID"));      
     _datas->add(new WValue(ESP.getFlashChipSize()), PSTR("IDE Flash Size"));      
-#ifdef ESP8266    
+#ifdef ARDUINO_ARCH_ESP8266    
     _datas->add(new WValue(ESP.getFlashChipRealSize()), PSTR("Real Flash Size")); 
 #endif    
     //_datas->add(WProps::create..., PSTR("IP address"));      
@@ -185,7 +185,7 @@ class WInfoPage : public WPage {
     _datas->add(new WValue(ESP.getSketchSize()), PSTR("Current sketch size"));      
     _datas->add(new WValue(ESP.getFreeSketchSpace()), PSTR("Available sketch size"));      
     _datas->add(new WValue(ESP.getFreeHeap()), PSTR("Free heap size"));    
-#ifdef ESP8266            
+#ifdef ARDUINO_ARCH_ESP8266            
     _datas->add(new WValue(ESP.getMaxFreeBlockSize()), PSTR("Largest heap block"));        
 #endif           
     _datas->add(new WValue(_running)/*->unit(PSTR(" minutes"))*/, PSTR("Running since"));        

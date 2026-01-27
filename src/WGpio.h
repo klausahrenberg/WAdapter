@@ -60,6 +60,7 @@ const char* const S_GPIO_TYPE[] PROGMEM = { S_GPIO_TYPE_GROUP, S_GPIO_TYPE_MODE,
 class WGpio : public IWJsonable {
  public:
   typedef std::function<void()> THandlerFunction;
+  typedef std::function<bool()> TCondition;
   WGpio(WGpioType type = GPIO_TYPE_UNKNOWN, byte pin = NO_PIN, byte mode = OUTPUT, IWExpander* expander = nullptr) {    
     _type = type;
     _mode = mode;
@@ -74,14 +75,23 @@ class WGpio : public IWJsonable {
 
   bool isOn() { return (_property != nullptr ? _property->asBool() : _isOn); }
 
+  bool isOnSince(unsigned short since) {
+    return ((_lastStateChange >= 0) && (isOn()) && (millis() - _lastStateChange >= since));
+  }
+
   void setOn(bool isOn) {
     if ((_property == nullptr) && (isOn != _isOn)) {
       _isOn = isOn;
+      _lastStateChange = millis();
       _updateOn();      
     }
   }    
 
-  virtual void loop(unsigned long now) {}
+  virtual void loop(unsigned long now) {
+    if ((_condition) && (isOutput())) {
+      setOn(_condition());
+    }
+  }
 
   WProperty* property() { return _property; }
 
@@ -90,7 +100,10 @@ class WGpio : public IWJsonable {
     if (isInput()) {
       this->loop(millis());
     } else {
-      _property->addListener([this]() { _updateOn();});
+      _property->addListener([this]() { 
+        _lastStateChange = millis();
+        _updateOn();
+      });
     }      
 	}  
 
@@ -151,11 +164,17 @@ class WGpio : public IWJsonable {
   bool isOutput() { return (((_type >= GPIO_TYPE_LED) && (_type < GPIO_TYPE_BUTTON)) || ((_type >= GPIO_TYPE_PCF8575) && (_type < GPIO_TYPE_UNKNOWN))); }
   bool isInput() { return ((_type >= GPIO_TYPE_BUTTON) && (_type < GPIO_TYPE_UNKNOWN)); }
 
+  void condition(TCondition condition) {
+    _condition = condition;
+  }
+
  protected:
   WGpioType _type;
   WProperty* _property = nullptr;
   IWExpander* _expander;
   bool _settingsRegistered = false;
+  unsigned long _lastStateChange = 0;
+  TCondition _condition;
 
   virtual bool isInitialized() { return (pin() != NO_PIN); }  
 
@@ -188,7 +207,7 @@ class WGroup : public WGpio {
 
   virtual void fromJson(WList<WValue>* list) {
     //don't call super class
-    list->ifExistsId(WC_ID, [this] (WValue* v) { this->_id->asString(v->asString()); });
+    list->ifExistsId(WC_ID, [this] (WValue* v) { _id->asString(v->asString()); });
     list->ifExistsId(WC_TITLE, [this] (WValue* v) { this->_title->asString(v->asString()); });
   }
 
@@ -205,13 +224,13 @@ class WGroup : public WGpio {
     _items->add(output, id);
   }
 
-  WValue* id() { return _id; }
+  WValue id() { return _id; }
 
   WValue* title() { return _title; }
 
  protected:
-  WValue* _id = new WValue(STRING);
-  WValue* _title = new WValue(STRING);
+  WValue* _id = new WValue(WDataType::STRING);
+  WValue* _title = new WValue(WDataType::STRING);
   WList<WGpio>* _items = nullptr;
 
   virtual void _updateOn() {
@@ -287,8 +306,8 @@ class WMode : public WGroup {
 
  protected:  
   WProperty* _modeProp = nullptr;
-  WValue* _modeId = new WValue(STRING);
-  WValue* _modeTitle = new WValue(STRING); 
+  WValue* _modeId = new WValue(WDataType::STRING);
+  WValue* _modeTitle = new WValue(WDataType::STRING); 
   WValue* _state = nullptr;
 
   virtual void _updateOn() {

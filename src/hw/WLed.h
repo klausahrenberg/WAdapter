@@ -3,7 +3,7 @@
 
 #include "WGpio.h"
 
-#ifdef ESP8266
+#ifdef ARDUINO_ARCH_ESP8266
 const byte LED_ON = LOW;
 const byte LED_OFF = HIGH;
 #else

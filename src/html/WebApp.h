@@ -51,7 +51,7 @@ class WebApp {
             if (form != nullptr) {
               WebPageItem* pi = _webPages->getById(form->asString());
               if (pi != nullptr) {
-                if (event->equalsString(WC_PING)) {
+                if (event->equals(WC_PING)) {
                   if (pi != nullptr) pi->lastAlive = millis();
                 } else if (pi->instance != nullptr) {
                   WValue* id = args->getById(WC_ID);
@@ -60,7 +60,7 @@ class WebApp {
                     WebControl* control = pi->instance->getElementById(id->asString());
                     if (control != nullptr) {
                       LOG->debug("control found");
-                      control->handleEvent(event, ((cdata != nullptr) && (cdata->type() == LIST)) ? cdata->asList() : nullptr);
+                      control->handleEvent(event, ((cdata != nullptr) && (cdata->type() == WDataType::LIST)) ? cdata->asList() : nullptr);
                     } else {
                       LOG->debug(F("Control for handling not found %s"), id->asString());
                     }

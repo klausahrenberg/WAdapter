@@ -4,7 +4,6 @@
 #include "WList.h"
 #include "WGpio.h"
 #include "hw/WLed.h"
-#include "WProps.h"
 
 const char* DEVICE_TYPE_BINARY_SENSOR = "BinarySensor";
 const char* DEVICE_TYPE_DOOR_SENSOR = "DoorSensor";
