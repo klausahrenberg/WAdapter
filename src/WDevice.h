@@ -25,7 +25,7 @@ enum WDeepSleepMode {
 
 class WNetwork;
 
-class WDevice : public IWGpioRegister {
+class WDevice : public IWGpioRegister, public IWPropertyRegister {
  public:
   WDevice(WNetwork* network, const char* id, const char* title, const char* type,
           const char* alternativeType = nullptr) {
@@ -48,7 +48,7 @@ class WDevice : public IWGpioRegister {
 
   const char* type() { return _type; }
 
-  void addProperty(WProperty* property, const char* id) {    
+  virtual void registerProperty(WProperty* property, const char* id) {    
     property->deviceNotification(std::bind(&WDevice::onPropertyChange, this));    
     _properties->add(property, id);
   }

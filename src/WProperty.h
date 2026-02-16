@@ -40,6 +40,12 @@ typedef std::function<void()> TOnPropertyChange;
 class WRangeProperty;
 class WColorProperty;
 
+class WProperty;
+class IWPropertyRegister {
+public:
+  virtual void registerProperty(WProperty* property, const char* id);
+}; 
+
 class WProperty {
  public:
   WProperty(const char* title, WDataType type, const char* atType = "") {
@@ -53,69 +59,90 @@ class WProperty {
     if (_enums) delete _enums;
   }
 
-  static WProperty* onOff(const char* title = nullptr) {
-    return new WProperty(title, WDataType::BOOLEAN, TYPE_ON_OFF_PROPERTY);
-  }
-
-  static WProperty* string(const char* title = nullptr) {
-    return new WProperty(title, WDataType::STRING, "");
-  }
-
-  static WProperty* integer(const char* title = nullptr) {
-    return new WProperty(title, WDataType::INTEGER, "");
-  }
-
-  static WProperty* byteP(const char* title = nullptr) {
-    return new WProperty(title, WDataType::BYTE, "");
-  }
-
-  static WProperty* byteArray(const char* title, byte arrayLength, const byte* values) {
-    WProperty* result = new WProperty(title, WDataType::BYTE_ARRAY, "");
-    result->asByteArray(arrayLength, values);
-    return result;
-  }
-
-  static WProperty* doubleP(const char* title = nullptr) {
-    return new WProperty(title, WDataType::DOUBLE, "");
-  }
-
-  static WProperty* unsignedLong(const char* title = nullptr) {
-    return new WProperty(title, WDataType::UNSIGNED_LONG, "");
-  }
-
-  static WProperty* shortP(const char* title = nullptr) {
-    return new WProperty(title, WDataType::SHORT, "");
-  }
-
-  static WProperty* boolean(const char* title = nullptr) {
-    return new WProperty(title, WDataType::BOOLEAN, "");
-  }
-
-  static WProperty* temperature(const char* title) {
-    WProperty* p = new WProperty(title, WDataType::DOUBLE, TYPE_TEMPERATURE_PROPERTY);
-    p->readOnly(true);
-    p->unit(UNIT_CELSIUS);
+  static WProperty* onOff(IWPropertyRegister* device, const char* id, const char* title = nullptr) {
+    WProperty* p = new WProperty(title, WDataType::BOOLEAN, TYPE_ON_OFF_PROPERTY);
+    device->registerProperty(p, id);
     return p;
   }
 
-  static WProperty* pushed(const char* title) {
-    return new WProperty(title, WDataType::BOOLEAN, TYPE_PUSHED_PROPERTY);
+  static WProperty* string(IWPropertyRegister* device, const char* id, const char* title = nullptr) {
+    WProperty* p = new WProperty(title, WDataType::STRING, "");
+    device->registerProperty(p, id);
+    return p;
   }
 
-  static WProperty* heatingCooling(const char* title) {
+  static WProperty* integer(IWPropertyRegister* device, const char* id, const char* title = nullptr) {
+    WProperty* p = new WProperty(title, WDataType::INTEGER, "");
+    device->registerProperty(p, id);
+    return p;
+  }
+
+  static WProperty* byteP(IWPropertyRegister* device, const char* id, const char* title = nullptr) {
+    WProperty* p = new WProperty(title, WDataType::BYTE, "");
+    device->registerProperty(p, id);
+    return p;
+  }
+
+  static WProperty* byteArray(IWPropertyRegister* device, const char* id, const char* title, byte arrayLength, const byte* values) {
+    WProperty* p = new WProperty(title, WDataType::BYTE_ARRAY, "");
+    p->asByteArray(arrayLength, values);
+    device->registerProperty(p, id);
+    return p;
+  }
+
+  static WProperty* doubleP(IWPropertyRegister* device, const char* id, const char* title = nullptr) {
+    WProperty* p = new WProperty(title, WDataType::DOUBLE, "");
+    device->registerProperty(p, id);
+    return p;
+  }
+
+  static WProperty* unsignedLong(IWPropertyRegister* device, const char* id, const char* title = nullptr) {
+    WProperty* p = new WProperty(title, WDataType::UNSIGNED_LONG, "");
+    device->registerProperty(p, id);
+    return p;
+  }
+
+  static WProperty* shortP(IWPropertyRegister* device, const char* id, const char* title = nullptr) {
+    WProperty* p = new WProperty(title, WDataType::SHORT, "");
+    device->registerProperty(p, id);
+    return p;
+  }
+
+  static WProperty* boolean(IWPropertyRegister* device, const char* id, const char* title = nullptr) {
+    WProperty* p = new WProperty(title, WDataType::BOOLEAN, "");
+    device->registerProperty(p, id);
+    return p;
+  }
+
+  static WProperty* temperature(IWPropertyRegister* device, const char* id, const char* title) {
+    WProperty* p = new WProperty(title, WDataType::DOUBLE, TYPE_TEMPERATURE_PROPERTY);
+    p->readOnly(true);
+    p->unit(UNIT_CELSIUS);
+    device->registerProperty(p, id);
+    return p;
+  }
+
+  static WProperty* pushed(IWPropertyRegister* device, const char* id, const char* title) {
+    WProperty* p = new WProperty(title, WDataType::BOOLEAN, TYPE_PUSHED_PROPERTY);
+    device->registerProperty(p, id);
+    return p;
+  }
+
+  static WProperty* heatingCooling(IWPropertyRegister* device, const char* id, const char* title) {
     WProperty* p = new WProperty(title, WDataType::STRING, TYPE_HEATING_COOLING_PROPERTY);
     p->readOnly(true);
     p->addEnumString(VALUE_OFF);
     p->addEnumString(VALUE_HEATING);
     p->addEnumString(VALUE_COOLING);
+    device->registerProperty(p, id);
     return p;
   }
 
-  static WRangeProperty* targetTemperature(const char* title = nullptr);
-  static WRangeProperty* level(const char* title, double min, double max);
-  static WRangeProperty* levelInt(const char* title, int min, int max);
-  static WRangeProperty* brightness(const char* title, byte min = 0, byte max = 100);
-  static WColorProperty* color(const char* title, byte red, byte green, byte blue);
+  static WRangeProperty* targetTemperature(IWPropertyRegister* device, const char* id, const char* title = nullptr);
+  static WRangeProperty* level(IWPropertyRegister* device, const char* id, const char* title, double min, double max);
+  static WRangeProperty* levelInt(IWPropertyRegister* device, const char* id, const char* title, int min, int max);
+  static WRangeProperty* brightness(IWPropertyRegister* device, const char* id, const char* title, byte min = 0, byte max = 100);
+  static WColorProperty* color(IWPropertyRegister* device, const char* id, const char* title, byte red, byte green, byte blue);
 
   WProperty* onValueRequest(TOnPropertyChange onValueRequest) { _onValueRequest = onValueRequest; return this; }
 
@@ -722,31 +749,36 @@ class WColorProperty : public WProperty {
   byte _red, _green, _blue;
 };
 
-inline WRangeProperty* WProperty::targetTemperature(const char* title) {
+inline WRangeProperty* WProperty::targetTemperature(IWPropertyRegister* device, const char* id, const char* title) {
   WRangeProperty* p = new WRangeProperty(title, WDataType::DOUBLE, WValue::ofDouble(15.0), WValue::ofDouble(25.0), TYPE_TARGET_TEMPERATURE_PROPERTY);
   p->multipleOf(0.5);
   p->unit(UNIT_CELSIUS);
+  device->registerProperty(p, id);
   return p;
 }
 
-inline WRangeProperty* WProperty::level(const char* title, double min, double max) {
+inline WRangeProperty* WProperty::level(IWPropertyRegister* device, const char* id, const char* title, double min, double max) {
   WRangeProperty* p = new WRangeProperty(title, WDataType::DOUBLE, WValue::ofDouble(min), WValue::ofDouble(max), TYPE_LEVEL_PROPERTY);
+  device->registerProperty(p, id);
   return p;
 }
 
-inline WRangeProperty* WProperty::levelInt(const char* title, int min, int max) {
+inline WRangeProperty* WProperty::levelInt(IWPropertyRegister* device, const char* id, const char* title, int min, int max) {
   WRangeProperty* p = new WRangeProperty(title, WDataType::INTEGER, WValue::ofInt(min), WValue::ofInt(max), TYPE_LEVEL_PROPERTY);
+  device->registerProperty(p, id);
   return p;
 }
 
-inline WRangeProperty* WProperty::brightness(const char* title, byte min, byte max) {
+inline WRangeProperty* WProperty::brightness(IWPropertyRegister* device, const char* id, const char* title, byte min, byte max) {
   WRangeProperty* p = new WRangeProperty(title, WDataType::INTEGER, WValue::ofInt(min), WValue::ofInt(max), TYPE_BRIGHTNESS_PROPERTY);
   p->asInt(max);
+  device->registerProperty(p, id);
   return p;
 }
 
-inline WColorProperty* WProperty::color(const char* title, byte red, byte green, byte blue) {
+inline WColorProperty* WProperty::color(IWPropertyRegister* device, const char* id, const char* title, byte red, byte green, byte blue) {
   WColorProperty* cp = new WColorProperty(title, red, green, blue);
+  device->registerProperty(cp, id);
   return cp;
 }
 

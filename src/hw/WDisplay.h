@@ -8,7 +8,7 @@ class WDevice;
 
 class WDisplay : public WGpio {
  public:
-  WDisplay(byte scl, byte sda, byte cs, byte dc, byte rst) {
+  WDisplay(byte scl, byte sda, byte cs, byte dc, byte rst) : WGpio(GPIO_TYPE_DISPLAY, NO_PIN, NO_MODE, nullptr) {
     _display = new U8G2_SH1122_256X64_2_4W_SW_SPI(U8G2_R0, scl, sda, cs, dc, rst);
 
   }
@@ -37,6 +37,9 @@ class WDisplay : public WGpio {
   }
 
  protected:
+  void _updateOn() {
+    _display->setPowerSave(!isOn());    
+  }
 
  private:
   U8G2_SH1122_256X64_2_4W_SW_SPI* _display;

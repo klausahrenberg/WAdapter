@@ -20,7 +20,7 @@ class W2812Led : public WGpio {
     _colors = new uint32_t[numberOfLeds];
     for (byte b = 0; b < numberOfLeds; b++) _colors[b] = COLOR_DEFAULT;
     // network->getSettings()->add(this->color);
-    _brightness = WProperty::levelInt("Brightness", 10, 255);
+    _brightness = new WRangeProperty("Brightness", WDataType::INTEGER, WValue::ofInt(10), WValue::ofInt(255), TYPE_LEVEL_PROPERTY);
     _brightness->asInt(160);
     //network->getSettings()->add(this->brightness);
     _brightness->addListener([this]() { _strip->setBrightness(_brightness->asInt()); });
