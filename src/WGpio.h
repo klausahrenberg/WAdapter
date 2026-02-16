@@ -95,7 +95,7 @@ class WGpio : public IWJsonable {
 
   WProperty* property() { return _property; }
 
-	void property(WProperty* property) { 
+	WGpio* property(WProperty* property) { 
     _property = property; 
     if (isInput()) {
       this->loop(millis());
@@ -104,7 +104,8 @@ class WGpio : public IWJsonable {
         _lastStateChange = millis();
         _updateOn();
       });
-    }      
+    }   
+    return this;   
 	}  
 
   bool hasProperty() { return (_property != nullptr); }
@@ -164,8 +165,9 @@ class WGpio : public IWJsonable {
   bool isOutput() { return (((_type >= GPIO_TYPE_LED) && (_type < GPIO_TYPE_BUTTON)) || ((_type >= GPIO_TYPE_PCF8575) && (_type < GPIO_TYPE_UNKNOWN))); }
   bool isInput() { return ((_type >= GPIO_TYPE_BUTTON) && (_type < GPIO_TYPE_UNKNOWN)); }
 
-  void condition(TCondition condition) {
+  WGpio* condition(TCondition condition) {
     _condition = condition;
+    return this;
   }
 
  protected:

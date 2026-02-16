@@ -2,9 +2,9 @@
 #define W_2812_LED_H
 
 #include "Adafruit_NeoPixel.h"
-#include "WProps.h"
 #include "WGpio.h"
 
+#define COLOR_DEFAULT 0x200000
 const static char WRGB_NUMBER_OF_LEDS[] PROGMEM = "leds";
 const int COUNT_LED_PROGRAMS = 3;
 const float PI180 = 0.01745329;
@@ -17,8 +17,10 @@ class W2812Led : public WGpio {
     _programStatusCounter = 0;
     _lastUpdate = 0;
     _color = new WColorProperty("Color", 255, 0, 0);
+    _colors = new uint32_t[numberOfLeds];
+    for (byte b = 0; b < numberOfLeds; b++) _colors[b] = COLOR_DEFAULT;
     // network->getSettings()->add(this->color);
-    _brightness = WProps::createLevelIntProperty("Brightness", 10, 255);
+    _brightness = WProperty::levelInt("Brightness", 10, 255);
     _brightness->asInt(160);
     //network->getSettings()->add(this->brightness);
     _brightness->addListener([this]() { _strip->setBrightness(_brightness->asInt()); });
@@ -27,6 +29,7 @@ class W2812Led : public WGpio {
 
   virtual ~W2812Led() {
     delete _numberOfLeds;
+    delete[] _colors;
     if (_strip) delete _strip;
   }
 
@@ -85,18 +88,20 @@ class W2812Led : public WGpio {
 
   WRangeProperty* brightness() { return _brightness; }
 
-  void pixelColor(uint16_t ledNumber, uint8_t red, uint8_t green, uint8_t blue, bool updateImmediatly = true) {
+  /*void pixelColor(uint16_t ledNumber, uint8_t red, uint8_t green, uint8_t blue, bool updateImmediatly = true) {
     _strip->setPixelColor(ledNumber, red, green, blue);
     if (updateImmediatly) _strip->show();
-  }
+  }*/
 
   void pixelColor(uint16_t ledNumber, uint32_t color, bool updateImmediatly = true) {
-    _strip->setPixelColor(ledNumber, color);
+    _colors[ledNumber] = color;    
     if (updateImmediatly) _strip->show();
   }  
 
   void show() {
-    _strip->show();
+    bool b = isOn();
+    for (byte i = 0; i < _numberOfLeds->asByte(); i++) _strip->setPixelColor(i, (b ? _colors[i] : 0x000000));     
+    _strip->show(); 
   }
 
   virtual void registerSettings() {
@@ -118,6 +123,7 @@ class W2812Led : public WGpio {
   }
 
   void loop(unsigned long now) {
+    WGpio::loop(now);
     if (isOn()) {
       
       if (now - _lastUpdate > 200) {
@@ -174,6 +180,10 @@ class W2812Led : public WGpio {
   }
 
  protected:
+  void _updateOn() {
+    show();
+  };
+
   virtual bool isInitialized() { return ((WGpio::isInitialized()) && (_numberOfLeds->asByte() > 0)); }
   
   virtual void _onChange() {
@@ -190,13 +200,14 @@ class W2812Led : public WGpio {
   }    
 
  private:
-  WValue* _numberOfLeds = new WValue(BYTE);  
+  WValue* _numberOfLeds = new WValue(WDataType::BYTE);  
   WValue* _rgbMode = new WValue((byte) 2);
   Adafruit_NeoPixel* _strip = nullptr;  
   int _programStatusCounter;
   WColorProperty* _color;
   WRangeProperty* _brightness;
   unsigned long _lastUpdate;
+  uint32_t* _colors;
 
   uint32_t wheelColor(byte wheelPos) {
     byte c;
