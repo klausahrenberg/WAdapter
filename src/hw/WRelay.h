@@ -11,8 +11,8 @@ class WRelay : public WGpio {
     this->inverted(inverted);
   }
 
-  static WRelay* create(IWGpioRegister* device, int relayPin, bool inverted = false) {
-    WRelay* relay = new WRelay(relayPin, inverted);
+  static WRelay* create(IWGpioRegister* device, int relayPin, bool inverted = false, IWExpander* expander = nullptr) {
+    WRelay* relay = new WRelay(relayPin, inverted, expander);
     device->registerGpio(relay);
     return relay;
   }
