@@ -17,6 +17,12 @@ class WInput : public WGpio {
     }
   }
 
+  static WInput* create(IWGpioRegister* device, int inputPin = NO_PIN, bool inverted = false, IWExpander* expander = nullptr) {
+    WInput* i = new WInput(inputPin, inverted, expander);
+    device->registerGpio(i);
+    return i;
+  }
+
   void loop(unsigned long now) {
     if (this->isInitialized()) {
       // 1. Eliminate flickering input

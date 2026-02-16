@@ -24,6 +24,12 @@ class WSwitch : public WGpio {
     }
   }
 
+  static WSwitch* create(IWGpioRegister* device, WGpioType gpioType = GPIO_TYPE_BUTTON, int switchPin = NO_PIN, bool inverted = false, IWExpander* expander = nullptr) {
+    WSwitch* button = new WSwitch(gpioType, switchPin, inverted, expander);
+    device->registerGpio(button);
+    return button;
+  }
+
   void loop(unsigned long now) {
     if (this->isInitialized()) {
       // 1. Eliminate flickering input

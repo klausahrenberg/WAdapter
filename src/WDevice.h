@@ -4,10 +4,6 @@
 #include "WList.h"
 #include "WGpio.h"
 #include "hw/WLed.h"
-#include "hw/WRelay.h"
-#include "hw/WSwitch.h"
-#include "hw/WPCF8575.h"
-#include "hw/W2812.h"
 
 const char* DEVICE_TYPE_BINARY_SENSOR = "BinarySensor";
 const char* DEVICE_TYPE_DOOR_SENSOR = "DoorSensor";
@@ -29,7 +25,7 @@ enum WDeepSleepMode {
 
 class WNetwork;
 
-class WDevice {
+class WDevice : public IWGpioRegister {
  public:
   WDevice(WNetwork* network, const char* id, const char* title, const char* type,
           const char* alternativeType = nullptr) {
@@ -156,38 +152,14 @@ class WDevice {
     return (_properties->getIf([] (WProperty* p) { return ((p->visibility() == WEBTHING) || (p->visibility() == ALL));}) != nullptr);
   }  
 
-  WRelay* relay(int relayPin, bool inverted = false, IWExpander* expander = nullptr) {
-    WRelay* relay = new WRelay(relayPin, inverted, expander);
-    _addGpio(relay);
-    return relay;
-  }
-
-  WSwitch* button(WGpioType gpioType = GPIO_TYPE_BUTTON, int switchPin = NO_PIN, bool inverted = false, IWExpander* expander = nullptr) {
-    WSwitch* button = new WSwitch(gpioType, switchPin, inverted, expander);
-    _addGpio(button);
-    return button;
-  }
-
-  WPCF8575* expander(byte address, int sda = 21, int scl = 22, TwoWire* i2cPort = &Wire) {
-    WPCF8575* exp = new WPCF8575(address, sda, scl, i2cPort);
-    _addGpio(exp);
-    return exp;
-  }
-
-  W2812Led* ledStripe(WGpioType gpioType = GPIO_TYPE_RGB_WS2812, int ledPin = NO_PIN, byte numberOfLeds = 0) {
-    W2812Led* leds = new W2812Led(gpioType, ledPin, numberOfLeds);
-    _addGpio(leds);
-    return leds;
-  }
-
- protected:  
-
-  void _addGpio(WGpio* output) {
+  virtual void registerGpio(WGpio* gpio) {
     if (_gpios == nullptr) {
       _gpios = new WList<WGpio>();
     }
-    _gpios->add(output);
+    _gpios->add(gpio);
   }
+
+ protected:  
 
  private:
   WNetwork* _network;

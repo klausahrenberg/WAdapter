@@ -31,6 +31,12 @@ enum WGpioType {
   GPIO_TYPE_UNKNOWN = 0xFF
 };
 
+class WGpio;
+class IWGpioRegister {
+public:
+  virtual void registerGpio(WGpio* gpio);
+}; 
+
 const char S_GPIO_TYPE_LED[] PROGMEM = "led";
 const char S_GPIO_TYPE_RELAY[] PROGMEM = "relay";
 const char S_GPIO_TYPE_BUTTON[] PROGMEM = "button";

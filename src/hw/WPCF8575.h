@@ -10,6 +10,12 @@ class WPCF8575 : public WI2C, public IWExpander {
   WPCF8575(byte address, int sda = 21, int scl = 22, TwoWire* i2cPort = &Wire)
       : WI2C(GPIO_TYPE_PCF8575, address, sda, scl, NO_PIN, i2cPort) {}
 
+  static WPCF8575* create(IWGpioRegister* device, byte address, int sda = 21, int scl = 22, TwoWire* i2cPort = &Wire) {
+    WPCF8575* exp = new WPCF8575(address, sda, scl, i2cPort);
+    device->registerGpio(exp);
+    return exp;
+  }    
+
   virtual void loop(unsigned long now) {
     WI2C::loop(now);
     if (_started) {

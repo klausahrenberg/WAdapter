@@ -3,10 +3,18 @@
 
 #include "WGpio.h"
 
+class WDevice;
+
 class WRelay : public WGpio {
  public:
   WRelay(int relayPin, bool inverted = false, IWExpander* expander = nullptr) : WGpio(GPIO_TYPE_RELAY, relayPin, OUTPUT, expander) {
     this->inverted(inverted);
+  }
+
+  static WRelay* create(IWGpioRegister* device, int relayPin, bool inverted = false) {
+    WRelay* relay = new WRelay(relayPin, inverted);
+    device->registerGpio(relay);
+    return relay;
   }
 
   bool inverted() { return bitRead(_config->asByte(), BIT_CONFIG_INVERTED); }

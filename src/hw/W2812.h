@@ -27,6 +27,12 @@ class W2812Led : public WGpio {
     this->numberOfLeds(numberOfLeds);    
   }  
 
+  static W2812Led* create(IWGpioRegister* device, WGpioType gpioType = GPIO_TYPE_RGB_WS2812, int ledPin = NO_PIN, byte numberOfLeds = 0) {
+    W2812Led* leds = new W2812Led(gpioType, ledPin, numberOfLeds);
+    device->registerGpio(leds);
+    return leds;
+  }
+
   virtual ~W2812Led() {
     delete _numberOfLeds;
     delete[] _colors;
