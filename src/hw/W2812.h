@@ -13,12 +13,17 @@ const neoPixelType LED_TYPE_PL9823 = NEO_RGB + NEO_KHZ800;
 
 class W2812Led : public WGpio {
  public:
+  typedef std::function<uint32_t()> TColorPicker;
   W2812Led(WGpioType gpioType = GPIO_TYPE_RGB_WS2812, int ledPin = NO_PIN, byte numberOfLeds = 0) : WGpio(gpioType, ledPin) {                
     _programStatusCounter = 0;
     _lastUpdate = 0;
     _color = new WColorProperty("Color", 255, 0, 0);
     _colors = new uint32_t[numberOfLeds];
-    for (byte b = 0; b < numberOfLeds; b++) _colors[b] = COLOR_DEFAULT;
+    _conditions = new TColorPicker[numberOfLeds];
+    for (byte b = 0; b < numberOfLeds; b++) {
+      _colors[b] = COLOR_DEFAULT;
+      _conditions[b] = nullptr;
+    }  
     // network->getSettings()->add(this->color);
     _brightness = new WRangeProperty("Brightness", WDataType::INTEGER, WValue::ofInt(10), WValue::ofInt(255), TYPE_LEVEL_PROPERTY);
     _brightness->asInt(160);
@@ -128,11 +133,26 @@ class W2812Led : public WGpio {
     json->propertyByte(WRGB_NUMBER_OF_LEDS, numberOfLeds());
   }
 
+  W2812Led* conditio(byte index, TColorPicker condition) {
+    _conditions[index] = condition;
+    return this;
+  }
+
   void loop(unsigned long now) {
     WGpio::loop(now);
-    if (isOn()) {
+    if ((_needsUpdate) || (isOn())) {
+      for (byte i = 0; i < _numberOfLeds->asByte(); i++) {
+        if (_conditions[i]) {
+          uint32_t newColor = _conditions[i]();
+          _needsUpdate = _needsUpdate || (newColor != _colors[i]);
+          _colors[i] = newColor;
+        }
+      }
+      if (_needsUpdate) _strip->show();
+      _needsUpdate = false;
+
       
-      if (now - _lastUpdate > 200) {
+      /*if (now - _lastUpdate > 200) {
         switch (rgbMode()) {
           case 0: {
             // Pulsing RGB color
@@ -181,12 +201,13 @@ class W2812Led : public WGpio {
           }
         }
         _lastUpdate = now;
-      }
+      }*/
     }
   }
 
  protected:
   void _updateOn() {
+    _needsUpdate = true;
     show();
   };
 
@@ -213,7 +234,9 @@ class W2812Led : public WGpio {
   WColorProperty* _color;
   WRangeProperty* _brightness;
   unsigned long _lastUpdate;
+  bool _needsUpdate = false;
   uint32_t* _colors;
+  TColorPicker* _conditions;
 
   uint32_t wheelColor(byte wheelPos) {
     byte c;
