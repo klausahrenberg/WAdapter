@@ -14,7 +14,7 @@ const neoPixelType LED_TYPE_PL9823 = NEO_RGB + NEO_KHZ800;
 class W2812Led : public WGpio {
  public:
   typedef std::function<uint32_t()> TColorPicker;
-  W2812Led(WGpioType gpioType = GPIO_TYPE_RGB_WS2812, int ledPin = NO_PIN, byte numberOfLeds = 0) : WGpio(gpioType, ledPin) {                
+  W2812Led(WGpioType gpioType = GPIO_TYPE_RGB_WS2812, int ledPin = NO_PIN, byte numberOfLeds = 0) : WGpio(gpioType, ledPin) {
     _programStatusCounter = 0;
     _lastUpdate = 0;
     _color = new WColorProperty("Color", 255, 0, 0);
@@ -23,14 +23,14 @@ class W2812Led : public WGpio {
     for (byte b = 0; b < numberOfLeds; b++) {
       _colors[b] = COLOR_DEFAULT;
       _conditions[b] = nullptr;
-    }  
+    }
     // network->getSettings()->add(this->color);
     _brightness = new WRangeProperty("Brightness", WDataType::INTEGER, WValue::ofInt(10), WValue::ofInt(255), TYPE_LEVEL_PROPERTY);
     _brightness->asInt(160);
-    //network->getSettings()->add(this->brightness);
+    // network->getSettings()->add(this->brightness);
     _brightness->addListener([this]() { _strip->setBrightness(_brightness->asInt()); });
-    this->numberOfLeds(numberOfLeds);    
-  }  
+    this->numberOfLeds(numberOfLeds);
+  }
 
   static W2812Led* create(IWGpioRegister* device, WGpioType gpioType = GPIO_TYPE_RGB_WS2812, int ledPin = NO_PIN, byte numberOfLeds = 0) {
     W2812Led* leds = new W2812Led(gpioType, ledPin, numberOfLeds);
@@ -63,17 +63,20 @@ class W2812Led : public WGpio {
     return this;
   }
 
-  byte countModes() { return COUNT_LED_PROGRAMS;}
+  byte countModes() { return COUNT_LED_PROGRAMS; }
 
   const char* modeTitle(byte index) {
     switch (index) {
-      case 2: return "Rainbow";
-      case 1: return "Cycling";
-      default: return "Fixed Color";
+      case 2:
+        return "Rainbow";
+      case 1:
+        return "Cycling";
+      default:
+        return "Fixed Color";
     }
   }
 
-  byte rgbMode() { return _rgbMode->asByte();}
+  byte rgbMode() { return _rgbMode->asByte(); }
 
   void setRgbMode(byte rgbMode) {
     if (rgbMode >= COUNT_LED_PROGRAMS) {
@@ -92,7 +95,7 @@ class W2812Led : public WGpio {
         setRgbMode(b);
         break;
       }
-    }    
+    }
   }
 
   WColorProperty* color() { return _color; }
@@ -105,21 +108,50 @@ class W2812Led : public WGpio {
   }*/
 
   void pixelColor(uint16_t ledNumber, uint32_t color, bool updateImmediatly = true) {
-    _colors[ledNumber] = color;    
+    _colors[ledNumber] = color;
     if (updateImmediatly) _strip->show();
-  }  
+  }
 
   void show() {
     bool b = isOn();
-    for (byte i = 0; i < _numberOfLeds->asByte(); i++) _strip->setPixelColor(i, (b ? _colors[i] : 0x000000));     
-    _strip->show(); 
+    // for (byte i = 0; i < _numberOfLeds->asByte(); i++) _strip->setPixelColor(i, (b ? _colors[i] : 0x000000));
+    if (b) {
+      memcpy(_strip->getPixels(), _colors, _numberOfLeds->asByte() * sizeof(uint32_t));
+    } else {
+      memset(_strip->getPixels(), 0, _numberOfLeds->asByte() * sizeof(uint32_t));
+    }
+    _strip->show();
   }
+
+  /*
+  void Adafruit_NeoPixel::setPixelColor(uint16_t n, uint8_t r, uint8_t g,
+                                      uint8_t b) {
+
+  if (n < numLEDs) {
+    if (brightness) { // See notes in setBrightness()
+      r = (r * brightness) >> 8;
+      g = (g * brightness) >> 8;
+      b = (b * brightness) >> 8;
+    }
+    uint8_t *p;
+    if (wOffset == rOffset) { // Is an RGB-type strip
+      p = &pixels[n * 3];     // 3 bytes per pixel
+    } else {                  // Is a WRGB-type strip
+      p = &pixels[n * 4];     // 4 bytes per pixel
+      p[wOffset] = 0;         // But only R,G,B passed -- set W to 0
+    }
+    p[rOffset] = r; // R,G,B always stored
+    p[gOffset] = g;
+    p[bOffset] = b;
+  }
+}
+  */
 
   virtual void registerSettings() {
     WGpio::registerSettings();
-    SETTINGS->add(_numberOfLeds, nullptr);   
+    SETTINGS->add(_numberOfLeds, nullptr);
     SETTINGS->add(_rgbMode, nullptr);
-    _onChange(); 
+    _onChange();
   }
 
   virtual void fromJson(WList<WValue>* list) {
@@ -129,7 +161,7 @@ class W2812Led : public WGpio {
   }
 
   virtual void toJson(WJson* json) {
-    WGpio::toJson(json);    
+    WGpio::toJson(json);
     json->propertyByte(WRGB_NUMBER_OF_LEDS, numberOfLeds());
   }
 
@@ -148,10 +180,9 @@ class W2812Led : public WGpio {
           _colors[i] = newColor;
         }
       }
-      if (_needsUpdate) _strip->show();
+      if (_needsUpdate) show();
       _needsUpdate = false;
 
-      
       /*if (now - _lastUpdate > 200) {
         switch (rgbMode()) {
           case 0: {
@@ -212,24 +243,24 @@ class W2812Led : public WGpio {
   };
 
   virtual bool isInitialized() { return ((WGpio::isInitialized()) && (_numberOfLeds->asByte() > 0)); }
-  
+
   virtual void _onChange() {
     if (_strip != nullptr) {
       delete _strip;
       _strip = nullptr;
     }
     if (isInitialized()) {
-      _strip = new Adafruit_NeoPixel(numberOfLeds(), pin(), (type() == GPIO_TYPE_RGB_WS2812 ? LED_TYPE_WS2812 : LED_TYPE_PL9823));    
-      _strip->begin();  // INITIALIZE NeoPixel strip object (REQUIRED)    
-      _strip->show();   // Turn OFF all pixels ASAP
-      _strip->setBrightness(_brightness->asInt());  // Set BRIGHTNESS to about 1/5 (max = 255)    
+      _strip = new Adafruit_NeoPixel(numberOfLeds(), pin(), (type() == GPIO_TYPE_RGB_WS2812 ? LED_TYPE_WS2812 : LED_TYPE_PL9823));
+      _strip->begin();                              // INITIALIZE NeoPixel strip object (REQUIRED)
+      _strip->show();                               // Turn OFF all pixels ASAP
+      _strip->setBrightness(_brightness->asInt());  // Set BRIGHTNESS to about 1/5 (max = 255)
     }
-  }    
+  }
 
  private:
-  WValue* _numberOfLeds = new WValue(WDataType::BYTE);  
-  WValue* _rgbMode = new WValue((byte) 2);
-  Adafruit_NeoPixel* _strip = nullptr;  
+  WValue* _numberOfLeds = new WValue(WDataType::BYTE);
+  WValue* _rgbMode = new WValue((byte)2);
+  Adafruit_NeoPixel* _strip = nullptr;
   int _programStatusCounter;
   WColorProperty* _color;
   WRangeProperty* _brightness;
@@ -270,7 +301,7 @@ class W2812Led : public WGpio {
         if (((i >= tail) && (i <= head)) ||  //  If between head & tail...
             ((tail > head) && ((i >= tail) || (i <= head)))) {
           _strip->setPixelColor(i, _strip->Color(0, 0, 0, 255));  // Set white
-        } else {  // else set rainbow
+        } else {                                                  // else set rainbow
           int pixelHue = firstPixelHue + (i * 65536L / _strip->numPixels());
           _strip->setPixelColor(i, _strip->gamma32(_strip->ColorHSV(pixelHue)));
         }
@@ -283,7 +314,7 @@ class W2812Led : public WGpio {
       firstPixelHue += 40;  // Advance just a little along the color wheel
 
       if ((millis() - lastTime) > whiteSpeed) {  // Time to update head/tail?
-        if (++head >= _strip->numPixels()) {      // Advance head, wrap around
+        if (++head >= _strip->numPixels()) {     // Advance head, wrap around
           head = 0;
           if (++loopNum >= loops) return;
         }
