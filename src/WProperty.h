@@ -146,7 +146,7 @@ class WProperty {
 
   WProperty* onValueRequest(TOnPropertyChange onValueRequest) { _onValueRequest = onValueRequest; return this; }
 
-  void addListener(TOnPropertyChange onChange) { _listeners.push_back(onChange); }
+  WProperty* addListener(TOnPropertyChange onChange) { _listeners.push_back(onChange); return this; }
 
   void deviceNotification(TOnPropertyChange deviceNotification) { _deviceNotification = deviceNotification; }
 

@@ -120,7 +120,7 @@ class WNetwork {
     _statusLedOnIfConnected = statusLedOnIfConnected;
     _statusLed = statusLed;
     if (_statusLed != nullptr) {
-      _statusLed->setOn(true, 500);
+      _statusLed->on(true, 500);
     }
     _updateLedState();
   }
@@ -781,11 +781,11 @@ class WNetwork {
     if (_statusLed != nullptr) {
       if (isWifiConnected()) {
         // off
-        _statusLed->setOn(_statusLedOnIfConnected, 0);
+        _statusLed->on(_statusLedOnIfConnected, 0);
       } else if (isSoftAP()) {
-        _statusLed->setOn(!_statusLedOnIfConnected, 0);
+        _statusLed->on(!_statusLedOnIfConnected, 0);
       } else {
-        _statusLed->setOn(true, 500);
+        _statusLed->on(true, 500);
       }
     }
   }

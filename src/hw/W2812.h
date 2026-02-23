@@ -5,6 +5,7 @@
 #include "WGpio.h"
 
 #define COLOR_DEFAULT 0x200000
+#define COLOR_OFF 0x000000
 const static char WRGB_NUMBER_OF_LEDS[] PROGMEM = "leds";
 const int COUNT_LED_PROGRAMS = 3;
 const float PI180 = 0.01745329;
@@ -19,9 +20,11 @@ class W2812Led : public WGpio {
     _lastUpdate = 0;
     _color = new WColorProperty("Color", 255, 0, 0);
     _colors = new uint32_t[numberOfLeds];
+    _alwaysOn = new bool[numberOfLeds];
     _conditions = new TColorPicker[numberOfLeds];
     for (byte b = 0; b < numberOfLeds; b++) {
       _colors[b] = COLOR_DEFAULT;
+      _alwaysOn[b] = false;
       _conditions[b] = nullptr;
     }
     // network->getSettings()->add(this->color);
@@ -41,11 +44,12 @@ class W2812Led : public WGpio {
   virtual ~W2812Led() {
     delete _numberOfLeds;
     delete[] _colors;
+    delete[] _alwaysOn;
     if (_strip) delete _strip;
   }
 
   void onChanged() {
-    if (!this->isOn()) {
+    if (!WGpio::isOn()) {
       for (int i = 0; i < _strip->numPixels(); i++) {
         _strip->setPixelColor(i, _strip->Color(0, 0, 0));
       }
@@ -112,40 +116,11 @@ class W2812Led : public WGpio {
     if (updateImmediatly) _strip->show();
   }
 
-  void show() {
+  /*void show() {
     bool b = isOn();
-    // for (byte i = 0; i < _numberOfLeds->asByte(); i++) _strip->setPixelColor(i, (b ? _colors[i] : 0x000000));
-    if (b) {
-      memcpy(_strip->getPixels(), _colors, _numberOfLeds->asByte() * sizeof(uint32_t));
-    } else {
-      memset(_strip->getPixels(), 0, _numberOfLeds->asByte() * sizeof(uint32_t));
-    }
+    for (byte i = 0; i < _numberOfLeds->asByte(); i++) _strip->setPixelColor(i, (b ? _colors[i] : 0x000000));    
     _strip->show();
-  }
-
-  /*
-  void Adafruit_NeoPixel::setPixelColor(uint16_t n, uint8_t r, uint8_t g,
-                                      uint8_t b) {
-
-  if (n < numLEDs) {
-    if (brightness) { // See notes in setBrightness()
-      r = (r * brightness) >> 8;
-      g = (g * brightness) >> 8;
-      b = (b * brightness) >> 8;
-    }
-    uint8_t *p;
-    if (wOffset == rOffset) { // Is an RGB-type strip
-      p = &pixels[n * 3];     // 3 bytes per pixel
-    } else {                  // Is a WRGB-type strip
-      p = &pixels[n * 4];     // 4 bytes per pixel
-      p[wOffset] = 0;         // But only R,G,B passed -- set W to 0
-    }
-    p[rOffset] = r; // R,G,B always stored
-    p[gOffset] = g;
-    p[bOffset] = b;
-  }
-}
-  */
+  }*/
 
   virtual void registerSettings() {
     WGpio::registerSettings();
@@ -170,18 +145,37 @@ class W2812Led : public WGpio {
     return this;
   }
 
+  W2812Led* alwaysOn(byte index, bool alwaysOn = true) {
+    _alwaysOn[index] = alwaysOn;
+    _needsUpdate = true;
+    return this;
+  }
+
+  void on(bool ledOn, unsigned short onFor = 0) {
+    _onFor = onFor;
+    WGpio::on(ledOn);
+  }  
+
   void loop(unsigned long now) {
     WGpio::loop(now);
-    if ((_needsUpdate) || (isOn())) {
-      for (byte i = 0; i < _numberOfLeds->asByte(); i++) {
+    bool ison = WGpio::isOn();
+    if ((_onFor != 0) && (isOnSince(_onFor))) WGpio::on(false);
+    for (byte i = 0; i < _numberOfLeds->asByte(); i++) {
+      if ((ison) || (_alwaysOn[i])) {
         if (_conditions[i]) {
           uint32_t newColor = _conditions[i]();
           _needsUpdate = _needsUpdate || (newColor != _colors[i]);
           _colors[i] = newColor;
         }
+        _strip->setPixelColor(i, _colors[i]); 
+      } else {
+        _strip->setPixelColor(i, COLOR_OFF);
       }
-      if (_needsUpdate) show();
-      _needsUpdate = false;
+    }  
+    if (_needsUpdate) _strip->show();
+    _needsUpdate = false;
+
+    if (WGpio::isOn()) {
 
       /*if (now - _lastUpdate > 200) {
         switch (rgbMode()) {
@@ -239,7 +233,6 @@ class W2812Led : public WGpio {
  protected:
   void _updateOn() {
     _needsUpdate = true;
-    show();
   };
 
   virtual bool isInitialized() { return ((WGpio::isInitialized()) && (_numberOfLeds->asByte() > 0)); }
@@ -267,7 +260,9 @@ class W2812Led : public WGpio {
   unsigned long _lastUpdate;
   bool _needsUpdate = false;
   uint32_t* _colors;
+  bool* _alwaysOn;
   TColorPicker* _conditions;
+  unsigned short _onFor = 0;
 
   uint32_t wheelColor(byte wheelPos) {
     byte c;

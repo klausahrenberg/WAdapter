@@ -26,18 +26,18 @@ class WLed : public WGpio {
     _lastBlinkOn = 0;
   };
 
-  void setOn(bool ledOn, int blinkMillis = 0) {
-    if ((this->isOn()) && (_blinkMillis != blinkMillis)) {
-      WGpio::setOn(false);
+  void on(bool ledOn, int blinkMillis = 0) {
+    if ((WGpio::isOn()) && (_blinkMillis != blinkMillis)) {
+      WGpio::on(false);
     }
     _blinkMillis = blinkMillis;
-    WGpio::setOn(ledOn);
+    WGpio::on(ledOn);
   }
 
   bool isBlinking() { return (_blinkMillis > 0); }
 
   void loop(unsigned long now) {
-    if (isOn()) {
+    if (WGpio::isOn()) {
       if (isBlinking()) {
         if ((_lastBlinkOn == 0) || (now - _lastBlinkOn > _blinkMillis)) {
           _blinkOn = !_blinkOn;

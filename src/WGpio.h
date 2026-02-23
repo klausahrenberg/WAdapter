@@ -74,7 +74,7 @@ class WGpio : public IWJsonable {
     _type = type;
     _mode = mode;
     _expander = expander;
-    _isOn = false;
+    _on = false;
     this->pin(pin);
   }
 
@@ -82,23 +82,24 @@ class WGpio : public IWJsonable {
     if (_pin) delete _pin;
   }
 
-  bool isOn() { return (_property != nullptr ? _property->asBool() : _isOn); }
+  bool isOn() { return (_property != nullptr ? _property->asBool() : _on); }
 
   bool isOnSince(unsigned short since) {
     return ((_lastStateChange >= 0) && (isOn()) && (millis() - _lastStateChange >= since));
   }
 
-  void setOn(bool isOn) {
-    if ((_property == nullptr) && (isOn != _isOn)) {
-      _isOn = isOn;
+  virtual WGpio* on(bool isOn) {
+    if ((_property == nullptr) && (isOn != _on)) {
+      _on = isOn;
       _lastStateChange = millis();
       _updateOn();      
     }
+    return this;
   }    
 
   virtual void loop(unsigned long now) {
     if ((_condition) && (isOutput())) {
-      setOn(_condition());
+      on(_condition());
     }
   }
 
@@ -196,7 +197,7 @@ class WGpio : public IWJsonable {
  private:    
   WValue* _pin = new WValue((byte) NO_PIN);
   byte _mode = NO_MODE;
-  bool _isOn;
+  bool _on;
 };
 
 class WGroup : public WGpio {
@@ -246,7 +247,7 @@ class WGroup : public WGpio {
 
   virtual void _updateOn() {
     if (_items != nullptr) {      
-      _items->forEach([this] (int index, WGpio* output, const char* id) { output->setOn(this->isOn()); } ); 
+      _items->forEach([this] (int index, WGpio* output, const char* id) { output->on(this->isOn()); } ); 
     }
   }
 
@@ -324,10 +325,10 @@ class WMode : public WGroup {
   virtual void _updateOn() {
     if (_items != nullptr) { 
       //switch all off     
-      _items->forEach([this] (int index, WGpio* output, const char* id) { output->setOn(false); } );
+      _items->forEach([this] (int index, WGpio* output, const char* id) { output->on(false); } );
       if ((this->isOn()) && (_modeProp != nullptr) && (!_modeProp->isStringEmpty())) {
         _items->ifExistsId(_modeProp->asString(), [this] (WGpio* gpio) { 
-          gpio->setOn(true); 
+          gpio->on(true); 
           if (this->_state != nullptr) {
             this->_state->asByte(this->_items->indexOfId(this->_modeProp->asString()));
             SETTINGS->save();
