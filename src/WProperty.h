@@ -487,6 +487,12 @@ class WProperty {
 
   WProperty* visibility(WPropertyVisibility visibility) { _visibility = visibility; return this; }
 
+  WProperty* store(bool storeAtChange = false) {
+    _store = storeAtChange;
+    SETTINGS->add(value());
+    return this;
+  }
+
   void visibility(bool mqtt, bool webthing) {
     if ((mqtt) && (webthing)) {
       visibility(ALL);
@@ -561,11 +567,13 @@ class WProperty {
   bool _requested;
   bool _valueRequesting;
   bool _notifying;
+  bool _store = false;
   WList<WValue>* _enums;
 
   void _notify() {
     if (!_valueRequesting) {
       _notifying = true;
+      if (_store) SETTINGS->save();
       if (!_listeners.empty()) {
         for (std::list<TOnPropertyChange>::iterator f = _listeners.begin(); f != _listeners.end(); ++f) {          
           f->operator()();

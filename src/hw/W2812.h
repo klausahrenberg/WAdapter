@@ -111,9 +111,16 @@ class W2812Led : public WGpio {
     if (updateImmediatly) _strip->show();
   }*/
 
-  void pixelColor(uint16_t ledNumber, uint32_t color, bool updateImmediatly = true) {
-    _colors[ledNumber] = color;
-    if (updateImmediatly) _strip->show();
+  W2812Led* color(byte index, uint32_t color) {
+    _colors[index] = color;
+    _needsUpdate = true;
+    return this;
+  }
+
+  W2812Led* color(byte index, TColorPicker condition) {
+    _conditions[index] = condition;
+    _needsUpdate = true;
+    return this;
   }
 
   /*void show() {
@@ -138,11 +145,6 @@ class W2812Led : public WGpio {
   virtual void toJson(WJson* json) {
     WGpio::toJson(json);
     json->propertyByte(WRGB_NUMBER_OF_LEDS, numberOfLeds());
-  }
-
-  W2812Led* conditio(byte index, TColorPicker condition) {
-    _conditions[index] = condition;
-    return this;
   }
 
   W2812Led* alwaysOn(byte index, bool alwaysOn = true) {
