@@ -175,7 +175,7 @@ class WProperty {
   virtual bool parse(const char* value) {  
     if (!_readOnly) {
       _changed = _value->parse(value) || _changed;
-      if (_changed) _notify();
+      _notify();
       return _changed;
     } else {
       return false;
@@ -189,7 +189,7 @@ class WProperty {
   WProperty* asBool(bool value) {
     if (!_readOnly) {
       _changed = _value->asBool(value) || _changed;
-      if (_changed) _notify();
+      _notify();
     }
     return this;
   }  
@@ -199,7 +199,7 @@ class WProperty {
   WProperty* asString(const char* value) {  
     if (!_readOnly) {
       _changed = _value->asString(value) || _changed;
-      if (_changed) _notify();
+      _notify();
     }
     return this;
   }  
@@ -213,7 +213,7 @@ class WProperty {
   WProperty* asInt(int value) {
     if (!_readOnly) {
       _changed = _value->asInt(value) || _changed;
-      if (_changed) _notify();
+      _notify();
     }
     return this;
   }
@@ -223,7 +223,7 @@ class WProperty {
   WProperty* asDouble(double value) {
     if (!_readOnly) {
       _changed = _value->asDouble(value) || _changed;
-      if (_changed) _notify();
+      _notify();
     }
     return this;
   }  
@@ -233,7 +233,7 @@ class WProperty {
   WProperty* asByte(byte value) {
     if (!_readOnly) {
       _changed = _value->asByte(value) || _changed;
-      if (_changed) _notify();
+      _notify();
     }
     return this;
   }  
@@ -243,7 +243,7 @@ class WProperty {
   WProperty* asByteArray(byte length, const byte* value) {
     if (!_readOnly) {
       _changed = _value->asByteArray(length, value) || _changed;
-      if (_changed) _notify();
+      _notify();
     }
     return this;
   }  
@@ -382,7 +382,7 @@ class WProperty {
     if (this->atType() != "") {
       json->propertyString("@type", this->atType(), nullptr);
     }
-    toJsonStructureAdditionalParameters(json);    
+    _toJsonStructureAdditionalParameters(json);    
     json->propertyString("href", deviceHRef, "/properties/", memberName, nullptr);    
     json->endObject();
   }
@@ -525,6 +525,10 @@ class WProperty {
     return ((_visibility == ALL) || (_visibility == visibility));
   }
 
+  bool lastChangeSince(unsigned short since) {
+    return ((_lastStateChange >= 0) && (millis() - _lastStateChange >= since));
+  }
+
  protected:
   const char* _atType;
   WValue* _value; 
@@ -549,9 +553,9 @@ class WProperty {
     _enums = nullptr;
   }
 
-  virtual void valueChanged() {}
+  virtual void _valueChanged() {}
 
-  virtual void toJsonStructureAdditionalParameters(WJson* json) {}
+  virtual void _toJsonStructureAdditionalParameters(WJson* json) {}
 
  private:
   char* _title = nullptr;  
@@ -569,10 +573,12 @@ class WProperty {
   bool _notifying;
   bool _store = false;
   WList<WValue>* _enums;
+  unsigned long _lastStateChange = 0;
 
   void _notify() {
-    if (!_valueRequesting) {
+    if ((_changed) && (!_valueRequesting)) {
       _notifying = true;
+      _lastStateChange = millis();
       if (_store) SETTINGS->save();
       if (!_listeners.empty()) {
         for (std::list<TOnPropertyChange>::iterator f = _listeners.begin(); f != _listeners.end(); ++f) {          
@@ -637,7 +643,7 @@ class WRangeProperty : public WProperty {
     return (byte)v;
   }
 
-  void toJsonStructureAdditionalParameters(WJson* json) {
+  void _toJsonStructureAdditionalParameters(WJson* json) {
     switch (this->type()) {
       case WDataType::DOUBLE: {
         json->propertyDouble("minimum", getMinAsDouble());
@@ -746,7 +752,7 @@ class WColorProperty : public WProperty {
   }
 
  protected:
-  virtual void valueChanged() {
+  virtual void _valueChanged() {
     if (!_changeValue) {
       parseRGBString();
     }

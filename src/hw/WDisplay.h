@@ -27,12 +27,13 @@ class WDisplay : public WGpio {
     _display->firstPage();
     do {
       _display->clearBuffer();
+      _display->setDrawColor(1); 
       _display->setContrast(2);
       _display->setFont(u8g2_font_fur20_tf);
       // u8g2.setFont(u8g2_font_luIS18_tr);
       // u8g2.setFont(u8g2_font_lubI18_te);
       // u8g2.setFont(u8g2_font_ncenB08_tr);
-      _display->drawStr(10, 35, value);  // 0 left, 0 top bottom appx 100
+      _display->drawStr(0, 58, value);  // 0 left, 0 top bottom appx 100
     } while (_display->nextPage());
   }
 
