@@ -21,6 +21,7 @@ class WDisplay : public WGpio {
 
   void begin() {
     _display->begin();
+    _display->refreshDisplay();
   }
 
   void show(const char* value) {
