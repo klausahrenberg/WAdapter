@@ -172,8 +172,8 @@ class WProperty {
 
   void changed(bool changed) { _changed = changed; }
 
-  virtual bool parse(const char* value) {  
-    if (!_readOnly) {
+  virtual bool parse(const char* value, bool ignoreReadOnly = false) {  
+    if (_isWritingAllowed(ignoreReadOnly)) {
       _changed = _value->parse(value) || _changed;
       _notify();
       return _changed;
@@ -186,8 +186,8 @@ class WProperty {
 
   bool asBool() { _requestValue(); return _value->asBool(); }
 
-  WProperty* asBool(bool value) {
-    if (!_readOnly) {
+  WProperty* asBool(bool value, bool ignoreReadOnly = false) {
+    if (_isWritingAllowed(ignoreReadOnly)) {
       _changed = _value->asBool(value) || _changed;
       _notify();
     }
@@ -196,8 +196,8 @@ class WProperty {
 
   char* asString() { _requestValue(); return _value->asString(); }
 
-  WProperty* asString(const char* value) {  
-    if (!_readOnly) {
+  WProperty* asString(const char* value, bool ignoreReadOnly = false) {  
+    if (_isWritingAllowed(ignoreReadOnly)) {
       _changed = _value->asString(value) || _changed;
       _notify();
     }
@@ -210,8 +210,8 @@ class WProperty {
 
   int asInt() { _requestValue(); return _value->asInt(); }
 
-  WProperty* asInt(int value) {
-    if (!_readOnly) {
+  WProperty* asInt(int value, bool ignoreReadOnly = false) {
+    if (_isWritingAllowed(ignoreReadOnly)) {
       _changed = _value->asInt(value) || _changed;
       _notify();
     }
@@ -220,8 +220,8 @@ class WProperty {
 
   double asDouble() { _requestValue(); return _value->asDouble(); }
 
-  WProperty* asDouble(double value) {
-    if (!_readOnly) {
+  WProperty* asDouble(double value, bool ignoreReadOnly = false) {
+    if (_isWritingAllowed(ignoreReadOnly)) {
       _changed = _value->asDouble(value) || _changed;
       _notify();
     }
@@ -230,8 +230,8 @@ class WProperty {
 
   byte asByte() { _requestValue(); return _value->asByte(); }
 
-  WProperty* asByte(byte value) {
-    if (!_readOnly) {
+  WProperty* asByte(byte value, bool ignoreReadOnly = false) {
+    if (_isWritingAllowed(ignoreReadOnly)) {
       _changed = _value->asByte(value) || _changed;
       _notify();
     }
@@ -240,8 +240,8 @@ class WProperty {
 
   byte* asByteArray() { _requestValue(); return _value->asByteArray(); }
 
-  WProperty* asByteArray(byte length, const byte* value) {
-    if (!_readOnly) {
+  WProperty* asByteArray(byte length, const byte* value, bool ignoreReadOnly = false) {
+    if (_isWritingAllowed(ignoreReadOnly)) {
       _changed = _value->asByteArray(length, value) || _changed;
       _notify();
     }
@@ -598,6 +598,10 @@ class WProperty {
       _onValueRequest();
       _valueRequesting = false;
     }
+  }
+
+  bool _isWritingAllowed(bool ignoreReadOnly) {
+    return ((ignoreReadOnly) || (!_readOnly) || (_valueRequesting));
   }
 };
 

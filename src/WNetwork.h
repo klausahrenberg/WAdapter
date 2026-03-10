@@ -12,7 +12,7 @@
 #include <ESPmDNS.h>
 #include <Update.h>
 #include <WiFi.h>
-#define U_PART U_SPIFFS
+#define U_PART U_FLASH
 #endif
 #include <DNSServer.h>
 #include <PubSubClient.h>
@@ -878,26 +878,40 @@ class WNetwork {
     if (!index) {
       LOG->notice(F("Update starting: %s"), filename.c_str());
       size_t content_len = request->contentLength();
+      int cmd = U_FLASH;
+      (filename.indexOf("spiffs") > -1) ? U_PART : U_FLASH;
+#ifdef ARDUINO_ARCH_ESP32
+      if (filename.indexOf("spiffs") > -1 || filename.indexOf("littlefs") > -1) {
+        cmd = U_SPIFFS;  // Für Dateisystem-Updates
+      }
+
+      // Wichtig: Für ESP32 muss die Größe korrekt sein
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) {
+        LOG->debug(F("Can't start update"));
+        Update.printError(Serial);
+      }
+#else
+      // ESP8266 Code
+      size_t content_len = request->contentLength();
       int cmd = (filename.indexOf("spiffs") > -1) ? U_PART : U_FLASH;
-#ifdef ARDUINO_ARCH_ESP8266
       Update.runAsync(true);
       if (!Update.begin(content_len, cmd)) {
-#else
-      if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) {
-#endif
         LOG->debug(F("Can't start update"));
       }
+#endif
     }
     // Upload running
     if (len) {
       if (Update.write(data, len) != len) {
         LOG->debug(F("Can't upload file"));
+        Update.printError(Serial);
       }
     }
     // Upload finished
     if (final) {
       if (!Update.end(true)) {
         LOG->debug(F("Can't finish update"));
+        Update.printError(Serial);
       }
     }
   }
