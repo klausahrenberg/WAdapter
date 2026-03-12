@@ -312,9 +312,9 @@ struct WValue {
   bool asString(const char* newValue) {
     bool changed = false;
     if ((_type == WDataType::STRING) && ((!_isNull) || (newValue != nullptr))) {
-      changed = (((_isNull) && (newValue != nullptr)) ||
-                 ((!_isNull) && (newValue == nullptr)) ||
-                 (strcmp_P(_asString, newValue) != 0));
+      changed = ((_isNull) && (newValue != nullptr)) ||
+                ((!_isNull) && (newValue == nullptr)) ||
+                (strcmp_P(_asString, newValue) != 0);
       if (changed) {
         if (!_isNull) delete _asString;
         _isNull = (newValue == nullptr);

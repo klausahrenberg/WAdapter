@@ -560,7 +560,6 @@ class WProperty {
  private:
   char* _title = nullptr;  
   WPropertyVisibility _visibility;
-  bool _supportingMqtt;
   bool _supportingWebthing;
   bool _readOnly;
   char* _unit = nullptr;
@@ -611,9 +610,6 @@ class WRangeProperty : public WProperty {
       : WProperty(title, type, atType) {
     _min = minimum;
     _max = maximum;
-  }
-
-  ~WRangeProperty() {
   }
 
   double getMinAsDouble() {
