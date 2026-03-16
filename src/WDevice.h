@@ -93,8 +93,10 @@ class WDevice : public IWGpioRegister, public IWPropertyRegister {
 
   virtual void loop(unsigned long now) {
     if (_gpios != nullptr) {
+      //inputs first
       _gpios->forEach([this, now] (int index, WGpio* gpio, const char* id) { if (gpio->isInput()) gpio->loop(now); } );
-      _gpios->forEach([this, now] (int index, WGpio* gpio, const char* id) { if (gpio->isOutput()) gpio->loop(now); } );
+      //all others after
+      _gpios->forEach([this, now] (int index, WGpio* gpio, const char* id) { if (!gpio->isInput()) gpio->loop(now); } );
     }
   }
 

@@ -106,14 +106,21 @@ class W2812Led : public WGpio {
 
   WRangeProperty* brightness() { return _brightness; }
 
-  /*void pixelColor(uint16_t ledNumber, uint8_t red, uint8_t green, uint8_t blue, bool updateImmediatly = true) {
-    _strip->setPixelColor(ledNumber, red, green, blue);
-    if (updateImmediatly) _strip->show();
-  }*/
-
-  W2812Led* color(byte index, uint32_t color) {
+  W2812Led* color(byte index, uint32_t color) {    
+    _needsUpdate = _needsUpdate || ((_colors[index] != color));
     _colors[index] = color;
-    _needsUpdate = true;
+    return this;
+  }
+
+  W2812Led* color(const byte indexRange[], uint32_t color1, byte countColor1 = 0xFF, uint32_t color2 = 0x000000) {
+    for (byte i = indexRange[0]; (countColor1 != 0xFF ? i < indexRange[0] + countColor1 : i <= indexRange[1]); i++) {
+      color(i, color1);
+    }
+    if (countColor1 != 0xFF) {
+      for (byte i = indexRange[0] + countColor1; i <= indexRange[1]; i++) {
+        color(i, color2);
+      }
+    }
     return this;
   }
 
@@ -123,11 +130,12 @@ class W2812Led : public WGpio {
     return this;
   }
 
-  /*void show() {
-    bool b = isOn();
-    for (byte i = 0; i < _numberOfLeds->asByte(); i++) _strip->setPixelColor(i, (b ? _colors[i] : 0x000000));    
-    _strip->show();
-  }*/
+  W2812Led* color(const byte indexRange[], TColorPicker condition) {
+    for (byte i = indexRange[0]; i <= indexRange[1]; i++) {
+      this->color(i, condition);
+    }
+    return this;
+  }
 
   virtual void registerSettings() {
     WGpio::registerSettings();
@@ -153,15 +161,34 @@ class W2812Led : public WGpio {
     return this;
   }
 
-  void on(bool ledOn, unsigned short onFor = 0) {
-    _onFor = onFor;
-    WGpio::on(ledOn);
+  W2812Led* alwaysOn(const byte indexRange[], bool alwaysOn = true) {
+    for (byte i = indexRange[0]; i <= indexRange[1]; i++) {
+      this->alwaysOn(i, alwaysOn);
+    }
+    return this;
   }  
 
-  void loop(unsigned long now) {
+  W2812Led* onFor(unsigned short onFor) {
+    _onFor = onFor;
+    _needsUpdate = true;
+    return this;
+  } 
+
+  WGpio* on(bool ledOn) {    
+    _needsUpdate = _needsUpdate || (ledOn != isOn());    
+    WGpio::on(ledOn && ((!hasProperty()) || (_property->asBool())));
+    if ((ledOn) && (_onFor > 0)) {
+      _lastStateChange = millis();
+    }
+    return this;
+  }  
+
+  virtual void loop(unsigned long now) {
     WGpio::loop(now);
-    bool ison = WGpio::isOn();
-    if ((_onFor != 0) && (isOnSince(_onFor))) WGpio::on(false);
+    if ((_onFor != 0) && (isOnSince(_onFor))) {
+      on(false);
+    }
+    bool ison = WGpio::isOn();      
     for (byte i = 0; i < _numberOfLeds->asByte(); i++) {
       if ((ison) || (_alwaysOn[i])) {
         if (_conditions[i]) {

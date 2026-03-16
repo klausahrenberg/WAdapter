@@ -31,8 +31,6 @@ class WPCF8575 : public WI2C, public IWExpander {
 
   bool begin() {
     _transmissionStatus = 4;
-    Serial.print("begin writeMode -> ");
-    Serial.println(_writeMode);
     if (_writeMode > 0 || _readMode > 0) {
       _i2cPort->beginTransmission(_address);
       _resetInitial = _writeModeUp | _readMode;
@@ -54,10 +52,6 @@ class WPCF8575 : public WI2C, public IWExpander {
     return (_transmissionStatus == 0); }
 
   virtual void mode(uint8_t pin, uint8_t mode) {
-    Serial.print("mode ");
-    Serial.print(pin);
-    Serial.print(" -> ");
-    Serial.println(mode);
     if (mode == OUTPUT) {
       _writeMode = _writeMode | bit(pin);    
       _writeModeUp = _writeModeUp | bit(pin);
@@ -75,8 +69,6 @@ class WPCF8575 : public WI2C, public IWExpander {
       _readModePullDown = _readModePullDown & ~bit(pin);
       _readModePullUp = _readModePullUp | bit(pin);
     }
-    Serial.print("writeMode -> ");
-    Serial.println(_writeMode);
   }
 
   virtual bool readInput(uint8_t pin) {

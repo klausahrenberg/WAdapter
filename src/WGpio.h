@@ -82,14 +82,14 @@ class WGpio : public IWJsonable {
     if (_pin) delete _pin;
   }
 
-  bool isOn() { return (_property != nullptr ? _property->asBool() : _on); }
+  bool isOn() { return _on; }
 
-  bool isOnSince(unsigned short since) {
+  virtual bool isOnSince(unsigned short since) {
     return ((_lastStateChange >= 0) && (isOn()) && (millis() - _lastStateChange >= since));
   }
 
   virtual WGpio* on(bool isOn) {
-    if ((_property == nullptr) && (isOn != _on)) {
+    if (isOn != _on) {
       _on = isOn;
       _lastStateChange = millis();
       _updateOn();      
@@ -111,8 +111,7 @@ class WGpio : public IWJsonable {
       this->loop(millis());
     } else {
       _property->addListener([this]() { 
-        _lastStateChange = millis();
-        _updateOn();
+        on(_property->asBool());
       });
     }   
     return this;   
