@@ -34,7 +34,7 @@ class WSwitch : public WGpio {
     if (this->isInitialized()) {
       // 1. Eliminate flickering input
       bool stateChanged = false;
-      bool newState = readInput(pin());      
+      bool newState = readInput(pin());  
       bool expectedPegel = (_type == GPIO_TYPE_SWITCH ? !_state : _onLevel());
       unsigned long sensitiveness = (_type == GPIO_TYPE_SWITCH ? SWITCH_SENSITIVENESS : BUTTON_SENSITIVENESS);
 
