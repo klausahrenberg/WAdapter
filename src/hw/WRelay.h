@@ -43,7 +43,10 @@ class WRelay : public WGpio {
   }
 
  protected:
-  void _updateOn() {
+  
+  virtual void _updateOn() {
+    WGpio::_updateOn();  
+    Serial.printf("Update relay at pin %d", pin()); Serial.println();
     writeOutput(this->pin(), isOn() ? getOnLevel() : getOffLevel());
   };
 

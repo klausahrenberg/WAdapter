@@ -76,6 +76,7 @@ class WPCF8575 : public WI2C, public IWExpander {
   }
 
   virtual void writeOutput(uint8_t pin, bool value) {
+    Serial.println("writeOutput: ");
     if (_started) {
       _i2cPort->beginTransmission(_address);
       if (value == HIGH) {
@@ -91,6 +92,9 @@ class WPCF8575 : public WI2C, public IWExpander {
       _byteBuffered =
           (_writeByteBuffered & _writeMode) | (_initialBuffer & _readMode);
       _transmissionStatus = _i2cPort->endTransmission();
+      Serial.print("Write: ");
+      Serial.print(_byteBuffered, BIN);
+      Serial.println();
     }
   }
 
