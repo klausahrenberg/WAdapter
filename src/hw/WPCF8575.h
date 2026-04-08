@@ -14,17 +14,19 @@ class WPCF8575 : public WI2C, public IWExpander {
     WPCF8575* exp = new WPCF8575(address, sda, scl, i2cPort);
     device->registerGpio(exp);
     return exp;
-  }    
+  }
 
   virtual void loop(unsigned long now) {
     WI2C::loop(now);
-    if (_started) {
+    if (_started && (now - _lastReadMillis >= READ_ELAPSED_TIME)) {
       _i2cPort->requestFrom(_address, (uint8_t)2);
       _lastReadMillis = millis();
-      if (_i2cPort->available()) {
-        uint16_t iInput = _i2cPort->read();
-        iInput |= _i2cPort->read() << 8;
-        _byteBuffered = (uint16_t)iInput;
+      if (_i2cPort->available()) {        
+        uint16_t currentInputs = _i2cPort->read();
+        currentInputs |= _i2cPort->read() << 8;
+        // Input-Pins behalten ihren aktuellen Zustand
+        //alt: _byteBuffered = (uint16_t) currentInputs;
+        _byteBuffered = (_writeByteBuffered & _writeMode) | (currentInputs & _readMode);
       }
     }
   }
@@ -48,12 +50,14 @@ class WPCF8575 : public WI2C, public IWExpander {
     return _started;
   }
 
-  bool isLastTransmissionSuccess() { 
-    return (_transmissionStatus == 0); }
+  bool isLastTransmissionSuccess() {
+    return (_transmissionStatus == 0);
+  }
 
   virtual void mode(uint8_t pin, uint8_t mode) {
+    // bitRead(_resetInitial, 6);
     if (mode == OUTPUT) {
-      _writeMode = _writeMode | bit(pin);    
+      _writeMode = _writeMode | bit(pin);
       _writeModeUp = _writeModeUp | bit(pin);
       _readMode = _readMode & ~bit(pin);
       _readModePullDown = _readModePullDown & ~bit(pin);
@@ -75,6 +79,8 @@ class WPCF8575 : public WI2C, public IWExpander {
     return (_started ? bitRead(_byteBuffered, pin) : false);
   }
 
+  /*
+  alt:
   virtual void writeOutput(uint8_t pin, bool value) {
     Serial.println("writeOutput: ");
     if (_started) {
@@ -95,6 +101,47 @@ class WPCF8575 : public WI2C, public IWExpander {
       Serial.print("Write: ");
       Serial.print(_byteBuffered, BIN);
       Serial.println();
+    }
+  }
+  */
+
+  virtual void writeOutput(uint8_t pin, bool value) {
+    if (_started) {
+      // 1. Aktuelle Input-Werte lesen (optional, aber empfohlen)
+      _i2cPort->requestFrom(_address, (uint8_t)2);
+      if (_i2cPort->available() >= 2) {
+        uint16_t currentInputs = _i2cPort->read();
+        currentInputs |= _i2cPort->read() << 8;
+        // Input-Pins behalten ihren aktuellen Zustand
+        _byteBuffered = (_writeByteBuffered & _writeMode) | (currentInputs & _readMode);
+      }
+
+      // 2. Output-Pin setzen/clearen
+      if (value == HIGH) {
+        _writeByteBuffered |= bit(pin);
+      } else {
+        _writeByteBuffered &= ~bit(pin);
+      }
+
+      // 3. Neuen Gesamtzustand berechnen
+      // Outputs: _writeByteBuffered, Inputs: aktuelle Werte (oder initial bei Fehler)
+      uint16_t newState = (_writeByteBuffered & _writeMode) | (_byteBuffered & _readMode);
+
+      // 4. An PCF8575 senden
+      _i2cPort->beginTransmission(_address);
+      _i2cPort->write((uint8_t)newState);
+      _i2cPort->write((uint8_t)(newState >> 8));
+      _transmissionStatus = _i2cPort->endTransmission();
+
+      // 5. Puffern für spätere reads
+      _byteBuffered = newState;
+
+      Serial.print("Write pin ");
+      Serial.print(pin);
+      Serial.print(" = ");
+      Serial.print(value);
+      Serial.print(" State: 0b");
+      Serial.println(newState, BIN);
     }
   }
 
