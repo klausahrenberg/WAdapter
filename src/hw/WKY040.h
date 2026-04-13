@@ -77,7 +77,7 @@ class WKY040 : public WSwitch {
   bool rotatedRight() { return _irqEventRight; }
 
  protected:
-  bool isInitialized() { return (WSwitch::isInitialized()) && (_pinClk != NO_PIN) && (_pinDt != NO_PIN); }
+  bool isInitialized() { return (WSwitch::_isInitialized()) && (_pinClk != NO_PIN) && (_pinDt != NO_PIN); }
 
  private:
   WProperty *_rotatingLeft;

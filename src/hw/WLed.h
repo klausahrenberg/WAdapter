@@ -13,7 +13,7 @@ const byte LED_OFF = LOW;
 
 class WLed : public WGpio {
  public:
-  WLed(int ledPin = NO_PIN, IWExpander* expander = nullptr) : WGpio(GPIO_TYPE_LED, ledPin, OUTPUT, expander) {    
+  WLed(byte ledPin = NO_PIN, IWExpander* expander = nullptr) : WGpio(GPIO_TYPE_LED, ledPin, OUTPUT, expander) {    
     
   }  
 
@@ -98,7 +98,7 @@ class WLed : public WGpio {
 	}
 
   virtual void _onChange() {    
-    if (isInitialized()) {
+    if (_isInitialized()) {
       writeOutput(pin(), getOffLevel());
     }
   } 

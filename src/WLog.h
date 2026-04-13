@@ -51,14 +51,18 @@ class WLog {
 public:
 
 	WLog() {
-		this->output = nullptr;
+		_output = nullptr;
+	}
+
+	Print* output() {
+		return _output;
 	}
 
 	void setOutput(Print *output, int maxLevel, bool showLevel, bool printLineBreak) {
-		this->output = output;
-		this->maxLevel = maxLevel;
-		this->showLevel = showLevel;
-		this->printLineBreak = printLineBreak;
+		_output = output;
+		_maxLevel = maxLevel;
+		_showLevel = showLevel;
+		_printLineBreak = printLineBreak;
 	}
 
 	template<class T, typename ... Args> void error(T msg, Args ... args) {
@@ -74,10 +78,10 @@ public:
 	}
 
 	template<class T> void printLevel(int level, T msg, ...) {
-		if ((output != nullptr) && (level <= maxLevel)) {
-			if (this->showLevel) {
-				this->output->print(getLevelString(level));
-				this->output->print(": ");
+		if ((_output != nullptr) && (level <= _maxLevel)) {
+			if (_showLevel) {
+				_output->print(getLevelString(level));
+				_output->print(": ");
 			}
 			va_list args;
 			va_start(args, msg);
@@ -96,10 +100,10 @@ public:
 	}
 
 private:
-	Print* output;
-	byte maxLevel;
-	bool showLevel;
-	bool printLineBreak;
+	Print* _output;
+	byte _maxLevel;
+	bool _showLevel;
+	bool _printLineBreak;
 
 	void print(const char *format, va_list args) {
 		for (; *format != 0; ++format) {
@@ -107,10 +111,10 @@ private:
 				++format;
 				printFormat(*format, &args);
 			} else {
-				this->output->print(*format);
+				_output->print(*format);
 			}
 		}
-		if (this->printLineBreak) this->output->println();
+		if (_printLineBreak) _output->println();
 	}
 
 	void print(const __FlashStringHelper *format, va_list args) {
@@ -121,50 +125,50 @@ private:
 				c = pgm_read_byte(p++);
 				printFormat(c, &args);
 			} else {
-				this->output->print(c);
+				_output->print(c);
 			}
 		}
-		if (this->printLineBreak) this->output->println();
+		if (_printLineBreak) _output->println();
 	}
 
 	void printFormat(const char format, va_list *args) {
 		if (format == '%') {
-			this->output->print(format);
+			_output->print(format);
 		} else if (format == 's') {
 			register char *s = (char *)va_arg(*args, int);
-			this->output->print(s);
+			_output->print(s);
 		} else if (format == 'S') {
 			register __FlashStringHelper *s = (__FlashStringHelper *)va_arg(*args, int);
-			this->output->print(s);
+			_output->print(s);
 		} else if (format == 'd' || format == 'i') {
-			this->output->print(va_arg(*args, int), DEC);
+			_output->print(va_arg(*args, int), DEC);
 		} else if (format == 'D' || format == 'F') {
-			this->output->print(va_arg(*args, double));
+			_output->print(va_arg(*args, double));
 		} else if (format == 'x') {
-			this->output->print(va_arg(*args, int), HEX);
+			_output->print(va_arg(*args, int), HEX);
 		} else if (format == 'X') {
-			this->output->print("0x");
-			this->output->print(va_arg(*args, int), HEX);
+			_output->print("0x");
+			_output->print(va_arg(*args, int), HEX);
 		} else if (format == 'b') {
-			this->output->print(va_arg(*args, int), BIN);
+			_output->print(va_arg(*args, int), BIN);
 		} else if (format == 'B') {
-			this->output->print("0b");
-			this->output->print(va_arg(*args, int), BIN);
+			_output->print("0b");
+			_output->print(va_arg(*args, int), BIN);
 		} else if (format == 'l') {
-			this->output->print(va_arg(*args, long), DEC);
+			_output->print(va_arg(*args, long), DEC);
 		} else if (format == 'c') {
-			this->output->print((char) va_arg(*args, int));
+			_output->print((char) va_arg(*args, int));
 		} else if (format == 't') {
 			if (va_arg(*args, int) == 1) {
-				this->output->print("T");
+				_output->print("T");
 			} else {
-				this->output->print("F");
+				_output->print("F");
 			}
 		} else if (format == 'T') {
 			if (va_arg(*args, int) == 1) {
-				this->output->print(WC_TRUE);
+				_output->print(WC_TRUE);
 			} else {
-				this->output->print(WC_FALSE);
+				_output->print(WC_FALSE);
 			}
 		}
 	}

@@ -10,49 +10,45 @@ class WRootPage : public WPage {
   }
 
   virtual ~WRootPage() {
+  }
 
-  }  
-
-  virtual void createControls(WebControl* parentNode) {    
-    WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);    
-    parentNode->add(div); 
+  virtual void createControls(WebControl* parentNode) {
+    WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
+    parentNode->add(div);
     _customPages->forEach([this, div](int index, WebPageItem* pageItem, const char* id) {
       if (pageItem->showInMainMenu) {
-        div->add(new WebDiv((new WebButton(pageItem->title))->onClickNavigateTo(id)));      
+        div->add(new WebDiv((new WebButton(pageItem->title))->onClickNavigateTo(id)));
       }
     });
   }
+
  private:
   WList<WebPageItem>* _customPages;
-
 };
 
 class WNetworkPage : public WPage {
- public: 
+ public:
   WNetworkPage() : WPage() {
-    
   }
 
   virtual ~WNetworkPage() {
+  }
 
-  }  
-
-  virtual void createControls(WebControl* parentNode) {    
-
+  virtual void createControls(WebControl* parentNode) {
     WebControl* form = new WebForm(WC_WIFI, nullptr);
     parentNode->add(form);
-    //network
+    // network
     form->add((new WebTextField(WC_ID, PSTR("Id"), SETTINGS->getString(WC_ID), 16)));
     form->add(new WebTextField(WC_SSID, PSTR("Wifi SSID (only 2.4G)"), SETTINGS->getString(WC_SSID), 32));
     form->add(new WebTextField(WC_PASSWORD, PSTR("Wifi password"), SETTINGS->getString(WC_PASSWORD), 32, true));
-    //mqtt
+    // mqtt
     form->add((new WebTextField(WC_MQTT_SERVER, PSTR("MQTT Server"), SETTINGS->getString(WC_MQTT_SERVER), 32)));
     form->add((new WebTextField(WC_MQTT_PORT, PSTR("MQTT Port"), SETTINGS->getString(WC_MQTT_PORT), 4)));
     form->add(new WebTextField(WC_MQTT_USER, PSTR("MQTT User"), SETTINGS->getString(WC_MQTT_USER), 16));
     form->add(new WebTextField(WC_MQTT_PASSWORD, PSTR("MQTT password"), SETTINGS->getString(WC_MQTT_PASSWORD), 32, true));
 
-    form->add((new WebSubmitButton(PSTR("Save configuration"))));
-  }  
+    form->add((new WebSubmitButton(WC_SAVE_CONFIGURATION)));
+  }
 
   virtual WFormResponse submitForm(WList<WValue>* args) {
     LOG->debug("submit %d", args->size());
@@ -64,30 +60,27 @@ class WNetworkPage : public WPage {
     SETTINGS->setString(WC_MQTT_USER, args->getById(WC_MQTT_USER)->asString());
     SETTINGS->setString(WC_MQTT_PASSWORD, args->getById(WC_MQTT_PASSWORD)->asString());
     SETTINGS->save();
-    //delay(300);
-    return WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));   
+    // delay(300);
+    return WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));
   }
 
  protected:
-
 };
 
 class WResetPage : public WPage {
- public: 
+ public:
   WResetPage(WNetwork* network) : WPage() {
-    
   }
 
   virtual ~WResetPage() {
-
-  }  
+  }
 
   virtual void createControls(WebControl* parentNode) {
     WebControl* div = new WebForm("reset", nullptr);
     parentNode->add(div);
-    //WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
-    //parentNode->add(div);
-    div->add(new WebDiv((new WebButton(PSTR("Restart")))->onClickSubmit("0")));    
+    // WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
+    // parentNode->add(div);
+    div->add(new WebDiv((new WebButton(PSTR("Restart")))->onClickSubmit("0")));
     div->add(new WebDiv((new WebButton(PSTR("Restart in AccessPoint mode")))->onClickSubmit("1")));
     div->add(new WebDiv((new WebButton(PSTR("Reset all settings")))->onClickSubmit("2")));
     div->add(new WebDiv((new WebButton(WC_BACK_TO_MAINMENU))->onClickNavigateTo(WC_CONFIG)));
@@ -96,53 +89,58 @@ class WResetPage : public WPage {
   virtual WFormResponse submitForm(WList<WValue>* args) {
     const char* v = args->getById(WC_VALUE)->asString();
     switch (v[0]) {
-      case '0' : return WFormResponse(FO_RESTART, PSTR("Restart was caused by web interface"));        
-      case '1' : return WFormResponse(FO_FORCE_AP, PSTR("Restart device in AccessPoint mode"));        
-      case '2' : return WFormResponse(FO_RESET_ALL, PSTR("All settings are resetted, device restarts"));        
-      default : return WFormResponse(FO_NONE);
+      case '0':
+        return WFormResponse(FO_RESTART, PSTR("Restart was caused by web interface"));
+      case '1':
+        return WFormResponse(FO_FORCE_AP, PSTR("Restart device in AccessPoint mode"));
+      case '2':
+        return WFormResponse(FO_RESET_ALL, PSTR("All settings are resetted, device restarts"));
+      default:
+        return WFormResponse(FO_NONE);
     }
-    return WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));   
+    return WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));
   }
 
  private:
-  
 };
 
 class WRestartPage : public WPage {
- public: 
+ public:
   WRestartPage(const char* restartMessage) : WPage() {
     _restartMessage = restartMessage;
   }
 
   virtual ~WRestartPage() {
-
-  }  
+  }
 
   virtual void createControls(WebControl* parentNode) {
     WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
-    parentNode->add(div);    
+    parentNode->add(div);
     div->add(new WebLabel(_restartMessage));
-    div->add(new WebLabel(PSTR("ESP reboots now...")));
-    div->add(new WebDiv((new WebButton(PSTR("Back to configuration")))->onClickNavigateTo(WC_CONFIG)));
+    div->add(new WebLabel(PSTR("ESP reboots...")));
+    div->add(new WebDiv((new WebButton(WC_BACK_TO_MAINMENU))->onClickNavigateTo(WC_CONFIG)));
   }
+
  private:
   const char* _restartMessage;
-  
 };
 
 class WFirmwarePage : public WPage {
  public:
-  virtual void createControls(WebControl* parentNode) {    
-
-    WebControl* form = new WebForm(WC_FIRMWARE, nullptr);
-    form->param(WC_ENCTYPE, WC_MULTIPART_FORM_DATA);
-    parentNode->add(form);    
-    //network
-    form->add(new WebInputFile("update"));
-
-    form->add(new WebSubmitButton(PSTR("Save configuration")));
-  
-  }  
+  virtual void createControls(WebControl* parentNode) {
+    if (ESP.getSketchSize() < ESP.getFreeSketchSpace() / 2) {
+      WebControl* form = new WebForm(WC_FIRMWARE, nullptr);
+      form->param(WC_ENCTYPE, WC_MULTIPART_FORM_DATA);
+      parentNode->add(form);
+      form->add(new WebInputFile("update"));
+      form->add(new WebSubmitButton(WC_SAVE_CONFIGURATION));
+    } else {
+      WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
+      parentNode->add(div);
+      div->add(new WebLabel(PSTR("Not enough free space on ESP for OTA updates.")));
+      div->add(new WebDiv((new WebButton(WC_BACK_TO_MAINMENU))->onClickNavigateTo(WC_CONFIG)));
+    }
+  }
 
   virtual WFormResponse submitForm(WList<WValue>* args) {
     LOG->debug("Update finished.");
@@ -151,46 +149,44 @@ class WFirmwarePage : public WPage {
       LOG->debug("Error %s", Update.errorString());
     }
     return WFormResponse(FO_RESTART, (Update.hasError() ? PSTR("Some error during update") : PSTR("Update successful")));
-  }  
-
-};  
-
+  }
+};
 
 class WInfoPage : public WPage {
- public: 
-  WInfoPage(unsigned long running) : WPage() {    \
+ public:
+  WInfoPage(unsigned long running) : WPage() {
     _running = running;
     _datas = new WList<WValue>();
   }
 
-  virtual ~WInfoPage() {   
-    delete _datas; 
-  }  
+  virtual ~WInfoPage() {
+    delete _datas;
+  }
 
   virtual void createControls(WebControl* parentNode) {
     WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
-    parentNode->add(div);    
-#ifdef ARDUINO_ARCH_ESP8266    
-    _datas->add(new WValue("ESP8266"), PSTR("Chip"));      
+    parentNode->add(div);
+#ifdef ARDUINO_ARCH_ESP8266
+    _datas->add(new WValue("ESP8266"), PSTR("Chip"));
 #elif ARDUINO_ARCH_ESP32
-    _datas->add(new WValue("ESP 32"), PSTR("Chip"));      
+    _datas->add(new WValue("ESP 32"), PSTR("Chip"));
 #endif
-    _datas->add(new WValue(WUtils::getChipId()), PSTR("Chip ID"));      
-    _datas->add(new WValue(ESP.getFlashChipSize()), PSTR("IDE Flash Size"));      
-#ifdef ARDUINO_ARCH_ESP8266    
-    _datas->add(new WValue(ESP.getFlashChipRealSize()), PSTR("Real Flash Size")); 
-#endif    
-    //_datas->add(WProps::create..., PSTR("IP address"));      
+    _datas->add(new WValue(WUtils::getChipId()), PSTR("Chip ID"));
+    _datas->add(new WValue(ESP.getFlashChipSize()), PSTR("IDE Flash Size"));
+#ifdef ARDUINO_ARCH_ESP8266
+    _datas->add(new WValue(ESP.getFlashChipRealSize()), PSTR("Real Flash Size"));
+#endif
+    //_datas->add(WProps::create..., PSTR("IP address"));
     //_datas->add(WProps::createStringProperty()->asString(WiFi.macAddress()), PSTR("MAC address"));
-    _datas->add(new WValue(ESP.getSketchSize()), PSTR("Current sketch size"));      
-    _datas->add(new WValue(ESP.getFreeSketchSpace()), PSTR("Available sketch size"));      
-    _datas->add(new WValue(ESP.getFreeHeap()), PSTR("Free heap size"));    
-#ifdef ARDUINO_ARCH_ESP8266            
-    _datas->add(new WValue(ESP.getMaxFreeBlockSize()), PSTR("Largest heap block"));        
-#endif           
-    _datas->add(new WValue(_running)/*->unit(PSTR(" minutes"))*/, PSTR("Running since"));        
+    _datas->add(new WValue(ESP.getSketchSize()), PSTR("Current sketch size"));
+    _datas->add(new WValue(ESP.getFreeSketchSpace()), PSTR("Available sketch size"));
+    _datas->add(new WValue(ESP.getFreeHeap()), PSTR("Free heap size"));
+#ifdef ARDUINO_ARCH_ESP8266
+    _datas->add(new WValue(ESP.getMaxFreeBlockSize()), PSTR("Largest heap block"));
+#endif
+    _datas->add(new WValue(_running) /*->unit(PSTR(" minutes"))*/, PSTR("Running since"));
 
-    div->add((new WebTable<WValue>(_datas))->onPrintRow([this](Print* stream, int index, WValue* item, const char* id){
+    div->add((new WebTable<WValue>(_datas))->onPrintRow([this](Print* stream, int index, WValue* item, const char* id) {
       WebTable<WValue>::headerCell(stream, id);
       WebTable<WValue>::dataCell(stream, item->toString());
     }));
@@ -255,10 +251,10 @@ class WInfoPage : public WPage {
       request->send(page);
     */
   }
+
  private:
   unsigned long _running;
   WList<WValue>* _datas;
-  
 };
 
 #endif

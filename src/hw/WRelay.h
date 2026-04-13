@@ -7,11 +7,11 @@ class WDevice;
 
 class WRelay : public WGpio {
  public:
-  WRelay(int relayPin, bool inverted = false, IWExpander* expander = nullptr) : WGpio(GPIO_TYPE_RELAY, relayPin, OUTPUT, expander) {
+  WRelay(byte relayPin, bool inverted = false, IWExpander* expander = nullptr) : WGpio(GPIO_TYPE_RELAY, relayPin, OUTPUT, expander) {
     this->inverted(inverted);
   }
 
-  static WRelay* create(IWGpioRegister* device, int relayPin, bool inverted = false, IWExpander* expander = nullptr) {
+  static WRelay* create(IWGpioRegister* device, byte relayPin, bool inverted = false, IWExpander* expander = nullptr) {
     WRelay* relay = new WRelay(relayPin, inverted, expander);
     device->registerGpio(relay);
     return relay;
@@ -46,17 +46,17 @@ class WRelay : public WGpio {
   
   virtual void _updateOn() {
     WGpio::_updateOn();  
-    Serial.printf("Update relay at pin %d", pin()); Serial.println();
-    writeOutput(this->pin(), isOn() ? getOnLevel() : getOffLevel());
+    Serial.printf("WRelay: Update relay at pin %d", pin()); Serial.println();
+    writeOutput(this->pin(), isOn() ? _onLevel() : _offLevel());
   };
 
-  byte getOnLevel() { return (!inverted() ? HIGH : LOW); }
+  byte _onLevel() { return (!inverted() ? HIGH : LOW); }
 
-  byte getOffLevel() { return !getOnLevel(); }
+  byte _offLevel() { return !_onLevel(); }
 
   virtual void _onChange() {
-    if (isInitialized()) {
-      writeOutput(pin(), getOffLevel());
+    if (_isInitialized()) {
+      writeOutput(pin(), _offLevel());
     }
   }
 

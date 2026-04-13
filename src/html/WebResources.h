@@ -64,6 +64,7 @@ const static char WC_POST[] PROGMEM = "post";
 const static char WC_REL[] PROGMEM = "rel";
 const static char WC_RESET[] PROGMEM = "reset";
 const static char WC_ROWS[] PROGMEM = "rows";
+const static char WC_SAVE_CONFIGURATION[] PROGMEM = "Save configuration";
 const static char WC_SCRIPT[] PROGMEM = "script";
 const static char WC_SELECT[] PROGMEM = "select";
 const static char WC_SELECTED[] PROGMEM = "selected";

@@ -264,7 +264,7 @@ class W2812Led : public WGpio {
     _needsUpdate = true;
   };
 
-  virtual bool isInitialized() { return ((WGpio::isInitialized()) && (_numberOfLeds->asByte() > 0)); }
+  virtual bool isInitialized() { return ((WGpio::_isInitialized()) && (_numberOfLeds->asByte() > 0)); }
 
   virtual void _onChange() {
     if (_strip != nullptr) {

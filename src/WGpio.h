@@ -89,8 +89,9 @@ class WGpio : public IWJsonable {
   }
 
   virtual WGpio* on(bool isOn) {
-    Serial.printf("set on for pin %d / newOn %d / _on %d", pin(), isOn, _on);
     if (isOn != _on) {
+      Serial.printf("WGpio: set on for pin %d / newOn %d / _on %d", pin(), isOn, _on);
+      Serial.println();
       _on = isOn;
       _lastStateChange = millis();
       _updateOn();      
@@ -188,7 +189,7 @@ class WGpio : public IWJsonable {
   unsigned long _lastStateChange = 0;
   TCondition _condition;
 
-  virtual bool isInitialized() { return (pin() != NO_PIN); }  
+  virtual bool _isInitialized() { return (pin() != NO_PIN); }  
 
   virtual void _updateOn() {}
 

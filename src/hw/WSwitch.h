@@ -18,7 +18,7 @@ class WSwitch : public WGpio {
     _startTime = 0;
     this->inverted(inverted);
     _triggerProperty = nullptr;
-    if (this->isInitialized()) {
+    if (_isInitialized()) {
       _state = readInput(switchPin);
       _lastState = _state;
     }
@@ -31,7 +31,7 @@ class WSwitch : public WGpio {
   }
 
   void loop(unsigned long now) {
-    if (this->isInitialized()) {
+    if (_isInitialized()) {
       // 1. Eliminate flickering input
       bool stateChanged = false;
       bool newState = readInput(pin());  
