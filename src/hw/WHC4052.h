@@ -33,6 +33,8 @@ class WHC4052 : public WGpio {
     WGpio::loop(now);
   }
 
+  byte index() { return _index; }
+
   void index(byte index) {
     if (_index != index) {      
       _index = min(index, (byte) 3);
