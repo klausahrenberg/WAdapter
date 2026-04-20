@@ -91,9 +91,9 @@ class WPCF8575 : public WI2C, public IWExpander {
           (_writeByteBuffered & _writeMode) | _readMode;
       _transmissionStatus = _i2cPort->endTransmission();
 
-      if (DEBUG) {        
+      /*if (DEBUG) {        
         _printBinary16(LOG->output(), _byteBuffered);
-      }
+      }*/
     }
   }
 
