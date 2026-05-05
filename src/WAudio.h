@@ -19,11 +19,12 @@ enum : uint8_t { SET_VOLUME, GET_VOLUME, CONNECTTOHOST, CONNECTTOSD };
 
 typedef std::function<void(void)> TOnStateChange;
 
-class WAudio : public Audio {
+class WAudio : public Audio, public WGpio {
  public:
-  WAudio() : Audio(I2S_NUM_0) {    
+  WAudio(byte pinBck, byte pinLrc, byte pinDout, byte pinXsmt = NO_PIN, IWExpander* expander = nullptr) : Audio(I2S_NUM_0), WGpio(GPIO_TYPE_LED, pinXsmt, OUTPUT, expander) {    
     wAudio = this;
     this->setVolume(21); 
+    setPinout(pinBck, pinLrc, pinDout);
   }
 
   ~WAudio() {
@@ -75,6 +76,14 @@ class WAudio : public Audio {
   QueueHandle_t audioSetQueue = nullptr;
   QueueHandle_t audioGetQueue = nullptr;
 
+  virtual void loop(unsigned long now) {
+    WGpio::loop(now);
+    if (isOn()) {
+      Audio::loop();
+      vTaskDelay(1);
+    }
+  }  
+
  protected:
   audioMessage transmitReceive(audioMessage msg) {
     xQueueSend(audioSetQueue, &msg, portMAX_DELAY);
@@ -87,9 +96,45 @@ class WAudio : public Audio {
     return audioRxMessage;
   }
 
+  virtual void _updateOn() {
+    WGpio::_updateOn();
+    if (isOn()) {
+      if (!_starting) {
+        _starting = true;
+        LOG->debug("radio on..");
+        // play
+        if (NETWORK->isWifiConnected()) {
+          LOG->debug("radio on...");
+
+          log_w("a) radio gaga");
+          //_tuner = new WAudio();
+
+          // this->radio->init(WM8978_I2S_BCK, WM8978_I2S_WS, WM8978_I2S_DOUT, WM8978_I2S_MCLKPIN);
+          //_tuner->setPinout(PIN_DAC_BCK, PIN_DAC_LRC, PIN_DAC_DOUT);
+          if (pin() != NO_PIN) {
+            writeOutput(pin(), HIGH);
+          }
+          if (!play("https://onefm.ice.infomaniak.ch/onefm-high.mp3")) {
+            // if (!_tuner->play("http://stream.104.6rtl.com/rtl-live/mp3-192/play.m3u")) {  // this->getStationUrl(station->enumIndex())->asString())) {
+            NETWORK->debug(F("Can't connect to station"));
+          }
+          setVolume(20);
+        }
+        _starting = false;
+      }
+    } else {
+      LOG->debug("radio off.");
+      //if (_tuner != nullptr) {
+        stopSong();
+        delay(50);        
+      //}
+    }
+  }
+
  private:
   String streamtitle;
   TOnStateChange onChange = nullptr;
+  bool _starting = false;
 };
 
 void audio_showstreamtitle(const char* info) {
