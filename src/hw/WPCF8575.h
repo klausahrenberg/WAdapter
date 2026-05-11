@@ -33,10 +33,9 @@ class WPCF8575 : public WI2C, public IWExpander {
     _transmissionStatus = 4;
     if (_writeMode > 0 || _readMode > 0) {
       _i2cPort->beginTransmission(_address);
-      _i2cPort->write((uint8_t)_readMode);
-      _i2cPort->write((uint8_t)(_readMode >> 8));
+      _i2cPort->write((uint8_t)_byteBuffered);
+      _i2cPort->write((uint8_t)(_byteBuffered >> 8));
       _byteBuffered = _readModePullUp;
-      _writeByteBuffered = 0;
       _transmissionStatus = _i2cPort->endTransmission();
     } else {
       LOG->debug(F("IO expander, missing in-/outputs"));
@@ -53,7 +52,6 @@ class WPCF8575 : public WI2C, public IWExpander {
   virtual void mode(uint8_t pin, uint8_t mode) {
     if (mode == OUTPUT) {
       _writeMode = _writeMode | bit(pin);
-      //_writeModeUp = _writeModeUp | bit(pin);
       _readMode = _readMode & ~bit(pin);
       _readModePullDown = _readModePullDown & ~bit(pin);
       _readModePullUp = _readModePullUp & ~bit(pin);
@@ -75,22 +73,20 @@ class WPCF8575 : public WI2C, public IWExpander {
   }
 
   virtual void writeOutput(uint8_t pin, bool value) {
+    if (value == HIGH) {
+      _writeByteBuffered = _writeByteBuffered | bit(pin);
+      _byteBuffered = _writeByteBuffered | bit(pin);
+    } else {
+      _writeByteBuffered = _writeByteBuffered & ~bit(pin);
+      _byteBuffered = _writeByteBuffered & ~bit(pin);
+    }
     if (_started) {
-      _i2cPort->beginTransmission(_address);
-      if (value == HIGH) {
-        _writeByteBuffered = _writeByteBuffered | bit(pin);
-        _byteBuffered = _writeByteBuffered | bit(pin);
-      } else {
-        _writeByteBuffered = _writeByteBuffered & ~bit(pin);
-        _byteBuffered = _writeByteBuffered & ~bit(pin);
-      }
+      _i2cPort->beginTransmission(_address);      
       _byteBuffered = (_writeByteBuffered & _writeMode) | _readMode;
       _i2cPort->write((uint8_t)_byteBuffered);
       _i2cPort->write((uint8_t)(_byteBuffered >> 8));
-      _byteBuffered =
-          (_writeByteBuffered & _writeMode) | _readMode;
+      _byteBuffered = (_writeByteBuffered & _writeMode) | _readMode;
       _transmissionStatus = _i2cPort->endTransmission();
-
       /*if (DEBUG) {        
         _printBinary16(LOG->output(), _byteBuffered);
       }*/

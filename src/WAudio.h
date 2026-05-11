@@ -6,7 +6,7 @@
 
 class WAudio;
 WAudio* wAudio = nullptr;
-//void audioTask(void* parameter);
+// void audioTask(void* parameter);
 
 struct audioMessage {
   uint8_t cmd;
@@ -14,16 +14,19 @@ struct audioMessage {
   uint32_t value;
   uint32_t ret;
 } audioTxMessage, audioRxMessage;
-   
-enum : uint8_t { SET_VOLUME, GET_VOLUME, CONNECTTOHOST, CONNECTTOSD };
+
+enum : uint8_t { SET_VOLUME,
+                 GET_VOLUME,
+                 CONNECTTOHOST,
+                 CONNECTTOSD };
 
 typedef std::function<void(void)> TOnStateChange;
 
 class WAudio : public Audio, public WGpio {
  public:
-  WAudio(byte pinBck, byte pinLrc, byte pinDout, byte pinXsmt = NO_PIN, IWExpander* expander = nullptr) : Audio(I2S_NUM_0), WGpio(GPIO_TYPE_LED, pinXsmt, OUTPUT, expander) {    
+  WAudio(byte pinBck, byte pinLrc, byte pinDout, byte pinXsmt = NO_PIN, IWExpander* expander = nullptr) : Audio(I2S_NUM_0), WGpio(GPIO_TYPE_LED, pinXsmt, OUTPUT, expander) {
     wAudio = this;
-    this->setVolume(21); 
+    this->setVolume(21);
     setPinout(pinBck, pinLrc, pinDout);
   }
 
@@ -82,7 +85,7 @@ class WAudio : public Audio, public WGpio {
       Audio::loop();
       vTaskDelay(1);
     }
-  }  
+  }
 
  protected:
   audioMessage transmitReceive(audioMessage msg) {
@@ -117,16 +120,23 @@ class WAudio : public Audio, public WGpio {
           if (!play("https://onefm.ice.infomaniak.ch/onefm-high.mp3")) {
             // if (!_tuner->play("http://stream.104.6rtl.com/rtl-live/mp3-192/play.m3u")) {  // this->getStationUrl(station->enumIndex())->asString())) {
             NETWORK->debug(F("Can't connect to station"));
+          } else {
+            log_w("b) should play");
           }
+          log_w("c) radio gaga");
           setVolume(20);
         }
         _starting = false;
       }
     } else {
       LOG->debug("radio off.");
-      //if (_tuner != nullptr) {
-        stopSong();
-        delay(50);        
+      // if (_tuner != nullptr) {
+      stopSong();
+      _starting = false;
+      if (pin() != NO_PIN) {
+        writeOutput(pin(), HIGH);
+      }
+      delay(50);
       //}
     }
   }
@@ -145,16 +155,19 @@ void audio_showstreamtitle(const char* info) {
 }
 
 // optional
-void audio_info(const char *info) {  
-  Serial.print("audio info: "); Serial.println(info);
+void audio_info(const char* info) {
+  Serial.print("audio info: ");
+  Serial.println(info);
 }
 
-void audio_commercial(const char *info) {  //duration in sec
-  Serial.print("commercial: "); Serial.println(info);
+void audio_commercial(const char* info) {  // duration in sec
+  Serial.print("commercial: ");
+  Serial.println(info);
 }
 
-void audio_bitrate(const char *info){
-  Serial.print("bitrate: "); Serial.println(info);
+void audio_bitrate(const char* info) {
+  Serial.print("bitrate: ");
+  Serial.println(info);
 }
 
 /*void audio_id3data(const char *info){  //id3 metadata
@@ -187,7 +200,6 @@ void audio_eof_speech(const char *info){
 }*/
 
 // audioTask
-
 
 /*
 void audioTask(void* parameter) {
