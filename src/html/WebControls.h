@@ -506,11 +506,11 @@ class WebCombobox : public WebControl {
     this->add(_select);
   }
 
-  WebCombobox* option(const char* option, bool selected) {
+  WebCombobox* option(const char* option, bool selected, const char* optionTitle = nullptr) {
     _select->add((new WebControl(WC_OPTION,
                                  WC_VALUE, option,
                                  (selected ? WC_SELECTED : ""), (selected ? "" : nullptr), nullptr))
-                     ->content(option));
+                     ->content(optionTitle != nullptr ? optionTitle : option));
     return this;
   }
 
