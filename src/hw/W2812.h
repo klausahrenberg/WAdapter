@@ -6,6 +6,7 @@
 
 #define COLOR_DEFAULT 0x200000
 #define COLOR_OFF 0x000000
+#define BLINK_MILLIS 300
 const static char WRGB_NUMBER_OF_LEDS[] PROGMEM = "leds";
 const int COUNT_LED_PROGRAMS = 3;
 const float PI180 = 0.01745329;
@@ -22,10 +23,12 @@ class W2812Led : public WGpio {
     _colors = new uint32_t[numberOfLeds];
     _alwaysOn = new bool[numberOfLeds];
     _conditions = new TColorPicker[numberOfLeds];
+    _blinking = new bool[numberOfLeds];
     for (byte b = 0; b < numberOfLeds; b++) {
       _colors[b] = COLOR_DEFAULT;
       _alwaysOn[b] = false;
       _conditions[b] = nullptr;
+      _blinking[b] = false;
     }
     // network->getSettings()->add(this->color);
     _brightness = new WRangeProperty("Brightness", WDataType::INTEGER, WValue::ofInt(10), WValue::ofInt(255), TYPE_LEVEL_PROPERTY);
@@ -45,6 +48,7 @@ class W2812Led : public WGpio {
     delete _numberOfLeds;
     delete[] _colors;
     delete[] _alwaysOn;
+    delete[] _blinking;
     if (_strip) delete _strip;
   }
 
@@ -106,7 +110,7 @@ class W2812Led : public WGpio {
 
   WRangeProperty* brightness() { return _brightness; }
 
-  W2812Led* color(byte index, uint32_t color) {    
+  W2812Led* color(byte index, uint32_t color) {
     _needsUpdate = _needsUpdate || ((_colors[index] != color));
     _colors[index] = color;
     return this;
@@ -166,46 +170,67 @@ class W2812Led : public WGpio {
       this->alwaysOn(i, alwaysOn);
     }
     return this;
-  }  
+  }
+
+  W2812Led* blinking(byte index, bool blink = true) {
+    _blinking[index] = blink;
+    _needsUpdate = true;
+    return this;
+  }
+
+  W2812Led* blinking(const byte indexRange[], bool blink = true) {
+    for (byte i = indexRange[0]; i <= indexRange[1]; i++) {
+      this->blinking(i, blink);
+    }
+    return this;
+  }
 
   W2812Led* onFor(unsigned short onFor) {
     _onFor = onFor;
     _needsUpdate = true;
     return this;
-  } 
+  }
 
-  WGpio* on(bool ledOn) {    
-    _needsUpdate = _needsUpdate || (ledOn != isOn());    
+  WGpio* on(bool ledOn) {
+    _needsUpdate = _needsUpdate || (ledOn != isOn());
     WGpio::on(ledOn && ((!hasProperty()) || (_property->asBool())));
     if ((ledOn) && (_onFor > 0)) {
       _lastStateChange = millis();
     }
     return this;
-  }  
+  }
 
   virtual void loop(unsigned long now) {
     WGpio::loop(now);
     if ((_onFor != 0) && (isOnSince(_onFor))) {
       on(false);
     }
-    bool ison = WGpio::isOn();      
+    bool ison = WGpio::isOn();
     for (byte i = 0; i < _numberOfLeds->asByte(); i++) {
       if ((ison) || (_alwaysOn[i])) {
+        uint32_t newColor = _colors[i];
         if (_conditions[i]) {
-          uint32_t newColor = _conditions[i]();
+          newColor = _conditions[i]();
           _needsUpdate = _needsUpdate || (newColor != _colors[i]);
           _colors[i] = newColor;
         }
-        _strip->setPixelColor(i, _colors[i]); 
+        if (_blinking[i]) {
+          if ((_lastBlinkOn == 0) || (now - _lastBlinkOn > BLINK_MILLIS)) {
+            _blinkOn = !_blinkOn;
+            _lastBlinkOn = now;
+            _needsUpdate = true;
+          }
+          if (!_blinkOn) newColor = COLOR_OFF;
+        }
+        _strip->setPixelColor(i, newColor);
       } else {
         _strip->setPixelColor(i, COLOR_OFF);
       }
-    }  
+    }
     if (_needsUpdate) _strip->show();
     _needsUpdate = false;
 
     if (WGpio::isOn()) {
-
       /*if (now - _lastUpdate > 200) {
         switch (rgbMode()) {
           case 0: {
@@ -291,7 +316,10 @@ class W2812Led : public WGpio {
   uint32_t* _colors;
   bool* _alwaysOn;
   TColorPicker* _conditions;
+  bool* _blinking;
   unsigned short _onFor = 0;
+  bool _blinkOn = false;
+  unsigned long _lastBlinkOn = 0;
 
   uint32_t wheelColor(byte wheelPos) {
     byte c;

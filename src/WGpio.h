@@ -99,6 +99,10 @@ class WGpio : public IWJsonable {
     return this;
   }    
 
+  virtual bool isPending() {
+    return false;
+  }
+
   virtual void loop(unsigned long now) {
     if ((_condition) && (isOutput())) {
       on(_condition());

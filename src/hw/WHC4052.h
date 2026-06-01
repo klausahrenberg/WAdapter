@@ -3,6 +3,8 @@
 
 #include "../WGpio.h"
 
+const byte WHC4052_DEFAULT_MAPPING[4] = {0b11, 0b00, 0b01, 0b10};
+
 class WHC4052 : public WGpio {
  public:
   typedef std::function<byte()> TIndexCondition;
@@ -12,6 +14,7 @@ class WHC4052 : public WGpio {
     _s1 = pinS1;
     if (_s0 != NO_PIN) mode(_s0, OUTPUT);
     if (_s1 != NO_PIN) mode(_s1, OUTPUT);
+    indexMapping(WHC4052_DEFAULT_MAPPING);
     index(0);
   }
 
@@ -82,7 +85,7 @@ class WHC4052 : public WGpio {
  private:
   byte _s0;
   byte _s1;
-  byte _indexMapping = 0b11100100;  // Index0:00, Index1:01, Index2:10, Index3:11;
+  byte _indexMapping;
   byte _index;
   TIndexCondition _indexCondition = nullptr;
 };
