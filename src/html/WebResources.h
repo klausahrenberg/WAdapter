@@ -11,6 +11,7 @@ const static char WC_BODY[] PROGMEM = R"=====(body)=====";
 const static char WC_BUTTON[] PROGMEM = R"=====(button)=====";
 const static char WC_CLASS[] PROGMEM = R"=====(class)=====";
 const static char WC_CONTENT[] PROGMEM = R"=====(content)=====";
+const static char WC_CONTENT_EDITABLE[] PROGMEM = "contenteditable"; 
 const static char WC_CONFIG[] PROGMEM = "config";
 const static char WC_CSS_BUTTON_HOVER[] PROGMEM = "button:hover";
 const static char WC_CSS_FORM_WHITE_BOX[] PROGMEM = "form, .wb";

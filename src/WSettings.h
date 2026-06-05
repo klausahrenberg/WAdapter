@@ -140,7 +140,7 @@ class WSettings {
     }  
   }
 
-  void remove(const char* id) { _items->removeById(id); }
+  WValue* remove(const char* id) { return _items->removeById(id); }
 
   byte size() { return _items->size(); };
 

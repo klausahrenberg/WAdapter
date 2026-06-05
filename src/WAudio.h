@@ -11,8 +11,9 @@ void audioTaskEvent(Audio::msg_t m);
 
 class WAudio : public Audio, public WGpio {
  public:
-  WAudio(byte pinBck, byte pinLrc, byte pinDout) : Audio(I2S_NUM_0), WGpio(GPIO_TYPE_LED, NO_PIN, OUTPUT, nullptr) {
+  WAudio(WNetwork* network, byte pinBck, byte pinLrc, byte pinDout) : Audio(I2S_NUM_0), WGpio(GPIO_TYPE_LED, NO_PIN, OUTPUT, nullptr) {
     wAudio = this;
+    _network = network;
     Audio::audio_info_callback = audioTaskEvent;
     Audio::setAudioTaskCore(0);
     Audio::setVolume(21);
@@ -68,7 +69,7 @@ class WAudio : public Audio, public WGpio {
       //  _starting = true;
         LOG->debug("radio on..");
         // play
-        if (NETWORK->isWifiConnected()) {
+        if (_network->isWifiConnected()) {
           LOG->debug("radio on...");
 
           log_w("a) radio gaga");
@@ -84,7 +85,7 @@ class WAudio : public Audio, public WGpio {
           if (!Audio::connecttohost("http://onefm.ice.infomaniak.ch/onefm-high.mp3")) {
             // if (!play("http://onefm.ice.infomaniak.ch/onefm-high.mp3")) {
             // if (!play("http://stream.104.6rtl.com/rtl-live/mp3-192/play.m3u")) {  // this->getStationUrl(station->enumIndex())->asString())) {
-            NETWORK->debug(F("Can't connect to station"));
+            LOG->debug(F("Can't connect to station"));
           } else {
             log_w("b) should play");
             _pending = true;
@@ -108,7 +109,7 @@ class WAudio : public Audio, public WGpio {
   }
 
  private:
-  //bool _starting = false;
+  WNetwork* _network;
   bool _initialized = false;
   bool _pending = false;
 };

@@ -434,8 +434,8 @@ class WebTable : public WebControl {
     WHtml::command(stream, WC_TABLE_HEADER, false, nullptr);
   }
 
-  static void dataCell(Print* stream, const char* data) {
-    WHtml::command(stream, WC_TABLE_DATA, true, nullptr);
+  static void dataCell(Print* stream, const char* data, bool editable = false) {
+    WHtml::commandParamsAndNullptr(stream, WC_TABLE_DATA, true, (editable ? WC_CONTENT_EDITABLE : nullptr), (editable ? WC_TRUE : nullptr), nullptr);
     if (data) stream->print(data);
     WHtml::command(stream, WC_TABLE_DATA, false, nullptr);
   }
@@ -473,10 +473,20 @@ class WebTable : public WebControl {
     return this;
   }
 
+  WebTable* onPrintHeaderRow(TOnPrintRow onPrintHeaderRow) {
+    _onPrintHeaderRow = onPrintHeaderRow;
+    return this;
+  }
+
   virtual void toString(Print* stream) {
     WHtml::command(stream, _tag, true, _params);
+    if (_onPrintHeaderRow) {
+      WHtml::command(stream, WC_TABLE_ROW, true, nullptr);  
+      _onPrintHeaderRow(stream, -1, nullptr, nullptr);
+      WHtml::command(stream, WC_TABLE_ROW, false, nullptr);
+    }
     _datas->forEach([this, stream](int index, T* item, const char* id) {
-      WHtml::command(stream, WC_TABLE_ROW, true, nullptr);
+      WHtml::command(stream, WC_TABLE_ROW, true, nullptr);      
       this->printRow(stream, index, item, id);
       WHtml::command(stream, WC_TABLE_ROW, false, nullptr);
     });
@@ -485,6 +495,7 @@ class WebTable : public WebControl {
 
  private:
   WList<T>* _datas;
+  TOnPrintRow _onPrintHeaderRow;
   TOnPrintRow _onPrintRow;
 };
 
