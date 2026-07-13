@@ -138,7 +138,7 @@ class WebApp {
     WEB_SOCKETS->loop();
     if ((_lastPing == 0) || (now - _lastPing > 10000)) {
       _lastPing = now;
-      LOG->debug("ping  %d ... ", now);
+      LOG->debug("Ping  %d (Memory Free: %d  Min: %d  Max: %d)", now, ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
       WebAppSockets::sendMessage(WC_PING, nullptr, nullptr);
       _cleanUpDeadSessions();
     }

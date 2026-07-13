@@ -10,7 +10,7 @@ class WJson {
   }
 
   ~WJson() {
-    _stream = nullptr;
+    //_stream = nullptr;
   }
 
   WJson& beginObject() {
@@ -84,29 +84,8 @@ class WJson {
             propertyNull(name);
           }
           break;
-        case WDataType::BOOLEAN:
-          propertyBoolean(name, value->asBool());
-          break;
-        case WDataType::DOUBLE:
-          propertyDouble(name, value->asDouble());
-          break;
-        case WDataType::SHORT:
-          propertyShort(name, value->asShort());
-          break;
-        case WDataType::INTEGER:
-          propertyInteger(name, value->asInt());
-          break;
-        case WDataType::UNSIGNED_LONG:
-          propertyUnsignedLong(name, value->asUnsignedLong());
-          break;
-        case WDataType::BYTE:
-          propertyByte(name, value->asByte());
-          break;
-        case WDataType::BYTE_ARRAY:
-          propertyByteArray(name, value->length(), value->asByteArray());
-          break;
-        case WDataType::LIST:
-          // tbi, not supported yet
+        default:
+          propertyValue(name, value);
           break;
       }
     } else {
@@ -124,66 +103,30 @@ class WJson {
     return *this;
   }
 
-  WJson& propertyInteger(const char* name, int value) {
-    _ifSeparator();
-    _separatorAlreadyCalled = true;
-    memberName(name);
-    numberInteger(value);
-    _separatorAlreadyCalled = false;
-    return *this;
-  }
-
-  WJson& propertyShort(const char* name, short value) {
-    _ifSeparator();
-    _separatorAlreadyCalled = true;
-    memberName(name);
-    numberShort(value);
-    _separatorAlreadyCalled = false;
-    return *this;
-  }
-
-  WJson& propertyUnsignedLong(const char* name, unsigned long value) {
-    _ifSeparator();
-    _separatorAlreadyCalled = true;
-    memberName(name);
-    numberUnsignedLong(value);
-    _separatorAlreadyCalled = false;
-    return *this;
-  }
-
-  WJson& propertyByte(const char* name, byte value) {
-    _ifSeparator();
-    _separatorAlreadyCalled = true;
-    memberName(name);
-    numberByte(value);
-    _separatorAlreadyCalled = false;
-    return *this;
-  }
-
-  WJson& propertyByteArray(const char* name, byte length, byte* value) {
-    _ifSeparator();
-    _separatorAlreadyCalled = true;
-    memberName(name);
-    numberByteArray(length, value);
-    _separatorAlreadyCalled = false;
-    return *this;
-  }
-
-  WJson& propertyDouble(const char* name, double value) {
-    _ifSeparator();
-    _separatorAlreadyCalled = true;
-    memberName(name);
-    numberDouble(value);
-    _separatorAlreadyCalled = false;
-    return *this;
-  }
-
   WJson& propertyBoolean(const char* name, bool value) {
     _ifSeparator();
     _separatorAlreadyCalled = true;
     memberName(name);
-    boolean(value);
+    if (!_separatorAlreadyCalled)
+      _ifSeparator();
+    WValue::boolToString(_stream, value);  
     _separatorAlreadyCalled = false;
+    return *this;
+  }
+
+  WJson& propertyValue(const char* name, WValue* value) {
+    _ifSeparator();
+    _separatorAlreadyCalled = true;
+    memberName(name);
+    pValue(value);
+    _separatorAlreadyCalled = false;
+    return *this;
+  }
+
+  WJson& pValue(WValue* value) {
+    if (!_separatorAlreadyCalled)
+      _ifSeparator();
+    WValue::toString(_stream, value);
     return *this;
   }
 
@@ -224,59 +167,10 @@ class WJson {
     return *this;
   }
 
-  WJson& numberInteger(int number) {
-    if (!_separatorAlreadyCalled)
-      _ifSeparator();
-    _stream->print(number, DEC);
-    return *this;
-  }
-
-  WJson& numberShort(short number) {
-    if (!_separatorAlreadyCalled)
-      _ifSeparator();
-    WValue::numberShort(_stream, number);
-    return *this;
-  }
-
-  WJson& numberUnsignedLong(unsigned long number) {
-    if (!_separatorAlreadyCalled)
-      _ifSeparator();
-    WValue::numberUnsignedLong(_stream, number);
-    return *this;
-  }
-
-  WJson& numberByte(byte number) {
-    if (!_separatorAlreadyCalled)
-      _ifSeparator();
-    WValue::numberByte(_stream, number);
-    return *this;
-  }
-
-  WJson& numberByteArray(byte length, byte* value) {
-    if (!_separatorAlreadyCalled)
-      _ifSeparator();
-    WValue::numberByteArray(_stream, length, value);
-    return *this;
-  }
-
-  WJson& numberDouble(double number) {
-    if (!_separatorAlreadyCalled)
-      _ifSeparator();
-    WValue::numberDouble(_stream, number);
-    return *this;
-  }
-
   WJson& null() {
     if (!_separatorAlreadyCalled)
       _ifSeparator();
     _stream->print("null");
-    return *this;
-  }
-
-  WJson& boolean(bool value) {
-    if (!_separatorAlreadyCalled)
-      _ifSeparator();
-    WValue::boolean(_stream, value);
     return *this;
   }
 

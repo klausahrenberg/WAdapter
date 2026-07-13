@@ -28,7 +28,7 @@
 #include "html/WebApp.h"
 #include "hw/WLed.h"
 
-#define NO_LED -1
+#define NO_LED 0xFF
 #define ESP_MAX_PUT_BODY_SIZE 512
 #define WIFI_RECONNECTION 50000
 #define WIFI_RECONNECTION_TRYS 3
@@ -326,12 +326,14 @@ class WNetwork {
 
   bool publishMqtt(const char* topic, const char* key, const char* value) {
     if ((this->isMqttConnected()) && (this->isSupportingMqtt())) {
-      WStringStream* response = getResponseStream();
-      WJson json(response);
-      json.beginObject();
-      json.propertyString(key, value, nullptr);
-      json.endObject();
+      WStringStream* response = createResponseStream();
+      WJson* json = new WJson(response);
+      json->beginObject();
+      json->propertyString(key, value, nullptr);
+      json->endObject();
+      delete json;
       return publishMqtt(topic, response);
+      delete response;
     } else {
       return false;
     }
@@ -364,13 +366,27 @@ class WNetwork {
       if ((aDeviceNeedsWebThings) && (this->isWifiConnected())) {
         // Make the thing discoverable
         String mdnsName = String(_hostname);
+#ifdef ARDUINO_ARCH_ESP8266
+        // Nur auf ESP8266 mDNS starten
         if (MDNS.begin(mdnsName.c_str())) {
           MDNS.addService(WC_HTTP, WC_TCP, 80);
           MDNS.addServiceTxt(WC_HTTP, WC_TCP, WC_URL, "http://" + mdnsName + SLASH);
-          // tbi for any reasons it crashes when using progmem variables, like WC_HTTP, WC_TCP,..
           MDNS.addServiceTxt("http", "tcp", "webthing", "true");
           LOG->notice(F("MDNS responder for Webthings started at '%s'"), _hostname);
         }
+#elif ARDUINO_ARCH_ESP32
+        // ESP32: mDNS überspringen oder mit esp_log_level_set
+        esp_log_level_set("mdns", ESP_LOG_NONE);
+        esp_log_level_set("udp", ESP_LOG_NONE);
+        // Wenn du mDNS doch brauchst:
+        if (MDNS.begin(mdnsName.c_str())) {
+          MDNS.addService(WC_HTTP, WC_TCP, 80);
+          MDNS.addServiceTxt(WC_HTTP, WC_TCP, WC_URL, "http://" + mdnsName + SLASH);
+          MDNS.addServiceTxt("http", "tcp", "webthing", "true");
+          // KEIN LOG->notice hier! Oder nur mit Level-Abfrage:
+          // if (esp_log_level_get("mdns") > ESP_LOG_NONE) LOG->notice(...);
+        }
+#endif
         // root page sends json structure for webthing
         _webServer->on(SLASH, HTTP_GET, std::bind(&WNetwork::_sendDevicesStructure, this, std::placeholders::_1));
         _devices->forEach([this](int index, WDevice* device, const char* id) { _bindWebServerCalls(device); });
@@ -499,17 +515,19 @@ class WNetwork {
   void logLevel(int level, T msg, Args... args) {
     LOG->printLevel(level, msg, args...);
     if ((isMqttConnected()) && ((level == LOG_LEVEL_ERROR) || (level == LOG_LEVEL_NOTICE) || (DEBUG))) {
-      WStringStream* response = getResponseStream();
-      WJson json(response);
-      json.beginObject();
-      json.memberName(LOG->getLevelString(level));
+      WStringStream* response = createResponseStream();
+      WJson* json = new WJson(response);
+      json->beginObject();
+      json->memberName(LOG->getLevelString(level));
       response->print(WC_QUOTE);
       LOG->setOutput(response, level, false, false);
       LOG->printLevel(level, msg, args...);
       this->setDebuggingOutput(_debuggingOutput);
       response->print(WC_QUOTE);
-      json.endObject();
+      json->endObject();
+      delete json;
       publishMqtt(_idx->asString(), response);
+      delete response;
     }
   }
 
@@ -568,36 +586,34 @@ class WNetwork {
       LOG->notice(F("Send actual device state via MQTT"));
 
       if (device->sendCompleteDeviceState()) {
-        // Send all properties of device in one json structure
-        WStringStream* response = getResponseStream();
-        WJson json(response);
-        json.beginObject();
+        WStringStream* response = createResponseStream();
+        WJson* json = new WJson(response);
+        json->beginObject();
         if (device->isMainDevice()) {
-          json.propertyString("idx", getIdx(), nullptr);
-          json.propertyString("ip", getDeviceIp().toString().c_str(), nullptr);
+          json->propertyString("idx", getIdx(), nullptr);
+          json->propertyString("ip", getDeviceIp().toString().c_str(), nullptr);
           if (this->isLastWillEnabled()) {
-            json.propertyBoolean("alive", true);
+            json->propertyBoolean("alive", true);
           }
-          json.propertyString("firmware", VERSION, nullptr);
+          json->propertyString("firmware", VERSION, nullptr);
         }
-        device->toJsonValues(&json, MQTT);
-        json.endObject();
-
-        _mqttClient->publish(topic.c_str(), (const uint8_t*)response->c_str(),
-                             response->length(), true);
+        device->toJsonValues(json, MQTT);
+        json->endObject();
+        delete json;
+        _mqttClient->publish(topic.c_str(), (const uint8_t*)response->c_str(), response->length(), true);
+        delete response;
         _initialMqttSent = true;
       } else {
-        // Send every changed property only
         device->properties()->forEach(
             [this, complete, topic](int index, WProperty* property, const char* id) {
               if ((complete) || (property->changed())) {
                 if (property->isVisible(MQTT)) {
-                  WStringStream* response = getResponseStream();
-                  WJson json(response);
-                  property->toJsonValue(&json);
-                  _mqttClient->publish(
-                      String(topic + SLASH + String(id)).c_str(),
-                      response->c_str(), true);
+                  WStringStream* response = createResponseStream();
+                  WJson* json = new WJson(response);
+                  property->toJsonValue(json);
+                  delete json;
+                  _mqttClient->publish(String(topic + SLASH + String(id)).c_str(), response->c_str(), true);
+                  delete response;
                 }
                 property->changed(false);
               }
@@ -649,10 +665,12 @@ class WNetwork {
                   if (property->isVisible(MQTT)) {
                     LOG->notice(F("Send state of property '%s'"),
                                 topic);
-                    WStringStream* response = getResponseStream();
-                    WJson json(response);
-                    property->toJsonValue(&json);
+                    WStringStream* response = createResponseStream();
+                    WJson* json = new WJson(response);
+                    property->toJsonValue(json);
+                    delete json;
                     _mqttClient->publish(String(baseT + SLASH + deviceId + SLASH + stateT + SLASH + topic).c_str(), response->c_str(), true);
+                    delete response;
                   }
                 } else {
                   device->handleUnknownMqttCallback(true, ptopic, topic, (char*)payload, length);
@@ -679,6 +697,7 @@ class WNetwork {
                     LOG->notice(F("Property '%s' not found for device %s"), id, device->id());
                   }
                 }
+                delete properties;
               } else {
                 // Try to find property and set single value
                 WProperty* property = device->getPropertyById(topic.c_str());
@@ -720,24 +739,26 @@ class WNetwork {
       if (this->isLastWillEnabled()) {
         String lastWillTopic = String(getIdx());
         lastWillTopic.concat(SLASH);
-        WStringStream* lastWillMessage = getResponseStream();
-        WJson json(lastWillMessage);
+        WStringStream* lastWillMessage = createResponseStream();
+        WJson* json = new WJson(lastWillMessage);
         WDevice* device = _devices->getIf([this](WDevice* d) { return (d->isMainDevice()); });
         if (device != nullptr) {
           lastWillTopic.concat(device->id());
           lastWillTopic.concat(SLASH);
           lastWillTopic.concat(mqttStateTopic());
-          json.beginObject();
-          json.propertyString("idx", getIdx(), nullptr);
-          json.propertyString("ip", getDeviceIp().toString().c_str(), nullptr);
-          json.propertyBoolean("alive", false);
-          json.endObject();
+          json->beginObject();
+          json->propertyString("idx", getIdx(), nullptr);
+          json->propertyString("ip", getDeviceIp().toString().c_str(), nullptr);
+          json->propertyBoolean("alive", false);
+          json->endObject();
         }
+        delete json;
         connected = (_mqttClient->connect(
             _getClientName(true).c_str(),
             mqttUser(),
             mqttPassword(), lastWillTopic.c_str(), 0, true,
             lastWillMessage->c_str()));
+        delete lastWillMessage;    
       } else {
         connected = (_mqttClient->connect(
             _getClientName(true).c_str(),
@@ -752,14 +773,16 @@ class WNetwork {
         _devices->forEach([this](int index, WDevice* device, const char* id) {
           String topic("devices/");
           topic.concat(device->id());
-          WStringStream* response = getResponseStream();
-          WJson json(response);
-          json.beginObject();
-          json.propertyString("url", "http://", getDeviceIp().toString().c_str(), "/things/", device->id(), nullptr);
-          json.propertyString("stateTopic", getIdx(), SLASH, device->id(), SLASH, mqttStateTopic(), nullptr);
-          json.propertyString("setTopic", getIdx(), SLASH, device->id(), SLASH, mqttSetTopic(), nullptr);
-          json.endObject();
+          WStringStream* response = createResponseStream();
+          WJson* json = new WJson(response);
+          json->beginObject();
+          json->propertyString("url", "http://", getDeviceIp().toString().c_str(), "/things/", device->id(), nullptr);
+          json->propertyString("stateTopic", getIdx(), SLASH, device->id(), SLASH, mqttStateTopic(), nullptr);
+          json->propertyString("setTopic", getIdx(), SLASH, device->id(), SLASH, mqttSetTopic(), nullptr);
+          json->endObject();
+          delete json;
           _mqttClient->publish(topic.c_str(), response->c_str(), false);
+          delete response;
         });
         _mqttClient->unsubscribe("devices/#");
         // Subscribe to device specific topic
@@ -843,12 +866,13 @@ class WNetwork {
 
   void _handleHttpFinishEvent(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
     LOG->debug(F("Advanced http event handling"));
-    WStringStream* ss = getResponseStream();
+    WStringStream* ss = createResponseStream();
     for (size_t i = 0; i < len; i++) {
       ss->write(data[i]);
     }
     WList<WValue>* args = WJsonParser::asMap(ss->c_str());
     _postResponse = _webApp->handleHttpEventArgs(request, args);
+    delete ss;
     if (_postResponse.operation == FO_NONE) request->send(200);
     delete args;
   }
@@ -968,6 +992,7 @@ class WNetwork {
         }
       });
       json->endArray();
+      delete json;  // ← Hier fehlte das delete!
       request->send(response);
     }
   }
@@ -976,8 +1001,9 @@ class WNetwork {
     if (!isUpdateRunning()) {
       LOG->notice(F("Send description for device: %s"), device->id());
       AsyncResponseStream* response = request->beginResponseStream(APPLICATION_JSON);
-      WJson json(response);
-      device->toJsonStructure(&json, "", WEBTHING);
+      WJson* json = new WJson(response);
+      device->toJsonStructure(json, "", WEBTHING);
+      delete json;  // ← Sofort freigeben
       request->send(response);
     }
   }
@@ -986,15 +1012,16 @@ class WNetwork {
     if (!isUpdateRunning()) {
       LOG->notice(F("Send all properties for device: "), device->id());
       AsyncResponseStream* response = request->beginResponseStream(APPLICATION_JSON);
-      WJson json(response);
-      json.beginObject();
+      WJson* json = new WJson(response);
+      json->beginObject();
       if (device->isMainDevice()) {
-        json.propertyString("idx", getIdx(), nullptr);
-        json.propertyString("ip", getDeviceIp().toString().c_str(), nullptr);
-        json.propertyString("firmware", VERSION, nullptr);
+        json->propertyString("idx", getIdx(), nullptr);
+        json->propertyString("ip", getDeviceIp().toString().c_str(), nullptr);
+        json->propertyString("firmware", VERSION, nullptr);
       }
-      device->toJsonValues(&json, WEBTHING);
-      json.endObject();
+      device->toJsonValues(json, WEBTHING);
+      json->endObject();
+      delete json;
       request->send(response);
     }
   }
@@ -1003,10 +1030,11 @@ class WNetwork {
     if (!isUpdateRunning()) {
       AsyncResponseStream* response =
           request->beginResponseStream(APPLICATION_JSON);
-      WJson json(response);
-      json.beginObject();
-      property->toJsonValue(&json, propertyId);
-      json.endObject();
+      WJson* json = new WJson(response);
+      json->beginObject();
+      property->toJsonValue(json, propertyId);
+      json->endObject();
+      delete json;  // ← Sofort freigeben
       property->requested(true);
       request->send(response);
     }
@@ -1034,8 +1062,8 @@ class WNetwork {
       LOG->debug("list items count: %d", properties->size());
       if (properties->size() > 0) {
         AsyncResponseStream* response = request->beginResponseStream(APPLICATION_JSON);
-        WJson json(response);
-        json.beginObject();
+        WJson* json = new WJson(response);
+        json->beginObject();
         for (int i = 0; i < properties->size(); i++) {
           WValue* value = properties->get(i);
           const char* id = properties->getId(i);
@@ -1043,10 +1071,11 @@ class WNetwork {
           if (property != nullptr) {
             LOG->notice(F("Set property '%s' to value '%s' (web request)"), id, value->toString());
             property->parse(value->asString());
-            property->toJsonValue(&json, id);
+            property->toJsonValue(json, id);
           }
         }
-        json.endObject();
+        json->endObject();
+        delete json;
         request->send(response);
       } else {
         LOG->notice(F("unable to parse json: %s"), _body_data);
@@ -1054,21 +1083,23 @@ class WNetwork {
         memset(_body_data, 0, sizeof(_body_data));
         request->send(500);
       }
+      delete properties;
     }
   }
 
-  void _sendErrorMsg(AsyncWebServerRequest* request, int status, const char* msg) {
+  /*void _sendErrorMsg(AsyncWebServerRequest* request, int status, const char* msg) {
     if (!isUpdateRunning()) {
       AsyncResponseStream* response =
           request->beginResponseStream(APPLICATION_JSON);
-      WJson json(response);
-      json.beginObject();
-      json.propertyString("error", msg, nullptr);
-      json.propertyInteger("status", status);
-      json.endObject();
+      WJson* json = new WJson(response);
+      json->beginObject();
+      json->propertyString("error", msg, nullptr);
+      json->propertyInteger("status", status);
+      json->endObject();
+      delete json;  // ← Sofort freigeben
       request->send(response);
     }
-  }
+  }*/
 
   void _bindWebServerCalls(WDevice* device) {
     if (this->isWebServerRunning()) {

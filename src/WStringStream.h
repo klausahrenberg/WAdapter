@@ -130,14 +130,8 @@ class WStringStream : public Stream {
   }
 };
 
-WStringStream *_responseStream = nullptr;
-
-WStringStream *getResponseStream(int size = SIZE_JSON_PACKET) {
-  if (_responseStream == nullptr) {
-    _responseStream = new WStringStream(size);
-  }
-  _responseStream->flush();
-  return _responseStream;
+inline WStringStream* createResponseStream(int size = SIZE_JSON_PACKET) {
+  return new (std::nothrow) WStringStream(size);
 }
 
-#endif  // _STRING_STREAM_H_
+#endif 

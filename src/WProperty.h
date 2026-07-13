@@ -42,19 +42,39 @@ class WColorProperty;
 
 class WProperty;
 class IWPropertyRegister {
-public:
+ public:
   virtual void registerProperty(WProperty* property, const char* id);
-}; 
+};
 
 class WProperty {
  public:
-  WProperty(const char* title, WDataType type, const char* atType = "") {
-    _initialize(title, type, atType);
+  WProperty(const char* title, WDataType type, const char* atType = "")
+      : _atType(atType),
+        _value(new WValue(type)),
+        _changed(true),
+        _title(nullptr),
+        _visibility(ALL),
+        _supportingWebthing(true),
+        _readOnly(false),  // ← HIER: Korrekte Initialisierung!
+        _unit(nullptr),        
+        _listeners(),
+        _onValueRequest(nullptr),
+        _deviceNotification(nullptr),
+        _requested(false),
+        _valueRequesting(false),
+        _notifying(false),
+        _store(false),
+        _enums(nullptr),
+        _lastStateChange(0) {
+    if (title) {
+      _title = new char[strlen_P(title) + 1];
+      strcpy_P(_title, title);
+    }
   }
 
   virtual ~WProperty() {
     if (_value) delete _value;
-    if (_title) delete _title;    
+    if (_title) delete _title;
     if (_unit) delete _unit;
     if (_enums) delete _enums;
   }
@@ -144,9 +164,15 @@ class WProperty {
   static WRangeProperty* brightness(IWPropertyRegister* device, const char* id, const char* title, byte min = 0, byte max = 100);
   static WColorProperty* color(IWPropertyRegister* device, const char* id, const char* title, byte red, byte green, byte blue);
 
-  WProperty* onValueRequest(TOnPropertyChange onValueRequest) { _onValueRequest = onValueRequest; return this; }
+  WProperty* onValueRequest(TOnPropertyChange onValueRequest) {
+    _onValueRequest = onValueRequest;
+    return this;
+  }
 
-  WProperty* addListener(TOnPropertyChange onChange) { _listeners.push_back(onChange); return this; }
+  WProperty* addListener(TOnPropertyChange onChange) {
+    _listeners.push_back(onChange);
+    return this;
+  }
 
   void deviceNotification(TOnPropertyChange deviceNotification) { _deviceNotification = deviceNotification; }
 
@@ -156,7 +182,7 @@ class WProperty {
     return _value->length();
   }
 
-  WDataType type() { return _value->type(); }  
+  WDataType type() { return _value->type(); }
 
   const char* atType() { return _atType; }
 
@@ -172,19 +198,22 @@ class WProperty {
 
   void changed(bool changed) { _changed = changed; }
 
-  virtual bool parse(const char* value, bool ignoreReadOnly = false) {  
+  virtual bool parse(const char* value, bool ignoreReadOnly = false) {
     if (_isWritingAllowed(ignoreReadOnly)) {
       _changed = _value->parse(value) || _changed;
       _notify();
       return _changed;
     } else {
       return false;
-    }    
-  }    
+    }
+  }
 
   WValue* value() { return _value; }
 
-  bool asBool() { _requestValue(); return _value->asBool(); }
+  bool asBool() {
+    _requestValue();
+    return _value->asBool();
+  }
 
   WProperty* asBool(bool value, bool ignoreReadOnly = false) {
     if (_isWritingAllowed(ignoreReadOnly)) {
@@ -192,23 +221,35 @@ class WProperty {
       _notify();
     }
     return this;
-  }  
+  }
 
-  char* asString() { _requestValue(); return _value->asString(); }
+  char* asString() {
+    _requestValue();
+    return _value->asString();
+  }
 
-  WProperty* asString(const char* value, bool ignoreReadOnly = false) {  
+  WProperty* asString(const char* value, bool ignoreReadOnly = false) {
     if (_isWritingAllowed(ignoreReadOnly)) {
       _changed = _value->asString(value) || _changed;
       _notify();
     }
     return this;
-  }  
+  }
 
-  bool isStringEmpty() { _requestValue(); return _value->isStringEmpty(); }
+  bool isStringEmpty() {
+    _requestValue();
+    return _value->isStringEmpty();
+  }
 
-  bool equalsString(const char* toCompare) { _requestValue(); return _value->equals(toCompare); }
+  bool equalsString(const char* toCompare) {
+    _requestValue();
+    return _value->equals(toCompare);
+  }
 
-  int asInt() { _requestValue(); return _value->asInt(); }
+  int asInt() {
+    _requestValue();
+    return _value->asInt();
+  }
 
   WProperty* asInt(int value, bool ignoreReadOnly = false) {
     if (_isWritingAllowed(ignoreReadOnly)) {
@@ -218,7 +259,10 @@ class WProperty {
     return this;
   }
 
-  double asDouble() { _requestValue(); return _value->asDouble(); }
+  double asDouble() {
+    _requestValue();
+    return _value->asDouble();
+  }
 
   WProperty* asDouble(double value, bool ignoreReadOnly = false) {
     if (_isWritingAllowed(ignoreReadOnly)) {
@@ -226,9 +270,12 @@ class WProperty {
       _notify();
     }
     return this;
-  }  
+  }
 
-  byte asByte() { _requestValue(); return _value->asByte(); }
+  byte asByte() {
+    _requestValue();
+    return _value->asByte();
+  }
 
   WProperty* asByte(byte value, bool ignoreReadOnly = false) {
     if (_isWritingAllowed(ignoreReadOnly)) {
@@ -236,9 +283,7 @@ class WProperty {
       _notify();
     }
     return this;
-  }  
-
-  byte* asByteArray() { _requestValue(); return _value->asByteArray(); }
+  }
 
   WProperty* asByteArray(byte length, const byte* value, bool ignoreReadOnly = false) {
     if (_isWritingAllowed(ignoreReadOnly)) {
@@ -246,56 +291,47 @@ class WProperty {
       _notify();
     }
     return this;
-  }  
+  }
 
   byte byteArrayValue(byte index) { return _value->byteArrayValue(index); }
 
-  bool readOnly() { return _readOnly; }
+  bool readOnly() { return _readOnly.asBool(); }
 
-  WProperty* readOnly(bool readOnly) { _readOnly = readOnly; return this; }
+  WProperty* readOnly(bool readOnly) {
+    _readOnly.asBool(readOnly);
+    return this;
+  }
 
   const char* unit() { return _unit; }
 
-  WProperty* unit(const char* unit) { 
+  WProperty* unit(const char* unit) {
     if (_unit) delete _unit;
     _unit = new char[strlen_P(unit) + 1];
-    strcpy_P(_unit, unit);    
-    return this; 
+    strcpy_P(_unit, unit);
+    return this;
   }
 
-  double multipleOf() { return _multipleOf; }
+  //double multipleOf() { return _multipleOf.asDouble(); }
 
-  void multipleOf(double multipleOf) { _multipleOf = multipleOf; }
+  void multipleOf(double multipleOf) { 
+    if (_multipleOf == nullptr) {
+      _multipleOf = new WValue(multipleOf);
+    } else {
+      _multipleOf->asDouble(multipleOf); 
+    }
+  }  
 
   virtual void toJsonValue(WJson* json, const char* memberName = nullptr) {
     _requestValue();
     switch (_value->type()) {
-      case WDataType::BOOLEAN:
-        json->propertyBoolean(memberName, _value->asBool());
-        break;
-      case WDataType::DOUBLE:
-        json->propertyDouble(memberName, _value->asDouble());
-        break;
-      case WDataType::INTEGER:
-        json->propertyInteger(memberName, _value->asInt());
-        break;
-      case WDataType::SHORT:
-        json->propertyShort(memberName, _value->asShort());
-        break;
-      case WDataType::UNSIGNED_LONG:
-        json->propertyUnsignedLong(memberName, _value->asUnsignedLong());
-        break;
-      case WDataType::BYTE:
-        json->propertyByte(memberName, _value->asByte());
-        break;
       case WDataType::STRING:
         if (memberName != nullptr)
           json->propertyString(memberName, _value->asString(), nullptr);
         else
           json->onlyString(_value->asString());
         break;
-      case WDataType::BYTE_ARRAY:        
-        json->propertyByteArray(memberName, length(), _value->asByteArray());
+      default:
+        json->propertyValue(memberName, _value);
         break;
     }
     _requested = true;
@@ -338,41 +374,26 @@ class WProperty {
     }
     // readOnly
     if (this->readOnly()) {
-      json->propertyBoolean("readOnly", true);
+      json->propertyValue("readOnly", &_readOnly);
     }
     // unit
     if (this->unit() != nullptr) {
       json->propertyString("unit", this->unit(), nullptr);
     }
     // multipleOf
-    if (this->multipleOf() > 0.0) {
-      json->propertyDouble("multipleOf", this->multipleOf());
+    if (_multipleOf != nullptr) {
+      json->propertyValue("multipleOf", _multipleOf);
     }
     // enum
     if (this->hasEnums()) {
       json->beginArray("enum");
       _enums->forEach([this, json](int index, WValue* propE, const char* id) {
         switch (_value->type()) {
-          case WDataType::BOOLEAN:
-            json->boolean(propE->asBool());
-            break;
-          case WDataType::DOUBLE:
-            json->numberDouble(propE->asDouble());
-            break;
-          case WDataType::SHORT:
-            json->numberShort(propE->asShort());
-            break;
-          case WDataType::INTEGER:
-            json->numberInteger(propE->asInt());
-            break;
-          case WDataType::UNSIGNED_LONG:
-            json->numberUnsignedLong(propE->asUnsignedLong());
-            break;
-          case WDataType::BYTE:
-            json->numberByte(propE->asByte());
-            break;
           case WDataType::STRING:
             json->string(propE->asString(), nullptr);
+            break;
+          default:
+            json->pValue(propE);
             break;
         }
       });
@@ -382,8 +403,8 @@ class WProperty {
     if (this->atType() != "") {
       json->propertyString("@type", this->atType(), nullptr);
     }
-    _toJsonStructureAdditionalParameters(json);    
-    json->propertyString("href", deviceHRef, "/properties/", memberName, nullptr);    
+    _toJsonStructureAdditionalParameters(json);
+    json->propertyString("href", deviceHRef, "/properties/", memberName, nullptr);
     json->endObject();
   }
 
@@ -397,7 +418,7 @@ class WProperty {
   void addEnumNumber(double enumNumber) {
     if (_value->type() != WDataType::DOUBLE) {
       return;
-    }    
+    }
     this->addEnum(new WValue(enumNumber));
   }
 
@@ -485,7 +506,10 @@ class WProperty {
 
   WPropertyVisibility visibility() { return _visibility; }
 
-  WProperty* visibility(WPropertyVisibility visibility) { _visibility = visibility; return this; }
+  WProperty* visibility(WPropertyVisibility visibility) {
+    _visibility = visibility;
+    return this;
+  }
 
   WProperty* store(bool storeAtChange = false) {
     _store = storeAtChange;
@@ -531,42 +555,23 @@ class WProperty {
 
  protected:
   const char* _atType;
-  WValue* _value; 
+  WValue* _value;
   bool _changed;
-
-  void _initialize(const char* title, WDataType type, const char* atType) {
-    if (title) {
-      _title = new char[strlen_P(title) + 1];
-      strcpy_P(_title, title);
-    }
-    _value = new WValue(type);
-    _visibility = ALL;
-    _supportingWebthing = true;    
-    _changed = true;
-    _requested = false;
-    _valueRequesting = false;
-    _notifying = false;
-    _readOnly = false;
-    _atType = atType;    
-    _multipleOf = 0.0;
-    _deviceNotification = nullptr;
-    _enums = nullptr;
-  }
 
   virtual void _valueChanged() {}
 
   virtual void _toJsonStructureAdditionalParameters(WJson* json) {}
 
  private:
-  char* _title = nullptr;  
+  char* _title = nullptr;
   WPropertyVisibility _visibility;
   bool _supportingWebthing;
-  bool _readOnly;
+  WValue _readOnly;
   char* _unit = nullptr;
-  double _multipleOf;
+  WValue* _multipleOf = nullptr;
   std::list<TOnPropertyChange> _listeners;
   TOnPropertyChange _onValueRequest;
-  TOnPropertyChange _deviceNotification;   
+  TOnPropertyChange _deviceNotification;
   bool _requested;
   bool _valueRequesting;
   bool _notifying;
@@ -580,7 +585,7 @@ class WProperty {
       _lastStateChange = millis();
       if (_store) SETTINGS->save();
       if (!_listeners.empty()) {
-        for (std::list<TOnPropertyChange>::iterator f = _listeners.begin(); f != _listeners.end(); ++f) {          
+        for (std::list<TOnPropertyChange>::iterator f = _listeners.begin(); f != _listeners.end(); ++f) {
           f->operator()();
         }
       }
@@ -600,7 +605,7 @@ class WProperty {
   }
 
   bool _isWritingAllowed(bool ignoreReadOnly) {
-    return ((ignoreReadOnly) || (!_readOnly) || (_valueRequesting));
+    return ((ignoreReadOnly) || (!_readOnly.asBool()) || (_valueRequesting));
   }
 };
 
@@ -644,18 +649,8 @@ class WRangeProperty : public WProperty {
   }
 
   void _toJsonStructureAdditionalParameters(WJson* json) {
-    switch (this->type()) {
-      case WDataType::DOUBLE: {
-        json->propertyDouble("minimum", getMinAsDouble());
-        json->propertyDouble("maximum", getMaxAsDouble());
-        break;
-      }
-      case WDataType::INTEGER: {
-        json->propertyInteger("minimum", getMinAsInteger());
-        json->propertyInteger("maximum", getMaxAsInteger());
-        break;
-      }
-    }
+    json->propertyValue("minimum", &_min);
+    json->propertyValue("maximum", &_max);
   }
 
  protected:

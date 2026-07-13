@@ -117,12 +117,14 @@ class W2812Led : public WGpio {
   }
 
   W2812Led* color(const byte indexRange[], uint32_t color1, byte countColor1 = 0xFF, uint32_t color2 = 0x000000) {
-    for (byte i = indexRange[0]; (countColor1 != 0xFF ? i < indexRange[0] + countColor1 : i <= indexRange[1]); i++) {
-      color(i, color1);
-    }
-    if (countColor1 != 0xFF) {
-      for (byte i = indexRange[0] + countColor1; i <= indexRange[1]; i++) {
-        color(i, color2);
+    if (indexRange[0] != NO_LED) {
+      for (byte i = indexRange[0]; (countColor1 != 0xFF ? i < indexRange[0] + countColor1 : i <= indexRange[1]); i++) {
+        color(i, color1);
+      }
+      if (countColor1 != 0xFF) {
+        for (byte i = indexRange[0] + countColor1; i <= indexRange[1]; i++) {
+          color(i, color2);
+        }
       }
     }
     return this;
@@ -156,7 +158,7 @@ class W2812Led : public WGpio {
 
   virtual void toJson(WJson* json) {
     WGpio::toJson(json);
-    json->propertyByte(WRGB_NUMBER_OF_LEDS, numberOfLeds());
+    json->propertyValue(WRGB_NUMBER_OF_LEDS, _numberOfLeds);
   }
 
   W2812Led* alwaysOn(byte index, bool alwaysOn = true) {
@@ -179,8 +181,10 @@ class W2812Led : public WGpio {
   }
 
   W2812Led* blinking(const byte indexRange[], bool blink = true) {
-    for (byte i = indexRange[0]; i <= indexRange[1]; i++) {
-      this->blinking(i, blink);
+    if (indexRange[0] != NO_LED) {
+      for (byte i = indexRange[0]; i <= indexRange[1]; i++) {
+        this->blinking(i, blink);
+      }
     }
     return this;
   }

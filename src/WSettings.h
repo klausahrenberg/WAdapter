@@ -344,7 +344,7 @@ class WSettings {
         break;
       }
       case WDataType::BYTE_ARRAY: {
-        writeByteArray(address, value->length(),  value->asByteArray());
+        writeByteArray(address, value);
         break;
       }
       case WDataType::STRING: {
@@ -382,10 +382,11 @@ class WSettings {
     return data;
   }
 
-  void writeByteArray(int address, byte length, const byte* value) {
+  void writeByteArray(int address, WValue* byteArrayValue) {    
+    byte length = byteArrayValue->length();
     EEPROM.write(address, length);
     for (int i = 1; i <= length; i++) {
-      EEPROM.write(address + i, value[i - 1]);
+      EEPROM.write(address + i, byteArrayValue->byteArrayValue(i - 1));
     }
   }
 

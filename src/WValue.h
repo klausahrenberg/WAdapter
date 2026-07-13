@@ -239,7 +239,7 @@ struct WValue {
     return (oldValue != value);
   }
 
-  byte* asByteArray() {
+  /*byte* asByteArray() {
     if ((_type == WDataType::BYTE_ARRAY) && (length() > 0)) {
       byte* result = (byte*)malloc(length());
       for (int i = 0; i < length(); i++) {
@@ -249,7 +249,7 @@ struct WValue {
     } else {
       return 0;
     }
-  }
+  }*/
 
   bool asByteArray(byte length, const byte* newValue) {
     bool changed = false;
@@ -470,42 +470,7 @@ struct WValue {
   }
 
   virtual void toString(Print* stream) {
-    switch (_type) {
-      case WDataType::BOOLEAN:
-        WValue::boolean(stream, asBool());
-        break;
-      case WDataType::DOUBLE:
-        WValue::numberDouble(stream, asDouble());
-        break;
-      case WDataType::INTEGER:
-        WValue::numberInteger(stream, asInt());
-        break;
-      case WDataType::SHORT:
-        WValue::numberShort(stream, asShort());
-        break;
-      case WDataType::UNSIGNED_SHORT:
-        WValue::numberUnsignedShort(stream, asUnsignedShort());
-        break;
-      case WDataType::UNSIGNED_LONG:
-        WValue::numberUnsignedLong(stream, asUnsignedLong());
-        break;
-      case WDataType::BYTE:
-        WValue::numberByte(stream, asByte());
-        break;
-      case WDataType::STRING:
-        WValue::string(stream, asString(), nullptr);
-        break;
-      case WDataType::BYTE_ARRAY:
-        WValue::numberByteArray(stream, length(), asByteArray());
-        break;
-      case WDataType::LIST:
-        stream->print(F("List: "));
-        stream->print(asList()->size());
-        stream->print(F(" items"));
-        break;
-      default:
-        stream->print(F("n.a"));
-    }
+    WValue::toString(stream, this);
   }
 
   static bool isDoubleEqual(double a, double b, double precision) {
@@ -549,34 +514,6 @@ struct WValue {
 
   static WValue ofByteArray(byte length, const byte* ba) { return WValue(length, ba); }
 
-  static void boolean(Print* stream, bool value) {
-    stream->print(value ? WC_TRUE : WC_FALSE);
-  }
-
-  static void numberDouble(Print* stream, double number) {
-    stream->print(number);
-  }
-
-  static void numberInteger(Print* stream, int number) {
-    stream->print(number, DEC);
-  }
-
-  static void numberShort(Print* stream, short number) {
-    stream->print(number, DEC);
-  }
-
-  static void numberUnsignedShort(Print* stream, uint16_t number) {
-    stream->print(number, DEC);
-  }
-
-  static void numberUnsignedLong(Print* stream, unsigned long number) {
-    stream->print(number, DEC);
-  }
-
-  static void numberByte(Print* stream, byte number) {
-    stream->print(number, DEC);
-  }
-
   static void string(Print* stream, const char* text, ...) {
     va_list arg;
     va_start(arg, text);
@@ -599,13 +536,56 @@ struct WValue {
     va_end(arg);
   }
 
-  static void numberByteArray(Print* stream, byte length, byte* value) {
+  static void numberByteArray(Print* stream, byte length, byte* value, bool firstValueIsLength = false) {
     stream->print(WC_RBEGIN);
     for (byte i = 0; i < length; i++) {
       if (i != 0) stream->print(WC_COMMA);
-      stream->print(value[i], DEC);
+      stream->print(value[firstValueIsLength ? i + 1 : i], DEC);
     }
     stream->print(WC_REND);
+  }
+
+  static void boolToString(Print* stream, bool value) {
+    stream->print(value ? WC_TRUE : WC_FALSE);
+  }  
+
+  static void toString(Print* stream, WValue* value) {
+    switch (value->type()) {
+      case WDataType::BOOLEAN:        
+        boolToString(stream, value->asBool());
+        break;
+      case WDataType::DOUBLE:
+        stream->print(value->asDouble());
+        break;
+      case WDataType::INTEGER:
+        stream->print(value->asInt(), DEC);
+        break;
+      case WDataType::SHORT:
+      stream->print(value->asShort(), DEC);
+        break;
+      case WDataType::UNSIGNED_SHORT:
+        stream->print(value->asUnsignedShort(), DEC);
+        break;
+      case WDataType::UNSIGNED_LONG:
+        stream->print(value->asUnsignedLong(), DEC);
+        break;
+      case WDataType::BYTE:
+      stream->print(value->asByte(), DEC);
+        break;
+      case WDataType::STRING:
+        WValue::string(stream, value->asString(), nullptr);
+        break;
+      case WDataType::BYTE_ARRAY:
+        WValue::numberByteArray(stream, value->length(), value->_asByteArray, true);
+        break;
+      case WDataType::LIST:
+        stream->print(F("List: "));
+        stream->print(value->asList()->size());
+        stream->print(F(" items"));
+        break;
+      default:
+        stream->print(F("n.a"));
+    }
   }
 
  protected:

@@ -164,7 +164,7 @@ class WGpio : public IWJsonable {
   virtual void toJson(WJson* json) {
     if (_type != GPIO_TYPE_UNKNOWN) json->propertyString(WC_TYPE, S_GPIO_TYPE[_type], nullptr);
     if (pin() != NO_PIN) {
-      json->propertyByte(WC_GPIO, pin());
+      json->propertyValue(WC_GPIO, _pin);
     } else {
       json->propertyNull(WC_GPIO);
     }
