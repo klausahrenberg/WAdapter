@@ -142,6 +142,8 @@ private:
 			_output->print(s);
 		} else if (format == 'd' || format == 'i') {
 			_output->print(va_arg(*args, int), DEC);
+		} else if (format == 'u') {
+			_output->print(va_arg(*args, uint32_t), DEC);	
 		} else if (format == 'D' || format == 'F') {
 			_output->print(va_arg(*args, double));
 		} else if (format == 'x') {
