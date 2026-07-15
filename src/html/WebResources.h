@@ -242,6 +242,19 @@ function textAreaUpdate(json) {
   }
 )=====";
 
+const static char WC_SCRIPT_NAME_TABLE_UPDATE[] PROGMEM = "tableUpdate(json)";
+
+const static char WC_SCRIPT_TABLE_UPDATE[] PROGMEM = R"=====(
+function tableUpdate(json) {
+    console.log("table update...");    
+    var table = document.getElementById(json.id);
+    switch (json.data.type) {
+        case "ADDED" :
+            table.getElementsByTagName("tbody")[0].insertChildAtIndex(insertRow(table, json.data), json.data.index);
+            break;
+    }
+)=====";
+
 /*
 https://stackoverflow.com/questions/4388102/can-you-style-an-active-form-inputs-label-with-just-css
 

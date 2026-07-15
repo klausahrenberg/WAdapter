@@ -33,7 +33,6 @@ class WUtils {
     return textToWrite;*/
     return ci;
   }
-  
 };
 
 class WJson;
@@ -81,6 +80,17 @@ class UUID {
 
     _buffer[36] = 0;
     return WValue((char*)&_buffer);
+  }
+};
+
+class WString {
+ public:
+  static char* duplicate(const char* str) {
+    if (!str) return nullptr;
+    size_t len = strlen_P(str) + 1;
+    char* copy = new char[len];
+    strcpy_P(copy, str);
+    return copy;
   }
 };
 

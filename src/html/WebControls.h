@@ -1,8 +1,8 @@
 #ifndef W_WEB_CONTROLS_H
 #define W_WEB_CONTROLS_H
 
-#include "WebResources.h"
 #include "WebAppSockets.h"
+#include "WebResources.h"
 
 class WebControl {
  public:
@@ -242,7 +242,7 @@ class WebButton : public WebControl {
   }
 
   WebButton* onClick(WebControlHandler onClick) {
-    param(WC_ON_CLICK, WC_SCRIPT_NAME_CONTROL_EVENT, WC_ON_CLICK, nullptr);    
+    param(WC_ON_CLICK, WC_SCRIPT_NAME_CONTROL_EVENT, WC_ON_CLICK, nullptr);
     _onClick = onClick;
     return this;
   }
@@ -328,20 +328,18 @@ class WebSwitch : public WebControl {
 
 class WebInput : public WebControl {
  public:
-  WebInput(const char* id, const char* value = nullptr, byte maxLength = 32, bool passwordField = false) : 
-    WebControl(WC_INPUT, WC_ID, id, WC_NAME, id, WC_MAXLENGTH, String(maxLength).c_str(), WC_TYPE, (passwordField ? WC_PASSWORD : WC_TEXT), nullptr) {
+  WebInput(const char* id, const char* value = nullptr, byte maxLength = 32, bool passwordField = false) : WebControl(WC_INPUT, WC_ID, id, WC_NAME, id, WC_MAXLENGTH, String(maxLength).c_str(), WC_TYPE, (passwordField ? WC_PASSWORD : WC_TEXT), nullptr) {
     if (value != nullptr) {
       param(WC_VALUE, value);
     }
     param(WC_ON_CHANGE, WC_SCRIPT_NAME_CONTROL_EVENT, WC_ON_CHANGE, nullptr);
     closing(false);
-  } 
+  }
 
   virtual void createScripts(WStringList* scripts) {
     WebControl::createScripts(scripts);
     scripts->add(WC_SCRIPT_CONTROL_EVENT, WC_SCRIPT_NAME_CONTROL_EVENT);
-  }  
-
+  }
 };
 
 class WebLabeledControl : public WebControl {
@@ -365,46 +363,44 @@ class WebLabeledControl : public WebControl {
   virtual bool hasParam(const char* key) {
     return _control->hasParam(key);
   }
-  
+
   virtual const char* param(const char* key) {
     return _control->param(key);
   }
 
-  virtual void handleEvent(WValue* event, WList<WValue>* data) {        
+  virtual void handleEvent(WValue* event, WList<WValue>* data) {
     _control->handleEvent(event, data);
   }
 
-  protected:
-   WebControl* _control;
+ protected:
+  WebControl* _control;
 };
 
 class WebTextField : public WebLabeledControl {
  public:
-  WebTextField(const char* id, const char* title, const char* text = nullptr, byte maxLength = 32, bool passwordField = false) 
-   : WebLabeledControl(title, new WebInput(id, text, maxLength, passwordField)) {    
+  WebTextField(const char* id, const char* title, const char* text = nullptr, byte maxLength = 32, bool passwordField = false)
+      : WebLabeledControl(title, new WebInput(id, text, maxLength, passwordField)) {
   }
 
-  virtual void handleEvent(WValue* event, WList<WValue>* data) {    
+  virtual void handleEvent(WValue* event, WList<WValue>* data) {
     WebControl::handleEvent(event, data);
     if (event->equals(WC_ON_CHANGE)) {
       value(data->getById(WC_VALUE)->asString());
     }
   }
-
 };
 
 class WebTextArea : public WebLabeledControl {
  public:
-  WebTextArea(const char* id, const char* title, WOnPrint textFactory, byte rows = 20, byte cols = 80) 
-   : WebLabeledControl(title, new WebControl(WC_TEXTAREA, WC_ID, id, WC_NAME, id, WC_ROWS, String(rows).c_str(), WC_COLS, String(cols).c_str(), nullptr)) {    
-    if (textFactory != nullptr) _control->contentFactory(textFactory);    
+  WebTextArea(const char* id, const char* title, WOnPrint textFactory, byte rows = 20, byte cols = 80)
+      : WebLabeledControl(title, new WebControl(WC_TEXTAREA, WC_ID, id, WC_NAME, id, WC_ROWS, String(rows).c_str(), WC_COLS, String(cols).c_str(), nullptr)) {
+    if (textFactory != nullptr) _control->contentFactory(textFactory);
   }
 
   virtual void createScripts(WStringList* scripts) {
     WebControl::createScripts(scripts);
     scripts->add(WC_SCRIPT_TEXTAREA);
   }
-
 };
 
 class WebInputFile : public WebControl {
@@ -424,10 +420,20 @@ class WebInputFile : public WebControl {
   }
 };
 
+// Struct
+struct WebTableUpdate {  
+  WListChangeType type;
+  int index;
+  const char* htmlSnippet;  // oder std::string
+
+  // Optional: Konstruktor
+  WebTableUpdate(WListChangeType t = WListChangeType::ADDED, int i = -1, const char* html = nullptr)
+      : type(t), index(i), htmlSnippet(html) {}
+};
+
 template <typename T>
 class WebTable : public WebControl {
  public:
-
   static void headerCell(Print* stream, const char* header) {
     WHtml::command(stream, WC_TABLE_HEADER, true, nullptr);
     if (header) stream->print(header);
@@ -443,17 +449,21 @@ class WebTable : public WebControl {
   WebTable(WList<T>* datas) : WebControl(WC_TABLE, nullptr) {
     _datas = datas;
     if (_datas != nullptr) {
-      _datas->addListener([this](WListChange<T> change){
+      _datas->addListener([this](WListChange<T> change) {
         switch (change.type) {
-            case CHANGED :
+          case WListChangeType::CHANGED:
 
-              break;
-            case ADDED :
+            break;
+          case WListChangeType::ADDED:
+            LOG->debug("add something to list");
+            //var htmlSnippet = _insertRow(change.index(), change.item()).toString();
+            //var tu = new WebTableUpdate(change.type(), change.index(), htmlSnippet);
+            WebTableUpdate tu(WebTableUpdate::LChangeType::ADDED, change.index, "<tr><td>Hello</td></tr>");
+            WebAppSockets::sendMessage("tableUpdate", id(), json(tu));
+            break;
+          case WListChangeType::REMOVED:
 
-              break;    
-            case REMOVED :
-
-              break;
+            break;
         }
       });
     }
@@ -461,6 +471,11 @@ class WebTable : public WebControl {
 
   virtual ~WebTable() {
     if (_datas != nullptr) _datas->removeListener();
+  }
+
+  virtual void createScripts(WStringList* scripts) {
+    WebControl::createScripts(scripts);
+    scripts->add(WC_SCRIPT_TABLE_UPDATE, WC_SCRIPT_NAME_TABLE_UPDATE);
   }
 
   typedef std::function<void(Print*, int, T*, const char*)> TOnPrintRow;
@@ -481,12 +496,12 @@ class WebTable : public WebControl {
   virtual void toString(Print* stream) {
     WHtml::command(stream, _tag, true, _params);
     if (_onPrintHeaderRow) {
-      WHtml::command(stream, WC_TABLE_ROW, true, nullptr);  
+      WHtml::command(stream, WC_TABLE_ROW, true, nullptr);
       _onPrintHeaderRow(stream, -1, nullptr, nullptr);
       WHtml::command(stream, WC_TABLE_ROW, false, nullptr);
     }
     _datas->forEach([this, stream](int index, T* item, const char* id) {
-      WHtml::command(stream, WC_TABLE_ROW, true, nullptr);      
+      WHtml::command(stream, WC_TABLE_ROW, true, nullptr);
       this->printRow(stream, index, item, id);
       WHtml::command(stream, WC_TABLE_ROW, false, nullptr);
     });

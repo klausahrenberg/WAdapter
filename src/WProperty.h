@@ -74,8 +74,8 @@ class WProperty {
 
   virtual ~WProperty() {
     if (_value) delete _value;
-    if (_title) delete _title;
-    if (_unit) delete _unit;
+    if (_title) delete[] _title;
+    if (_unit) delete[] _unit;
     if (_enums) delete _enums;
   }
 

@@ -9,16 +9,16 @@
 #define SIZE_RESPONSE_STREAM 2048U
 
 struct WebPageItem {
-  WebPageItem(WPageInitializer initializer, const char* title, bool showInMainMenu = true) {
+  WebPageItem(WebPageInitializer initializer, const char* title, bool showInMainMenu = true) {
     this->initializer = initializer;
     this->title = title;
     this->showInMainMenu = showInMainMenu;
   }
 
-  WPageInitializer initializer;
+  WebPageInitializer initializer;
   const char* title;
   bool showInMainMenu;
-  WPage* instance = nullptr;
+  WebPage* instance = nullptr;
   unsigned long lastAlive = 0;
 };
 
@@ -126,7 +126,7 @@ class WebApp {
 
   WList<WebPageItem>* webPages() { return _webPages; }
 
-  void addWebPage(const char* id, WPageInitializer initializer, const char* title, bool showInMainMenu = true) {
+  void addWebPage(const char* id, WebPageInitializer initializer, const char* title, bool showInMainMenu = true) {
     _webPages->add(new WebPageItem(initializer, title, showInMainMenu), id);
   }
 
@@ -160,7 +160,7 @@ class WebApp {
     if (formName != nullptr) {
       WebPageItem* pi = _webPages->getById(formName->asString());
       if (pi != nullptr) {
-        WPage* p = pi->initializer();
+        WebPage* p = pi->initializer();
         return p->submitForm(args);
       } else {
         LOG->debug(F("No page '%s' found."), formName);
@@ -180,7 +180,7 @@ class WebApp {
 
   void _handleGet(AsyncWebServerRequest* request, WebPageItem* pi, String id) {
     LOG->notice(F("Request with id '%s'"), id);
-    WPage* page = pi->initializer();
+    WebPage* page = pi->initializer();
 
     AsyncResponseStream* stream = request->beginResponseStream(WC_TEXT_HTML, SIZE_RESPONSE_STREAM);
     page->toString(stream);

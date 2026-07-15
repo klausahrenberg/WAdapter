@@ -3,9 +3,9 @@
 
 #include "WebApp.h"
 
-class WRootPage : public WPage {
+class WRootPage : public WebPage {
  public:
-  WRootPage(WList<WebPageItem>* customPages) : WPage() {
+  WRootPage(WList<WebPageItem>* customPages) : WebPage() {
     _customPages = customPages;
   }
 
@@ -26,9 +26,9 @@ class WRootPage : public WPage {
   WList<WebPageItem>* _customPages;
 };
 
-class WNetworkPage : public WPage {
+class WNetworkPage : public WebPage {
  public:
-  WNetworkPage() : WPage() {
+  WNetworkPage() : WebPage() {
   }
 
   virtual ~WNetworkPage() {
@@ -67,9 +67,9 @@ class WNetworkPage : public WPage {
  protected:
 };
 
-class WResetPage : public WPage {
+class WResetPage : public WebPage {
  public:
-  WResetPage(WNetwork* network) : WPage() {
+  WResetPage(WNetwork* network) : WebPage() {
   }
 
   virtual ~WResetPage() {
@@ -104,9 +104,9 @@ class WResetPage : public WPage {
  private:
 };
 
-class WRestartPage : public WPage {
+class WRestartPage : public WebPage {
  public:
-  WRestartPage(const char* restartMessage) : WPage() {
+  WRestartPage(const char* restartMessage) : WebPage() {
     _restartMessage = restartMessage;
   }
 
@@ -125,7 +125,7 @@ class WRestartPage : public WPage {
   const char* _restartMessage;
 };
 
-class WFirmwarePage : public WPage {
+class WFirmwarePage : public WebPage {
  public:
   virtual void createControls(WebControl* parentNode) {
     if (ESP.getSketchSize() < ESP.getFreeSketchSpace() / 2) {
@@ -152,9 +152,9 @@ class WFirmwarePage : public WPage {
   }
 };
 
-class WInfoPage : public WPage {
+class WInfoPage : public WebPage {
  public:
-  WInfoPage(unsigned long running) : WPage() {
+  WInfoPage(unsigned long running) : WebPage() {
     _running = running;
     _datas = new WList<WValue>();
   }

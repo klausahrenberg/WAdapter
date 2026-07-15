@@ -489,7 +489,7 @@ class WNetwork {
     _bindWebServerCalls(device);
   }
 
-  void addWebPage(const char* id, WPageInitializer initializer, const char* title, bool showInMainMenu = true) {
+  void addWebPage(const char* id, WebPageInitializer initializer, const char* title, bool showInMainMenu = true) {
     if (_webApp == nullptr) _webApp = new WebApp();
     _webApp->addWebPage(id, initializer, title, showInMainMenu);
   }
@@ -838,7 +838,7 @@ class WNetwork {
     }
     if (_postResponse.operation != FO_NONE) {
       AsyncResponseStream* stream = request->beginResponseStream(WC_TEXT_HTML);
-      WPage* result = new WRestartPage(_postResponse.message == nullptr ? PSTR("Restart...") : _postResponse.message);
+      WebPage* result = new WRestartPage(_postResponse.message == nullptr ? PSTR("Restart...") : _postResponse.message);
       result->toString(stream);
       request->client()->setNoDelay(true);
       request->send(stream);

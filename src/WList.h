@@ -39,7 +39,7 @@ struct WListNode {
   WListNode<T>* next = nullptr;
 };
 
-enum WListChangeType {
+enum class WListChangeType {
   ADDED,
   REMOVED,
   CHANGED
@@ -60,15 +60,15 @@ struct WListChange {
   int index;
 
   bool isAdded() {
-    return (type == ADDED);
+    return (type == WListChangeType::ADDED);
   }
 
   bool isRemoved() {
-    return (type == REMOVED);
+    return (type == WListChangeType::REMOVED);
   }
 
   bool isChanged() {
-    return (type == CHANGED);
+    return (type == WListChangeType::CHANGED);
   }
 };
 
@@ -353,17 +353,17 @@ class WList : public IWIterable<T> {
 
   void _notifyAdd(int index, T* item) {       
     if (_listener != nullptr) 
-      _listener(WListChange<T>(ADDED, item, nullptr, index));
+      _listener(WListChange<T>(WListChangeType::ADDED, item, nullptr, index));
   }
 
   void _notifyRemove(int index, T* item) {       
     if (_listener != nullptr) 
-      _listener(WListChange<T>(REMOVED, nullptr, item, index));
+      _listener(WListChange<T>(WListChangeType::REMOVED, nullptr, item, index));
   }
 
   void _notifyChanged(int index, T* item, T* oldItem) {       
     if (_listener != nullptr) 
-      _listener(WListChange<T>(CHANGED, item, oldItem, index));
+      _listener(WListChange<T>(WListChangeType::CHANGED, item, oldItem, index));
   }
 
 };
