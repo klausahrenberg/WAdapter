@@ -113,7 +113,6 @@ class WebPage {
       }
       scripts->forEach([this, stream](int index, const char* script, const char* id) {
         stream->print(script);
-        stream->print(WC_SEND);
       });
       WHtml::command(stream, WC_SCRIPT, false);
     }

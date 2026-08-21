@@ -525,6 +525,10 @@ struct WValue {
             stream->print("\\n");
             break;
           }
+          case '\"': {
+            stream->print("\\\"");
+            break;
+          }
           default:
             stream->print((char)text[index]);
         }
@@ -549,6 +553,10 @@ struct WValue {
     stream->print(value ? WC_TRUE : WC_FALSE);
   }  
 
+  static void intToString(Print* stream, int value) {
+    stream->print(value, DEC);
+  }  
+
   static void toString(Print* stream, WValue* value) {
     switch (value->type()) {
       case WDataType::BOOLEAN:        
@@ -558,10 +566,10 @@ struct WValue {
         stream->print(value->asDouble());
         break;
       case WDataType::INTEGER:
-        stream->print(value->asInt(), DEC);
+        intToString(stream, value->asInt());
         break;
-      case WDataType::SHORT:
-      stream->print(value->asShort(), DEC);
+      case WDataType::SHORT:        
+        stream->print(value->asShort(), DEC);
         break;
       case WDataType::UNSIGNED_SHORT:
         stream->print(value->asUnsignedShort(), DEC);

@@ -14,6 +14,7 @@ public:
 		_scl = scl;
 		if (this->isInitialized()) {
 			_i2cPort->begin(_sda, _scl);
+			_i2cPort->setClock(50000);
 		}
 	}
 

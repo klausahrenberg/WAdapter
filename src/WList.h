@@ -70,6 +70,7 @@ struct WListChange {
   bool isChanged() {
     return (type == WListChangeType::CHANGED);
   }
+  
 };
 
 template <typename T>

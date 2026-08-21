@@ -222,7 +222,7 @@ function executeFunctionByName(functionName, context /*, args */) {
     } else {
         console.log("Unknown function: " + func)
     }
-
+}
 )=====";
 
 const static char WC_SCRIPT_NAME_CONTROL_EVENT[] PROGMEM = "controlEvent(this, '%s')";
@@ -230,6 +230,7 @@ const static char WC_SCRIPT_NAME_CONTROL_EVENT[] PROGMEM = "controlEvent(this, '
 const static char WC_SCRIPT_CONTROL_EVENT[] PROGMEM = R"=====(
 function controlEvent(elem, event) {
   sendWebSocketMessage(event, elem.id, {"value":elem.value});
+}
 )=====";
 
 const static char WC_SCRIPT_NAME_TEXTAREA[] PROGMEM = "textAreaUpdate(json)";
@@ -240,11 +241,21 @@ function textAreaUpdate(json) {
   if (textArea !== null) {
     textArea.innerHTML = json.data;
   }
+}    
 )=====";
 
-const static char WC_SCRIPT_NAME_TABLE_UPDATE[] PROGMEM = "tableUpdate(json)";
+const static char WC_SCRIPT_WEB_TABLE_NAME[] PROGMEM = "WebTable";
 
-const static char WC_SCRIPT_TABLE_UPDATE[] PROGMEM = R"=====(
+const static char WC_SCRIPT_WEB_TABLE[] PROGMEM = R"=====(
+Element.prototype.insertChildAtIndex = function(child, index) {
+  if (!index) index = 0;
+  if (index >= this.children.length) {
+    this.appendChild(child);
+  } else {
+    this.insertBefore(child, this.children[index]);
+  }
+};
+
 function tableUpdate(json) {
     console.log("table update...");    
     var table = document.getElementById(json.id);
@@ -253,7 +264,21 @@ function tableUpdate(json) {
             table.getElementsByTagName("tbody")[0].insertChildAtIndex(insertRow(table, json.data), json.data.index);
             break;
     }
+}
+
+function htmlToNode(html) {
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    //return template.content.childNodes;
+    return template.content.firstChild;
+}
+
+function insertRow(table, json) {
+    return htmlToNode(json.htmlSnippet);
+}
+
 )=====";
+
 
 /*
 https://stackoverflow.com/questions/4388102/can-you-style-an-active-form-inputs-label-with-just-css

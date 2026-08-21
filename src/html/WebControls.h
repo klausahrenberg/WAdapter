@@ -421,14 +421,49 @@ class WebInputFile : public WebControl {
 };
 
 // Struct
-struct WebTableUpdate {  
+struct WebTableUpdate : public IWJsonable {
   WListChangeType type;
-  int index;
+  WValue* _index;
   const char* htmlSnippet;  // oder std::string
 
   // Optional: Konstruktor
-  WebTableUpdate(WListChangeType t = WListChangeType::ADDED, int i = -1, const char* html = nullptr)
-      : type(t), index(i), htmlSnippet(html) {}
+  WebTableUpdate(WListChangeType t = WListChangeType::ADDED, int index = -1, const char* html = nullptr)
+      : type(t), _index(new WValue(index)), htmlSnippet(html) {}
+
+  ~WebTableUpdate() {
+    if (_index) delete _index;
+  }
+
+  int index() { return _index->asInt(); }
+
+  virtual void fromJson(WList<WValue>* list) {
+    // list->ifExistsId(WC_GPIO, [this] (WValue* v) { this->pin(v->asByte()); });
+  }
+
+  virtual void toJson(WJson* json) {
+    switch (type) {
+      case WListChangeType::ADDED:
+        json->propertyString("type", "ADDED", nullptr);
+        break;
+      case WListChangeType::REMOVED:
+        json->propertyString("type", "REMOVED", nullptr);
+        break;
+      case WListChangeType::CHANGED:
+        json->propertyString("type", "CHANGED", nullptr);
+        break;
+    }
+    json->propertyValue("index", _index);
+    json->propertyString("htmlSnippet", htmlSnippet, nullptr);
+    /*if (_type != GPIO_TYPE_UNKNOWN) json->propertyString(WC_TYPE, S_GPIO_TYPE[_type], nullptr);
+    if (pin() != NO_PIN) {
+      json->propertyValue(WC_GPIO, _pin);
+    } else {
+      json->propertyNull(WC_GPIO);
+    }*/
+  }
+
+  virtual void registerSettings() {
+  }
 };
 
 template <typename T>
@@ -446,24 +481,28 @@ class WebTable : public WebControl {
     WHtml::command(stream, WC_TABLE_DATA, false, nullptr);
   }
 
-  WebTable(WList<T>* datas) : WebControl(WC_TABLE, nullptr) {
+  WebTable(const char* id, WList<T>* datas) : WebControl(WC_TABLE, WC_ID, id, nullptr) {
     _datas = datas;
     if (_datas != nullptr) {
-      _datas->addListener([this](WListChange<T> change) {
+      _datas->addListener([this, id](WListChange<T> change) {
         switch (change.type) {
-          case WListChangeType::CHANGED:
-
+          case WListChangeType::CHANGED: {
             break;
-          case WListChangeType::ADDED:
+          }
+          case WListChangeType::ADDED: {
             LOG->debug("add something to list");
-            //var htmlSnippet = _insertRow(change.index(), change.item()).toString();
-            //var tu = new WebTableUpdate(change.type(), change.index(), htmlSnippet);
-            WebTableUpdate tu(WebTableUpdate::LChangeType::ADDED, change.index, "<tr><td>Hello</td></tr>");
-            WebAppSockets::sendMessage("tableUpdate", id(), json(tu));
+            // var htmlSnippet = _insertRow(change.index(), change.item()).toString();
+            // var tu = new WebTableUpdate(change.type(), change.index(), htmlSnippet);
+            WStringStream* htmlSnippet = new WStringStream(255);
+            printRow(htmlSnippet, change.index, change.item, id);
+            WebTableUpdate tu(WListChangeType::ADDED, change.index, htmlSnippet->c_str());            
+            WebAppSockets::sendJsonable("tableUpdate", this->id(), &tu);
+            delete htmlSnippet;
             break;
-          case WListChangeType::REMOVED:
-
+          }
+          case WListChangeType::REMOVED: {
             break;
+          }
         }
       });
     }
@@ -475,12 +514,14 @@ class WebTable : public WebControl {
 
   virtual void createScripts(WStringList* scripts) {
     WebControl::createScripts(scripts);
-    scripts->add(WC_SCRIPT_TABLE_UPDATE, WC_SCRIPT_NAME_TABLE_UPDATE);
+    scripts->add(WC_SCRIPT_WEB_TABLE, WC_SCRIPT_WEB_TABLE_NAME);
   }
 
   typedef std::function<void(Print*, int, T*, const char*)> TOnPrintRow;
   virtual void printRow(Print* stream, int index, T* item, const char* id) {
+    WHtml::command(stream, WC_TABLE_ROW, true, nullptr);
     if (_onPrintRow) _onPrintRow(stream, index, item, id);
+    WHtml::command(stream, WC_TABLE_ROW, false, nullptr);
   }
 
   WebTable* onPrintRow(TOnPrintRow onPrintRow) {
@@ -500,10 +541,8 @@ class WebTable : public WebControl {
       _onPrintHeaderRow(stream, -1, nullptr, nullptr);
       WHtml::command(stream, WC_TABLE_ROW, false, nullptr);
     }
-    _datas->forEach([this, stream](int index, T* item, const char* id) {
-      WHtml::command(stream, WC_TABLE_ROW, true, nullptr);
+    _datas->forEach([this, stream](int index, T* item, const char* id) {      
       this->printRow(stream, index, item, id);
-      WHtml::command(stream, WC_TABLE_ROW, false, nullptr);
     });
     if (_closing) WHtml::command(stream, _tag, false, nullptr);
   }

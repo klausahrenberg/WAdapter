@@ -18,7 +18,7 @@ class WPCF8575 : public WI2C, public IWExpander {
 
   virtual void loop(unsigned long now) {
     WI2C::loop(now);
-    if (_started) {
+    if (_started && (now - _lastReadMillis >= READ_ELAPSED_TIME)) {
       _i2cPort->requestFrom(_address, (uint8_t)2);
       _lastReadMillis = millis();
       if (_i2cPort->available()) {

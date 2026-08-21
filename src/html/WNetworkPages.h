@@ -186,7 +186,7 @@ class WInfoPage : public WebPage {
 #endif
     _datas->add(new WValue(_running) /*->unit(PSTR(" minutes"))*/, PSTR("Running since"));
 
-    div->add((new WebTable<WValue>(_datas))->onPrintRow([this](Print* stream, int index, WValue* item, const char* id) {
+    div->add((new WebTable<WValue>("info", _datas))->onPrintRow([this](Print* stream, int index, WValue* item, const char* id) {
       WebTable<WValue>::headerCell(stream, id);
       WebTable<WValue>::dataCell(stream, item->toString());
     }));

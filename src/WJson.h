@@ -5,8 +5,9 @@
 
 class WJson {
  public:
-  WJson(Print* stream) {
+  WJson(Print* stream, IWJsonable* obj = nullptr) {
     _stream = stream;
+    if (obj) propertyObject(nullptr, obj);
   }
 
   ~WJson() {
@@ -146,6 +147,19 @@ class WJson {
     _separatorAlreadyCalled = false;
     return *this;
   }
+
+  WJson& propertyObject(const char* name, IWJsonable* value) {
+    _ifSeparator();
+    _separatorAlreadyCalled = true;
+    memberName(name);
+    if (!_separatorAlreadyCalled)
+      _ifSeparator();
+    beginObject();
+    value->toJson(this);
+    endObject();
+    _separatorAlreadyCalled = false;
+    return *this;
+  }  
 
   WJson& string(const char* text, ...) {
     if (!_separatorAlreadyCalled)
