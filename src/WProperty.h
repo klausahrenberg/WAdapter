@@ -287,7 +287,7 @@ class WProperty {
 
   WProperty* asByteArray(byte length, const byte* value, bool ignoreReadOnly = false) {
     if (_isWritingAllowed(ignoreReadOnly)) {
-      _changed = _value->asByteArray(length, value) || _changed;
+      _changed = _value->asByteArray(length, [value](byte i) { return value[i]; }) || _changed;
       _notify();
     }
     return this;

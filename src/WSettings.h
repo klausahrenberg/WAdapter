@@ -115,7 +115,7 @@ class WSettings {
           }
           case WDataType::BYTE_ARRAY: {
             const byte* ba = readByteArray(_address);
-            value->asByteArray(readByteArrayLength(_address), ba);
+            value->asByteArray(readByteArrayLength(_address), [ba](byte i) { return ba[i]; });
             delete ba;
             break;
           }
@@ -259,7 +259,7 @@ class WSettings {
       value = new WValue(length, ba);      
       add(value, id);
     } else {
-      value->asByteArray(length, ba);
+      value->asByteArray(length, [ba](byte i) { return ba[i]; });
     }
     return value;
   }

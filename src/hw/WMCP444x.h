@@ -3,7 +3,7 @@
 
 #include "WI2C.h"
 
-#define WMCP444x_ADRESS 0x2F
+#define WMCP444x_ADRESS 0x2D // 0x2F
 #define DEFAULT_WIPER_VALUE 0x80  // Default to the wipers in midrange
 
 // meory addresses (all shifted 4 bits left)
@@ -122,8 +122,8 @@ class WMCP444x : public WI2C {
   }
 
   void setNonVolatileWipers(uint16_t) {}
-  uint16_t getVolatileWiper(uint8_t) {}
-  uint16_t getNonVolatileWiper(uint8_t) const {}
+  uint16_t getVolatileWiper(uint8_t) { return 0; }
+  uint16_t getNonVolatileWiper(uint8_t) const { return 0; }
 
   uint16_t read_2(byte mem_addr) {
       uint16_t ret = 0;

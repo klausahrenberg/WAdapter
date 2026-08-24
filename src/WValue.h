@@ -90,8 +90,12 @@ struct WValue {
   }
 
   WValue(byte length, const byte* ba) {
+    WValue(length, [ba](byte i) { return ba[i]; });
+  }
+
+  WValue(byte length, std::function<byte(byte)> getter) {
     _type = WDataType::BYTE_ARRAY;
-    asByteArray(length, ba);
+    asByteArray(length, getter);
   }
 
   virtual ~WValue() {
@@ -251,7 +255,8 @@ struct WValue {
     }
   }*/
 
-  bool asByteArray(byte length, const byte* newValue) {
+  bool asByteArray(byte length, std::function<byte(byte)> getter) {
+    // bool asByteArray(byte length, const byte* newValue) {
     bool changed = false;
     if (_type == WDataType::BYTE_ARRAY) {
       changed = ((_isNull) || (length != this->length()));
@@ -260,9 +265,11 @@ struct WValue {
       }
       _asByteArray = (byte*)malloc(length + 1);
       _asByteArray[0] = length;
-      for (int i = 0; i < length; i++) {
-        changed = ((changed) || (_asByteArray[i + 1] != newValue[i]));
-        _asByteArray[i + 1] = newValue[i];
+      byte newValue;
+      for (byte i = 0; i < length; i++) {
+        byte newValue = getter(i);
+        changed = ((changed) || (_asByteArray[i + 1] != newValue));
+        _asByteArray[i + 1] = newValue;
       }
       if (changed) {
         _isNull = false;
@@ -551,15 +558,15 @@ struct WValue {
 
   static void boolToString(Print* stream, bool value) {
     stream->print(value ? WC_TRUE : WC_FALSE);
-  }  
+  }
 
   static void intToString(Print* stream, int value) {
     stream->print(value, DEC);
-  }  
+  }
 
   static void toString(Print* stream, WValue* value) {
     switch (value->type()) {
-      case WDataType::BOOLEAN:        
+      case WDataType::BOOLEAN:
         boolToString(stream, value->asBool());
         break;
       case WDataType::DOUBLE:
@@ -568,7 +575,7 @@ struct WValue {
       case WDataType::INTEGER:
         intToString(stream, value->asInt());
         break;
-      case WDataType::SHORT:        
+      case WDataType::SHORT:
         stream->print(value->asShort(), DEC);
         break;
       case WDataType::UNSIGNED_SHORT:
@@ -578,7 +585,7 @@ struct WValue {
         stream->print(value->asUnsignedLong(), DEC);
         break;
       case WDataType::BYTE:
-      stream->print(value->asByte(), DEC);
+        stream->print(value->asByte(), DEC);
         break;
       case WDataType::STRING:
         WValue::string(stream, value->asString(), nullptr);

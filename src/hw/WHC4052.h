@@ -3,7 +3,7 @@
 
 #include "../WGpio.h"
 
-const byte WHC4052_DEFAULT_MAPPING[4] = {0b11, 0b00, 0b01, 0b10};
+const byte WHC4052_DEFAULT_MAPPING[4] = {0b11, 0b00, 0b10, 0b01};
 
 class WHC4052 : public WGpio {
  public:

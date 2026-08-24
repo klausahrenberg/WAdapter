@@ -8,7 +8,8 @@
 class WPCF8575 : public WI2C, public IWExpander {
  public:
   WPCF8575(byte address, int sda = 21, int scl = 22, TwoWire* i2cPort = &Wire)
-      : WI2C(GPIO_TYPE_PCF8575, address, sda, scl, NO_PIN, i2cPort) {}
+      : WI2C(GPIO_TYPE_PCF8575, address, sda, scl, NO_PIN, i2cPort) {
+  }
 
   static WPCF8575* create(IWGpioRegister* device, byte address, int sda = 21, int scl = 22, TwoWire* i2cPort = &Wire) {
     WPCF8575* exp = new WPCF8575(address, sda, scl, i2cPort);
@@ -81,13 +82,13 @@ class WPCF8575 : public WI2C, public IWExpander {
       _byteBuffered = _writeByteBuffered & ~bit(pin);
     }
     if (_started) {
-      _i2cPort->beginTransmission(_address);      
+      _i2cPort->beginTransmission(_address);
       _byteBuffered = (_writeByteBuffered & _writeMode) | _readMode;
       _i2cPort->write((uint8_t)_byteBuffered);
       _i2cPort->write((uint8_t)(_byteBuffered >> 8));
       _byteBuffered = (_writeByteBuffered & _writeMode) | _readMode;
       _transmissionStatus = _i2cPort->endTransmission();
-      /*if (DEBUG) {        
+      /*if (DEBUG) {
         _printBinary16(LOG->output(), _byteBuffered);
       }*/
     }

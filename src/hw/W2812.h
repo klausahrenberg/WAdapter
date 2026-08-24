@@ -4,7 +4,7 @@
 #include "Adafruit_NeoPixel.h"
 #include "WGpio.h"
 
-#define COLOR_DEFAULT 0x200000
+#define COLOR_DEFAULT 0x000000
 #define COLOR_OFF 0x000000
 #define BLINK_MILLIS 300
 const static char WRGB_NUMBER_OF_LEDS[] PROGMEM = "leds";
