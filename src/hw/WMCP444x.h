@@ -3,7 +3,7 @@
 
 #include "WI2C.h"
 
-#define WMCP444x_ADRESS 0x2D // 0x2F
+#define WMCP444x_ADRESS 0x2D      // 0x2F
 #define DEFAULT_WIPER_VALUE 0x80  // Default to the wipers in midrange
 
 // meory addresses (all shifted 4 bits left)
@@ -35,21 +35,53 @@ class WMCP444x : public WI2C {
       : WI2C(GPIO_TYPE_MCP444x, address, sda, scl, NO_PIN, i2cPort) {
   }
 
-  // void begin() {}
-  // void setMCP4461Address(uint8_t) {}
-
   bool begin() {
     Wire.beginTransmission(address());
     byte error = Wire.endTransmission();
     return (error == 0);
   }
 
+  void writeValue(uint8_t addressByte, uint16_t data) {
+    uint8_t commandByte;
+    uint8_t dataByte = (uint8_t)data;
+    if (data > 0xFF)
+      commandByte = 0x1;
+    else
+      commandByte = 0;
+    commandByte |= addressByte;
+    commandByte |= MCP4461_WRITE;
+    _i2cPort->beginTransmission(_address);
+    _i2cPort->write(commandByte);
+    _i2cPort->write(dataByte);
+    _i2cPort->endTransmission();
+    /*while(getEEPRomWriteActive()) {
+      delayMicroseconds(1);
+    }*/
+  }
+
   void write(uint8_t wiper, uint8_t value) {
     Wire.beginTransmission(address());
-    Wire.write(wiper); // write to address 0 
+    Wire.write(wiper);  // write to address 0
     Wire.write(value);
-    Wire.endTransmission();   
+    Wire.endTransmission();
   }
+
+  void setMCP4441Wiper(byte wiperReg, int value) {
+  // Sicherheits-Begrenzung auf das 7-Bit-Maximum des MCP4441
+  if (value > 128) value = 128;
+  if (value < 0) value = 0;
+
+  Wire.beginTransmission(address());
+  
+  // 1. Byte: Register-Adresse um 4 Bits nach links verschieben.
+  // Die letzten Bits stehen auf 00 für den "Write"-Befehl im flüchtigen RAM.
+  Wire.write((wiperReg << 4) | 0x00); 
+  
+  // 2. Byte: Der eigentliche Stellwert (0 bis 128)
+  Wire.write(value & 0xFF); 
+  
+  Wire.endTransmission();
+}
 
   void setVolatileWiper(uint8_t wiper, uint16_t wiper_value) {
     uint16_t value = wiper_value;
@@ -126,23 +158,23 @@ class WMCP444x : public WI2C {
   uint16_t getNonVolatileWiper(uint8_t) const { return 0; }
 
   uint16_t read_2(byte mem_addr) {
-      uint16_t ret = 0;
-      uint16_t c_byte = 0;
-      c_byte |= MCP4461_STATUS;
-      c_byte |= MCP4461_READ;
-      // send command byte
-      Wire.beginTransmission(address());
-      Wire.write(c_byte);
-      Wire.endTransmission(false);  // do not release bus
-      Wire.requestFrom((uint8_t)address(), (uint8_t)2);
-      // read the register
-      int i = 0;
-      while (Wire.available()) {
-          ret |= Wire.read();
-          if (i == 0) ret = ret << 8;
-          i++;
-      }
-      return ret;
+    uint16_t ret = 0;
+    uint16_t c_byte = 0;
+    c_byte |= MCP4461_STATUS;
+    c_byte |= MCP4461_READ;
+    // send command byte
+    Wire.beginTransmission(address());
+    Wire.write(c_byte);
+    Wire.endTransmission(false);  // do not release bus
+    Wire.requestFrom((uint8_t)address(), (uint8_t)2);
+    // read the register
+    int i = 0;
+    while (Wire.available()) {
+      ret |= Wire.read();
+      if (i == 0) ret = ret << 8;
+      i++;
+    }
+    return ret;
   }
 
   uint16_t read(uint8_t mem_addr) {
@@ -197,8 +229,6 @@ class WMCP444x : public WI2C {
       }
       return 0;
   }*/
-
-  
 
  protected:
  private:
