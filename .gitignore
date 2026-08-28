@@ -1,5 +1,6 @@
 /build/
 /.project
+/.claude
 /.pio
 # Precompiled Headers
 *.gch

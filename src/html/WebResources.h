@@ -6,6 +6,7 @@
 
 const static char WC_ACCEPT[] PROGMEM = "accept";
 const static char WC_ACTION[] PROGMEM = "action";
+const static char WC_ALL[] PROGMEM = "all";
 const static char WC_BACK_TO_MAINMENU[] PROGMEM = "Back to configuration";
 const static char WC_BODY[] PROGMEM = R"=====(body)=====";
 const static char WC_BUTTON[] PROGMEM = R"=====(button)=====";
@@ -13,12 +14,15 @@ const static char WC_CLASS[] PROGMEM = R"=====(class)=====";
 const static char WC_CONTENT[] PROGMEM = R"=====(content)=====";
 const static char WC_CONTENT_EDITABLE[] PROGMEM = "contenteditable"; 
 const static char WC_CONFIG[] PROGMEM = "config";
+const static char WC_CHECKBOX[] PROGMEM = "checkbox";
+const static char WC_CHECKED[] PROGMEM = "checked";
 const static char WC_CSS_BUTTON_HOVER[] PROGMEM = "button:hover";
 const static char WC_CSS_FORM_WHITE_BOX[] PROGMEM = "form, .wb";
 const static char WC_CSS_CHECK_BOX[] PROGMEM = ".cb input[type='checkbox']";
 const static char WC_CSS_CHECK_BOX_LABEL[] PROGMEM = ".cb input[type='checkbox']+label";
 const static char WC_CSS_CHECK_BOX_LABEL_BEFORE[] PROGMEM = ".cb input[type='checkbox']+label:before";
 const static char WC_CSS_CHECK_BOX_CHECKED_LABEL_BEFORE[] PROGMEM = ".cb input[type='checkbox']:checked+label:before";
+const static char WC_COL[] PROGMEM = "col";
 const static char WC_COLS[] PROGMEM = "cols";
 const static char WC_DIV[] PROGMEM = "div";
 const static char WC_ENCTYPE[] PROGMEM = "enctype";
@@ -38,8 +42,11 @@ const static char WC_HEAD[] PROGMEM = "head";
 const static char WC_HIDDEN[] PROGMEM = "hidden";
 const static char WC_HISTORY_BACK[] PROGMEM = "history.back()";
 const static char WC_HTML[] PROGMEM = "html";
+const static char WC_HTML_SNIPPET[] PROGMEM = "htmlSnippet";
 const static char WC_HTTP[] PROGMEM = "http";
 const static char WC_HREF[] PROGMEM = "href";
+const static char WC_INDETERMINATE[] PROGMEM = "indeterminate";
+const static char WC_INDEX[] PROGMEM = "index";
 const static char WC_INFO[] PROGMEM = "info";
 const static char WC_INPUT[] PROGMEM = "input";
 const static char WC_LABEL[] PROGMEM = "label";
@@ -62,20 +69,25 @@ const static char WC_OPTION[] PROGMEM = "option";
 const static char WC_PASSWORD[] PROGMEM = "password";
 const static char WC_PING[] PROGMEM = "PING";
 const static char WC_POST[] PROGMEM = "post";
+const static char WC_REFUSED[] PROGMEM = "refused";
 const static char WC_REL[] PROGMEM = "rel";
 const static char WC_RESET[] PROGMEM = "reset";
+const static char WC_ROW[] PROGMEM = "row";
 const static char WC_ROWS[] PROGMEM = "rows";
 const static char WC_SAVE_CONFIGURATION[] PROGMEM = "Save configuration";
 const static char WC_SCRIPT[] PROGMEM = "script";
 const static char WC_SELECT[] PROGMEM = "select";
 const static char WC_SELECTED[] PROGMEM = "selected";
 const static char WC_SPAN[] PROGMEM = "span";
+const static char WC_SPELLCHECK[] PROGMEM = "spellcheck";
 const static char WC_SSID[] PROGMEM = "ssid";
 const static char WC_STATE[] PROGMEM = "state";
 const static char WC_STYLE[] PROGMEM = "style";
 const static char WC_SUBMIT[] PROGMEM = "submit";
 const static char WC_TABLE[] PROGMEM = "table";
+const static char WC_TABLE_BODY[] PROGMEM = "tbody";
 const static char WC_TABLE_DATA[] PROGMEM = "td";
+const static char WC_TABLE_HEAD[] PROGMEM = "thead";
 const static char WC_TABLE_HEADER[] PROGMEM = "th";
 const static char WC_TABLE_ROW[] PROGMEM = "tr";
 const static char WC_TCP[] PROGMEM = "tcp";
@@ -244,39 +256,109 @@ function textAreaUpdate(json) {
 }    
 )=====";
 
+//Table: the seven theme tokens (border, foreground, muted, zebra, highlight,
+//accent, radius) are put on :root, so every rule below is a short reference
+const static char WC_CSS_ROOT[] PROGMEM = ":root";
+const static char WC_CSS_TABLE_ZEBRA[] PROGMEM = "tbody tr:nth-child(2n)";
+const static char WC_CSS_TABLE_HOVER[] PROGMEM = "tbody tr:hover";
+const static char WC_CSS_TABLE_LAST_ROW[] PROGMEM = "tbody tr:last-child td";
+const static char WC_CSS_TABLE_CHECK_BOX[] PROGMEM = "table input[type=checkbox]";
+const static char WC_CSS_TABLE_EDIT[] PROGMEM = "td[contenteditable]:focus";
+const static char WC_CSS_TABLE_REFUSED[] PROGMEM = "td.refused";
+const static char WC_STYLE_ROOT[] PROGMEM = "--tb:#e5e7eb;--tf:#111827;--tm:#6b7280;--tz:#f8f9fb;--th:#eef6f2;--ta:#04AA6D;--tr:8px";
+const static char WC_STYLE_TABLE[] PROGMEM = "width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--tb);border-radius:var(--tr);overflow:hidden;font-size:.9rem;color:var(--tf);text-align:left";
+const static char WC_STYLE_TABLE_DATA[] PROGMEM = "padding:.5rem .7rem;border-bottom:1px solid var(--tb)";
+const static char WC_STYLE_TABLE_HEADER[] PROGMEM = "padding:.5rem .7rem;position:sticky;top:0;background:#fff;font-size:.72rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--tm);border-bottom:2px solid var(--tb);white-space:nowrap";
+const static char WC_STYLE_TABLE_ZEBRA[] PROGMEM = "background:var(--tz)";
+const static char WC_STYLE_TABLE_HOVER[] PROGMEM = "background:var(--th)";
+const static char WC_STYLE_TABLE_LAST_ROW[] PROGMEM = "border-bottom:0";
+const static char WC_STYLE_TABLE_CHECK_BOX[] PROGMEM = "accent-color:var(--ta);width:1rem;height:1rem;vertical-align:middle;margin:0";
+const static char WC_STYLE_TABLE_EDIT[] PROGMEM = "outline:2px solid var(--ta);outline-offset:-2px;background:#fff";
+const static char WC_STYLE_TABLE_REFUSED[] PROGMEM = "outline:2px solid #dc2626;outline-offset:-2px";
+
 const static char WC_SCRIPT_WEB_TABLE_NAME[] PROGMEM = "WebTable";
+const static char WC_TABLE_UPDATE[] PROGMEM = "tableUpdate";
+const static char WC_CELL_UPDATE[] PROGMEM = "cellUpdate";
+const static char WC_SELECT_ROWS[] PROGMEM = "selectRows";
+const static char WC_ADDED[] PROGMEM = "ADDED";
+const static char WC_REMOVED[] PROGMEM = "REMOVED";
 
+//A row is addressed by its index in the body and a cell by its index in the
+//row, so no cell of the table needs an id of its own. Editing is done by the
+//browser with contenteditable. Everything is listened to by delegation on the
+//document, so a row arriving later over the socket needs no wiring and carries
+//no event attribute.
 const static char WC_SCRIPT_WEB_TABLE[] PROGMEM = R"=====(
-Element.prototype.insertChildAtIndex = function(child, index) {
-  if (!index) index = 0;
-  if (index >= this.children.length) {
-    this.appendChild(child);
-  } else {
-    this.insertBefore(child, this.children[index]);
-  }
-};
-
 function tableUpdate(json) {
-    console.log("table update...");    
-    var table = document.getElementById(json.id);
-    switch (json.data.type) {
-        case "ADDED" :
-            table.getElementsByTagName("tbody")[0].insertChildAtIndex(insertRow(table, json.data), json.data.index);
-            break;
+  var d = json.data, b = document.getElementById(json.id).tBodies[0];
+  if (d.type == "ADDED") {
+    var t = document.createElement("template");
+    t.innerHTML = d.htmlSnippet;
+    if (d.index < b.rows.length) b.insertBefore(t.content.firstChild, b.rows[d.index]); else b.appendChild(t.content.firstChild);
+  } else if (d.type == "REMOVED") {
+    if (d.index < b.rows.length) b.deleteRow(d.index);
+  }
+}
+
+function tableEvent(cell, event, value) {
+  var row = cell.parentNode;
+  sendWebSocketMessage(event, row.closest("table").id, {"row": (row.parentNode.tagName == "THEAD" ? -1 : row.sectionRowIndex), "col": cell.cellIndex, "value": value});
+}
+
+function cellUpdate(json) {
+  var d = json.data, t = document.getElementById(json.id);
+  if (t === null) return;
+  var c = t.tBodies[0].rows[d.row].cells[d.col];
+  c.textContent = (d.value != null ? d.value : (c.dataset.old != null ? c.dataset.old : ""));
+  if (d.refused) {
+    c.classList.add("refused");
+    setTimeout(function() { c.classList.remove("refused"); }, 1500);
+  }
+}
+
+function selectRows(json) {
+  var d = json.data, t = document.getElementById(json.id);
+  if (t === null) return;
+  if (d.all != null) {
+    var b = t.tBodies[0].querySelectorAll("input[type=checkbox]");
+    for (var i = 0; i < b.length; i++) b[i].checked = d.all;
+  }
+  var h = (t.tHead != null ? t.tHead.querySelector("input[type=checkbox]") : null);
+  if (h != null) {
+    h.checked = d.checked;
+    h.indeterminate = d.indeterminate;
+  }
+}
+
+//The box of the first cell selects its row, a box printed by the page itself
+//is left alone. Taken by change, so the keyboard toggles a row as well.
+document.addEventListener("change", function(e) {
+  var b = e.target, c = b.parentNode;
+  if ((b.type == "checkbox") && (c.cellIndex === 0)) tableEvent(c, "onclick", b.checked);
+});
+
+document.addEventListener("focusin", function(e) {
+  if (e.target.isContentEditable) e.target.dataset.old = e.target.textContent;
+});
+
+document.addEventListener("focusout", function(e) {
+  var c = e.target;
+  if ((c.isContentEditable) && (c.textContent != c.dataset.old)) tableEvent(c, "onchange", c.textContent);
+});
+
+document.addEventListener("keydown", function(e) {
+  var c = e.target;
+  if (c.isContentEditable) {
+    if (e.key == "Enter") {
+      e.preventDefault();
+      c.blur();
+    } else if (e.key == "Escape") {
+      e.preventDefault();
+      c.textContent = c.dataset.old;
+      c.blur();
     }
-}
-
-function htmlToNode(html) {
-    const template = document.createElement('template');
-    template.innerHTML = html;
-    //return template.content.childNodes;
-    return template.content.firstChild;
-}
-
-function insertRow(table, json) {
-    return htmlToNode(json.htmlSnippet);
-}
-
+  }
+});
 )=====";
 
 

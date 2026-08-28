@@ -286,7 +286,7 @@ class WebLabel : public WebControl {
 class WebCheckbox : public WebControl {
  public:
   WebCheckbox(const char* id, const char* title) : WebControl(WC_DIV, WC_CLASS, "cb", nullptr) {
-    this->add((new WebControl(WC_INPUT, WC_ID, id, WC_TYPE, "checkbox", nullptr))->closing(false));
+    this->add((new WebControl(WC_INPUT, WC_ID, id, WC_TYPE, WC_CHECKBOX, nullptr))->closing(false));
     this->add(new WebLabel(title, id));
   }
 
@@ -304,7 +304,7 @@ class WebCheckbox : public WebControl {
 class WebSwitch : public WebControl {
  public:
   WebSwitch(const char* id, const char* title) : WebControl(WC_LABEL, WC_CLASS, "switch", nullptr) {
-    WebControl* input = new WebControl(WC_INPUT, WC_ID, id, WC_TYPE, "checkbox", WC_ON_CHANGE, "toggleCheckbox(this)", "checked", nullptr);
+    WebControl* input = new WebControl(WC_INPUT, WC_ID, id, WC_TYPE, WC_CHECKBOX, WC_ON_CHANGE, "toggleCheckbox(this)", WC_CHECKED, nullptr);
     input->closing(false);
     this->add(input);
     /*WebControl* label = new WebControl(WC_LABEL, WC_FOR, id, nullptr);
@@ -420,52 +420,14 @@ class WebInputFile : public WebControl {
   }
 };
 
-// Struct
-struct WebTableUpdate : public IWJsonable {
-  WListChangeType type;
-  WValue* _index;
-  const char* htmlSnippet;  // oder std::string
+#define SIZE_ROW_SNIPPET 512U
 
-  // Optional: Konstruktor
-  WebTableUpdate(WListChangeType t = WListChangeType::ADDED, int index = -1, const char* html = nullptr)
-      : type(t), _index(new WValue(index)), htmlSnippet(html) {}
-
-  ~WebTableUpdate() {
-    if (_index) delete _index;
-  }
-
-  int index() { return _index->asInt(); }
-
-  virtual void fromJson(WList<WValue>* list) {
-    // list->ifExistsId(WC_GPIO, [this] (WValue* v) { this->pin(v->asByte()); });
-  }
-
-  virtual void toJson(WJson* json) {
-    switch (type) {
-      case WListChangeType::ADDED:
-        json->propertyString("type", "ADDED", nullptr);
-        break;
-      case WListChangeType::REMOVED:
-        json->propertyString("type", "REMOVED", nullptr);
-        break;
-      case WListChangeType::CHANGED:
-        json->propertyString("type", "CHANGED", nullptr);
-        break;
-    }
-    json->propertyValue("index", _index);
-    json->propertyString("htmlSnippet", htmlSnippet, nullptr);
-    /*if (_type != GPIO_TYPE_UNKNOWN) json->propertyString(WC_TYPE, S_GPIO_TYPE[_type], nullptr);
-    if (pin() != NO_PIN) {
-      json->propertyValue(WC_GPIO, _pin);
-    } else {
-      json->propertyNull(WC_GPIO);
-    }*/
-  }
-
-  virtual void registerSettings() {
-  }
-};
-
+/**
+ * A table of the items of a list. Rows are not kept as controls, they are
+ * printed on demand, so a table costs no memory per cell. A row is addressed
+ * by its index in the body and a cell by its index in the row, so no cell
+ * needs an id and every event of the table reaches this control.
+ */
 template <typename T>
 class WebTable : public WebControl {
  public:
@@ -476,31 +438,37 @@ class WebTable : public WebControl {
   }
 
   static void dataCell(Print* stream, const char* data, bool editable = false) {
-    WHtml::commandParamsAndNullptr(stream, WC_TABLE_DATA, true, (editable ? WC_CONTENT_EDITABLE : nullptr), (editable ? WC_TRUE : nullptr), nullptr);
+    //empty value: html5 reads the bare attribute as contenteditable="true"
+    WHtml::commandParamsAndNullptr(stream, WC_TABLE_DATA, true, (editable ? WC_CONTENT_EDITABLE : nullptr), nullptr);
     if (data) stream->print(data);
     WHtml::command(stream, WC_TABLE_DATA, false, nullptr);
   }
 
-  WebTable(const char* id, WList<T>* datas) : WebControl(WC_TABLE, WC_ID, id, nullptr) {
+  //spellcheck is inherited by the editable cells, which would be marked up otherwise
+  WebTable(const char* id, WList<T>* datas) : WebControl(WC_TABLE, WC_ID, id, WC_SPELLCHECK, WC_FALSE, nullptr) {
     _datas = datas;
     if (_datas != nullptr) {
-      _datas->addListener([this, id](WListChange<T> change) {
+      _datas->addListener([this](WListChange<T> change) {
         switch (change.type) {
-          case WListChangeType::CHANGED: {
-            break;
-          }
           case WListChangeType::ADDED: {
-            LOG->debug("add something to list");
-            // var htmlSnippet = _insertRow(change.index(), change.item()).toString();
-            // var tu = new WebTableUpdate(change.type(), change.index(), htmlSnippet);
-            WStringStream* htmlSnippet = new WStringStream(255);
-            printRow(htmlSnippet, change.index, change.item, id);
-            WebTableUpdate tu(WListChangeType::ADDED, change.index, htmlSnippet->c_str());            
-            WebAppSockets::sendJsonable("tableUpdate", this->id(), &tu);
-            delete htmlSnippet;
+            WStringStream snippet(SIZE_ROW_SNIPPET);
+            WListNode<T>* node = _datas->_getNode(change.index);
+            printRow(&snippet, change.index, change.item, (node != nullptr ? node->id : nullptr));
+            _notifyClient(WC_ADDED, change.index, snippet.c_str());
+            _updateSelectAllBox();
             break;
           }
           case WListChangeType::REMOVED: {
+            //the item is gone, so the selection must not point to it any more
+            if (_selected != nullptr) {
+              int i = _selected->indexOf(change.oldItem);
+              if (i > -1) _selected->remove(i, false);
+            }
+            _notifyClient(WC_REMOVED, change.index, nullptr);
+            _updateSelectAllBox();
+            break;
+          }
+          case WListChangeType::CHANGED: {
             break;
           }
         }
@@ -510,6 +478,25 @@ class WebTable : public WebControl {
 
   virtual ~WebTable() {
     if (_datas != nullptr) _datas->removeListener();
+    if (_selected != nullptr) {
+      //the items belong to the list of the table, not to the selection
+      _clearSelection();
+      delete _selected;
+    }
+  }
+
+  virtual void createStyles(WStringList* styles) {
+    styles->add(WC_STYLE_ROOT, WC_CSS_ROOT);
+    styles->add(WC_STYLE_TABLE, WC_TABLE);
+    styles->add(WC_STYLE_TABLE_DATA, WC_TABLE_DATA);
+    styles->add(WC_STYLE_TABLE_HEADER, WC_TABLE_HEADER);
+    styles->add(WC_STYLE_TABLE_ZEBRA, WC_CSS_TABLE_ZEBRA);
+    styles->add(WC_STYLE_TABLE_HOVER, WC_CSS_TABLE_HOVER);
+    styles->add(WC_STYLE_TABLE_LAST_ROW, WC_CSS_TABLE_LAST_ROW);
+    styles->add(WC_STYLE_TABLE_EDIT, WC_CSS_TABLE_EDIT);
+    styles->add(WC_STYLE_TABLE_REFUSED, WC_CSS_TABLE_REFUSED);
+    if (_selectable) styles->add(WC_STYLE_TABLE_CHECK_BOX, WC_CSS_TABLE_CHECK_BOX);
+    WebControl::createStyles(styles);
   }
 
   virtual void createScripts(WStringList* scripts) {
@@ -518,8 +505,12 @@ class WebTable : public WebControl {
   }
 
   typedef std::function<void(Print*, int, T*, const char*)> TOnPrintRow;
+  /** Answers whether the edited text was taken over. */
+  typedef std::function<bool(int, int, T*, const char*)> TOnCellChange;
+
   virtual void printRow(Print* stream, int index, T* item, const char* id) {
     WHtml::command(stream, WC_TABLE_ROW, true, nullptr);
+    if (_selectable) _printSelectCell(stream, WC_TABLE_DATA, _isSelected(item));
     if (_onPrintRow) _onPrintRow(stream, index, item, id);
     WHtml::command(stream, WC_TABLE_ROW, false, nullptr);
   }
@@ -534,23 +525,199 @@ class WebTable : public WebControl {
     return this;
   }
 
+  /**
+   * Called with the row, the column and the text a cell was left with. The
+   * columns are counted as printed by onPrintRow, the box column of a
+   * selectable table is not one of them. Returning false refuses the edit: the
+   * cell falls back to the text it had and is marked for a moment.
+   */
+  WebTable* onCellChange(TOnCellChange onCellChange) {
+    _onCellChange = onCellChange;
+    return this;
+  }
+
+  bool selectable() { return _selectable; }
+
+  /** Puts a box in front of every row and one in the header for all of them. */
+  WebTable* selectable(bool selectable) {
+    _selectable = selectable;
+    if ((_selectable) && (_selected == nullptr)) _selected = new WList<T>();
+    return this;
+  }
+
+  WList<T>* selectedRows() { return _selected; }
+
+  bool freeRemovedItems() { return _freeRemovedItems; }
+
+  /** Whether a row taken out by removeSelectedRows() is freed as well. */
+  WebTable* freeRemovedItems(bool freeRemovedItems) {
+    _freeRemovedItems = freeRemovedItems;
+    return this;
+  }
+
+  /**
+   * Selects or deselects every row. The browser is told once for the whole
+   * table rather than once per row.
+   */
+  WebTable* selectAll(bool selected) {
+    if (_selected != nullptr) {
+      _clearSelection();
+      if ((selected) && (_datas != nullptr)) {
+        _datas->forEach([this](int index, T* item, const char* id) { _selected->add(item); });
+      }
+      _sendSelection(true, selected);
+    }
+    return this;
+  }
+
+  /**
+   * Removes every selected row from the list of the table. The change listener
+   * tells the client, just as adding a row does, and takes the row out of the
+   * selection, so the selection is empty when this returns.
+   */
+  WebTable* removeSelectedRows() {
+    if ((_datas != nullptr) && (_selected != nullptr)) {
+      while (!_selected->empty()) {
+        int index = _datas->indexOf(_selected->get(0));
+        if (index > -1) {
+          _datas->remove(index, _freeRemovedItems);
+        } else {
+          _selected->remove(0, false);
+        }
+      }
+    }
+    return this;
+  }
+
+  /** Puts a value into a cell of the browser, the table itself is untouched. */
+  WebTable* updateCell(int index, int column, const char* value) {
+    _sendCell(index, column, value, false);
+    return this;
+  }
+
   virtual void toString(Print* stream) {
     WHtml::command(stream, _tag, true, _params);
-    if (_onPrintHeaderRow) {
+    if ((_onPrintHeaderRow) || (_selectable)) {
+      WHtml::command(stream, WC_TABLE_HEAD, true, nullptr);
       WHtml::command(stream, WC_TABLE_ROW, true, nullptr);
-      _onPrintHeaderRow(stream, -1, nullptr, nullptr);
+      if (_selectable) _printSelectCell(stream, WC_TABLE_HEADER, false);
+      if (_onPrintHeaderRow) _onPrintHeaderRow(stream, -1, nullptr, nullptr);
       WHtml::command(stream, WC_TABLE_ROW, false, nullptr);
+      WHtml::command(stream, WC_TABLE_HEAD, false, nullptr);
     }
-    _datas->forEach([this, stream](int index, T* item, const char* id) {      
-      this->printRow(stream, index, item, id);
-    });
+    WHtml::command(stream, WC_TABLE_BODY, true, nullptr);
+    if (_datas != nullptr) {
+      _datas->forEach([this, stream](int index, T* item, const char* id) {
+        this->printRow(stream, index, item, id);
+      });
+    }
+    WHtml::command(stream, WC_TABLE_BODY, false, nullptr);
     if (_closing) WHtml::command(stream, _tag, false, nullptr);
+  }
+
+  virtual void handleEvent(WValue* event, WList<WValue>* data) {
+    if (data == nullptr) return;
+    WValue* row = data->getById(WC_ROW);
+    if (row == nullptr) return;
+    WValue* value = data->getById(WC_VALUE);
+    if (event->equals(WC_ON_CLICK)) {
+      //the client reports the state the box ended up in, a box set from here
+      //would answer the next click with the wrong state otherwise
+      bool selected = ((value != nullptr) && (value->asBool()));
+      if (row->asInt() < 0) {
+        selectAll(selected);
+      } else {
+        _select(row->asInt(), selected);
+      }
+    } else if (event->equals(WC_ON_CHANGE)) {
+      WValue* col = data->getById(WC_COL);
+      int column = (col != nullptr ? col->asInt() : 0) - (_selectable ? 1 : 0);
+      T* item = (_datas != nullptr ? _datas->get(row->asInt()) : nullptr);
+      if ((item != nullptr) && (column > -1)) {
+        if ((!_onCellChange) || (!_onCellChange(row->asInt(), column, item, (value != nullptr ? value->asString() : nullptr)))) {
+          //not taken over: the browser puts the text back it kept at focus
+          _sendCell(row->asInt(), column, nullptr, true);
+        }
+      }
+    }
   }
 
  private:
   WList<T>* _datas;
-  TOnPrintRow _onPrintHeaderRow;
-  TOnPrintRow _onPrintRow;
+  WList<T>* _selected = nullptr;
+  bool _selectable = false;
+  bool _freeRemovedItems = true;
+  TOnPrintRow _onPrintHeaderRow = nullptr;
+  TOnPrintRow _onPrintRow = nullptr;
+  TOnCellChange _onCellChange = nullptr;
+
+  bool _isSelected(T* item) {
+    return ((_selected != nullptr) && (_selected->indexOf(item) > -1));
+  }
+
+  void _clearSelection() {
+    while (!_selected->empty()) _selected->remove(0, false);
+  }
+
+  void _printSelectCell(Print* stream, const char* tag, bool checked) {
+    WHtml::command(stream, tag, true, nullptr);
+    WHtml::commandParamsAndNullptr(stream, WC_INPUT, true, WC_TYPE, WC_CHECKBOX, (checked ? WC_CHECKED : nullptr), nullptr);
+    WHtml::command(stream, tag, false, nullptr);
+  }
+
+  void _select(int index, bool selected) {
+    T* item = (_datas != nullptr ? _datas->get(index) : nullptr);
+    if ((item == nullptr) || (_selected == nullptr)) return;
+    int i = _selected->indexOf(item);
+    if ((selected) && (i < 0)) {
+      _selected->add(item);
+    } else if ((!selected) && (i > -1)) {
+      _selected->remove(i, false);
+    }
+    _updateSelectAllBox();
+  }
+
+  /**
+   * Draws the box in the header as ticked when every row is selected, as the
+   * third html5 state when only some are, and empty when none are.
+   */
+  void _updateSelectAllBox() {
+    if (_selectable) _sendSelection(false, false);
+  }
+
+  void _sendSelection(bool allRows, bool selected) {
+    int rows = (_datas != nullptr ? _datas->size() : 0);
+    int sel = (_selected != nullptr ? _selected->size() : 0);
+    WebAppSockets::sendJson(WC_SELECT_ROWS, id(), [allRows, selected, rows, sel](WJson* json) {
+      if (allRows) json->propertyBoolean(WC_ALL, selected);
+      json->propertyBoolean(WC_CHECKED, ((rows > 0) && (sel == rows)));
+      json->propertyBoolean(WC_INDETERMINATE, ((sel > 0) && (sel < rows)));
+    });
+  }
+
+  void _notifyClient(const char* type, int index, const char* htmlSnippet) {
+    WValue vIndex(index);
+    WebAppSockets::sendJson(WC_TABLE_UPDATE, id(), [type, &vIndex, htmlSnippet](WJson* json) {
+      json->propertyString(WC_TYPE, type, nullptr);
+      json->propertyValue(WC_INDEX, &vIndex);
+      if (htmlSnippet != nullptr) json->propertyString(WC_HTML_SNIPPET, htmlSnippet, nullptr);
+    });
+  }
+
+  void _sendCell(int index, int column, const char* value, bool refused) {
+    WValue vRow(index);
+    WValue vCol(column + (_selectable ? 1 : 0));
+    WebAppSockets::sendJson(WC_CELL_UPDATE, id(), [&vRow, &vCol, value, refused](WJson* json) {
+      json->propertyValue(WC_ROW, &vRow);
+      json->propertyValue(WC_COL, &vCol);
+      if (value != nullptr) {
+        json->propertyString(WC_VALUE, value, nullptr);
+      } else {
+        json->propertyNull(WC_VALUE);
+      }
+      json->propertyBoolean(WC_REFUSED, refused);
+    });
+  }
 };
 
 class WebFieldset : public WebControl {
