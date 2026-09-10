@@ -1,6 +1,9 @@
 #ifndef W_DEVICE_H
 #define W_DEVICE_H
 
+//AsyncWebServer is used in bindWebServerCalls, this header can be included first
+#include <ESPAsyncWebServer.h>
+
 #include "WList.h"
 #include "WGpio.h"
 #include "hw/WLed.h"

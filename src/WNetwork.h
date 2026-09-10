@@ -25,13 +25,14 @@
 #include "WStringStream.h"
 #include "WiFiClient.h"
 #include "html/WNetworkPages.h"
+#include "html/WThingsUiPage.h"
 #include "html/WebApp.h"
 #include "hw/WLed.h"
 
 #define NO_LED 0xFF
 #define ESP_MAX_PUT_BODY_SIZE 512
 #define WIFI_RECONNECTION 50000
-#define WIFI_RECONNECTION_TRYS 3
+#define WIFI_RECONNECTION_TRYS 2
 const char* CONFIG_PASSWORD = "12345678";
 const char* APPLICATION_JSON = "application/json";
 const char* TEXT_PLAIN = "text/plain";
@@ -94,7 +95,7 @@ class WNetwork {
     _statusLed = nullptr;
     setStatusLedPin(statusLedPin, false);
     LOG->debug(F("firmware: %s"), VERSION);
-    this->addWebPage(WC_CONFIG, [this]() { return new WRootPage(_webApp->webPages()); }, nullptr, false);
+    this->addWebPage(WC_UI, [this]() { return new WThingsUiPage(_devices); }, PSTR("Control"));
     this->addWebPage(WC_WIFI, [this]() { return new WNetworkPage(); }, PSTR("Configure network"));
     this->addWebPage(WC_FIRMWARE, [this]() { return new WFirmwarePage(); }, PSTR("Firmware"));
     this->addWebPage(WC_INFO, [this]() { return new WInfoPage((millis() - _startupTime) / 1000 / 60); }, PSTR("Info"));
@@ -150,60 +151,46 @@ class WNetwork {
   // returns true, if no configuration mode and no own ap is opened
   bool loop(unsigned long now) {
     SETTINGS->endReadingFirstTime();
-    bool result = true;
-    if (!isWebServerRunning()) {
-      if (WiFi.status() != WL_CONNECTED) {
-        if ((!SETTINGS->existsNetworkSettings()) ||
-            (SETTINGS->forceNetworkAccessPoint()) || (strcmp(getSsid(), "") == 0) ||
-            (_wifiConnectTrys == WIFI_RECONNECTION_TRYS)) {
-          // Create own AP
-          String apSsid = this->apSsid();
-          LOG->notice(F("Start AccessPoint for configuration. SSID '%s'; password '%s'"), apSsid.c_str(), this->apPassword().c_str());
-          _dnsApServer = new DNSServer();
-          // WiFi.mode(WIFI_STA);
-          WiFi.setAutoReconnect(false);
-          WiFi.softAP(apSsid.c_str(), this->apPassword().c_str());
-          _dnsApServer->setErrorReplyCode(DNSReplyCode::NoError);
-          _dnsApServer->start(53, "*", WiFi.softAPIP());
-          this->startWebServer();
-        } else if ((_wifiConnectTrys < WIFI_RECONNECTION_TRYS) &&
-                   ((_lastWifiConnect == 0) ||
-                    (now - _lastWifiConnect > WIFI_RECONNECTION))) {
-          _wifiConnectTrys++;
-          LOG->notice("Connecting to '%s': %d. try", getSsid(), _wifiConnectTrys);
-#ifdef ARDUINO_ARCH_ESP8266
-          // Workaround: if disconnect is not called, WIFI connection fails
-          // after first startup
-          WiFi.disconnect();
-          WiFi.hostname(_hostname);
-
-#elif ARDUINO_ARCH_ESP32
-          // Workaround: WiFi.setHostName now only works if: - You call it before calling WiFi.mode(WIFI_STA)
-          // and ensure that the mode is not WIFI_STA already before calling WiFi.setHostName (by first calling WiFi.mode(WIFI_MODE_NULL)
-          WiFi.mode(WIFI_MODE_NULL);
-          WiFi.setHostname(_hostname);
-#endif
-          WiFi.mode(WIFI_STA);
-          WiFi.begin(getSsid(), getPassword());
-          while ((_waitForWifiConnection) && (WiFi.status() != WL_CONNECTED)) {
-            delay(100);
-            if (millis() - now >= 5000) {
-              break;
+    //an update in progress owns whichever webserver is currently answering
+    //it - reconnecting in the background or tearing an ap down would disturb
+    //an active upload on either interface, so the wifi/ap state is frozen for
+    //the duration of the update and only re-evaluated once it is done
+    if (!isUpdateRunning()) {
+      if ((WiFi.status() == WL_CONNECTED) && (isSoftAP()) && (!SETTINGS->forceNetworkAccessPoint())) {
+        //the configured network is reachable again: the ap opened as a fallback
+        //for configuration has done its job and can close
+        _stopAccessPoint();
+      } else if (WiFi.status() != WL_CONNECTED) {
+        bool hasSsid = (strcmp(getSsid(), "") != 0);
+        //not connected: keep retrying in the background, at the usual interval,
+        //whether or not an own ap is already open for configuration - that way
+        //a returning router is picked up without a restart of the device
+        if ((hasSsid) && ((_lastWifiConnect == 0) || (now - _lastWifiConnect > WIFI_RECONNECTION)) &&
+            ((isSoftAP()) || (_wifiConnectTrys < WIFI_RECONNECTION_TRYS))) {
+          if (isSoftAP()) {
+            LOG->notice("Retrying '%s' while the configuration AccessPoint is open", getSsid());
+          } else {
+            _wifiConnectTrys++;
+            LOG->notice("Connecting to '%s': %d. try", getSsid(), _wifiConnectTrys);
+            if (_wifiConnectTrys == 1) {
+              _lastWifiConnectFirstTry = now;
             }
           }
-          if (_wifiConnectTrys == 1) {
-            _lastWifiConnectFirstTry = now;
-          }
-          _lastWifiConnect = now;
+          _connectWifi(now);
+        }
+        //opens an own ap for configuration once reconnecting failed enough
+        //times, or immediately if there is nothing configured to connect to
+        if ((!isSoftAP()) &&
+            ((!hasSsid) || (!SETTINGS->existsNetworkSettings()) ||
+             (SETTINGS->forceNetworkAccessPoint()) || (_wifiConnectTrys >= WIFI_RECONNECTION_TRYS))) {
+          _startAccessPoint();
         }
       }
-
-    } else {
-      if (isSoftAP()) {
-        _dnsApServer->processNextRequest();
-      }
-      result = ((!isSoftAP()) && (!isUpdateRunning()));
     }
+    if (isSoftAP()) {
+      _dnsApServer->processNextRequest();
+    }
+    bool result = ((!isSoftAP()) && (!isUpdateRunning()));
     // WebServer
     if ((isWifiConnected()) && (_supportsWebServer)) {
       this->startWebServer();
@@ -722,7 +709,8 @@ class WNetwork {
             // length);
           }
         } else if (deviceId.equals("webServer")) {
-          enableWebServer(String((char*)payload).equals(WC_TRUE));
+          //WC_TRUE lies in the flash, so don't compare it byte wise
+          enableWebServer(strcmp_P(String((char*)payload).c_str(), WC_TRUE) == 0);
         }
       }
     }
@@ -903,7 +891,6 @@ class WNetwork {
       LOG->notice(F("Update starting: %s"), filename.c_str());
       size_t content_len = request->contentLength();
       int cmd = U_FLASH;
-      (filename.indexOf("spiffs") > -1) ? U_PART : U_FLASH;
 #ifdef ARDUINO_ARCH_ESP32
       if (filename.indexOf("spiffs") > -1 || filename.indexOf("littlefs") > -1) {
         cmd = U_SPIFFS;  // Für Dateisystem-Updates
@@ -916,8 +903,7 @@ class WNetwork {
       }
 #else
       // ESP8266 Code
-      size_t content_len = request->contentLength();
-      int cmd = (filename.indexOf("spiffs") > -1) ? U_PART : U_FLASH;
+      cmd = (filename.indexOf("spiffs") > -1) ? U_PART : U_FLASH;
       Update.runAsync(true);
       if (!Update.begin(content_len, cmd)) {
         LOG->debug(F("Can't start update"));
@@ -938,6 +924,66 @@ class WNetwork {
         Update.printError(Serial);
       }
     }
+  }
+
+  //the actual connection attempt, shared by the pre-ap tries and the
+  //background retries that keep running while the ap stays open
+  void _connectWifi(unsigned long now) {
+    if (!isSoftAP()) {
+      //the hostname only needs to be set once, before there is an own ap: on
+      //esp32 that requires resetting the wifi mode first, which would drop
+      //an own ap if it was already open
+#ifdef ARDUINO_ARCH_ESP8266
+      // Workaround: if disconnect is not called, WIFI connection fails
+      // after first startup
+      WiFi.disconnect();
+      WiFi.hostname(_hostname);
+#elif ARDUINO_ARCH_ESP32
+      // Workaround: WiFi.setHostName now only works if: - You call it before calling WiFi.mode(WIFI_STA)
+      // and ensure that the mode is not WIFI_STA already before calling WiFi.setHostName (by first calling WiFi.mode(WIFI_MODE_NULL)
+      WiFi.mode(WIFI_MODE_NULL);
+      WiFi.setHostname(_hostname);
+#endif
+    }
+    WiFi.mode(isSoftAP() ? WIFI_AP_STA : WIFI_STA);
+    WiFi.begin(getSsid(), getPassword());
+    while ((_waitForWifiConnection) && (WiFi.status() != WL_CONNECTED)) {
+      delay(100);
+      if (millis() - now >= 5000) {
+        break;
+      }
+    }
+    _lastWifiConnect = now;
+  }
+
+  // opens the own ap for configuration, next to the station that keeps
+  // retrying the configured network in the background
+  void _startAccessPoint() {
+    String apSsid = this->apSsid();
+    LOG->notice(F("Start AccessPoint for configuration. SSID '%s'; password '%s'"), apSsid.c_str(), this->apPassword().c_str());
+    _dnsApServer = new DNSServer();
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.softAP(apSsid.c_str(), this->apPassword().c_str());
+    _dnsApServer->setErrorReplyCode(DNSReplyCode::NoError);
+    _dnsApServer->start(53, "*", WiFi.softAPIP());
+    this->startWebServer();
+  }
+
+  // closes the own ap once the configured network is reachable again
+  void _stopAccessPoint() {
+    LOG->notice(F("Connected to '%s'. Closing the configuration AccessPoint."), getSsid());
+    if (WEB_SOCKETS != nullptr) {
+      WEB_SOCKETS->close();
+    }
+    _webServer->end();
+    delete _webServer;
+    _webServer = nullptr;
+    _dnsApServer->stop();
+    delete _dnsApServer;
+    _dnsApServer = nullptr;
+    WiFi.softAPdisconnect(true);
+    WiFi.mode(WIFI_STA);
+    _notify(true);
   }
 
   void _loadNetworkSettings() {
@@ -975,12 +1021,26 @@ class WNetwork {
 
   void _handleUnknown(AsyncWebServerRequest* request) {
     if (!isUpdateRunning()) {
-      request->send(404);
+      if (isSoftAP()) {
+        //Captive portal, typically '/check_network_status.txt' or '/canonical.html'
+        //To keep it easy, redirect to network config in general.
+        //WC_WIFI lies in the flash, so read it byte safe
+        request->redirect("http://" + WiFi.softAPIP().toString() + SLASH + FPSTR(WC_WIFI) + SLASH);
+      } else {
+        request->send(404);
+      }
     }
   }
 
   void _sendDevicesStructure(AsyncWebServerRequest* request) {
     if (!isUpdateRunning()) {
+      //a browser gets the control panel, every other client the description of
+      //the things: the root of a webthing has to stay what a gateway expects
+      const AsyncWebHeader* accept = request->getHeader(F("Accept"));
+      if ((accept != nullptr) && (strstr(accept->value().c_str(), WC_TEXT_HTML) != nullptr) &&
+          (_webApp != nullptr) && (_webApp->handleUiPage(request))) {
+        return;
+      }
       LOG->notice(F("Send description for all devices... "));
       AsyncResponseStream* response = request->beginResponseStream(APPLICATION_JSON);
       WJson* json = new WJson(response);

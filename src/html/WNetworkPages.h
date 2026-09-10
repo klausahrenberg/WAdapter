@@ -3,29 +3,6 @@
 
 #include "WebApp.h"
 
-class WRootPage : public WebPage {
- public:
-  WRootPage(WList<WebPageItem>* customPages) : WebPage() {
-    _customPages = customPages;
-  }
-
-  virtual ~WRootPage() {
-  }
-
-  virtual void createControls(WebControl* parentNode) {
-    WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
-    parentNode->add(div);
-    _customPages->forEach([this, div](int index, WebPageItem* pageItem, const char* id) {
-      if (pageItem->showInMainMenu) {
-        div->add(new WebDiv((new WebButton(pageItem->title))->onClickNavigateTo(id)));
-      }
-    });
-  }
-
- private:
-  WList<WebPageItem>* _customPages;
-};
-
 class WNetworkPage : public WebPage {
  public:
   WNetworkPage() : WebPage() {
@@ -34,20 +11,21 @@ class WNetworkPage : public WebPage {
   virtual ~WNetworkPage() {
   }
 
-  virtual void createControls(WebControl* parentNode) {
+  /** The same cards and rows the control panel is drawn with. */
+  virtual WebControl* createControls() {
     WebControl* form = new WebForm(WC_WIFI, nullptr);
-    parentNode->add(form);
-    // network
-    form->add((new WebTextField(WC_ID, PSTR("Id"), SETTINGS->getString(WC_ID), 16)));
-    form->add(new WebTextField(WC_SSID, PSTR("Wifi SSID (only 2.4G)"), SETTINGS->getString(WC_SSID), 32));
-    form->add(new WebTextField(WC_PASSWORD, PSTR("Wifi password"), SETTINGS->getString(WC_PASSWORD), 32, true));
-    // mqtt
-    form->add((new WebTextField(WC_MQTT_SERVER, PSTR("MQTT Server"), SETTINGS->getString(WC_MQTT_SERVER), 32)));
-    form->add((new WebTextField(WC_MQTT_PORT, PSTR("MQTT Port"), SETTINGS->getString(WC_MQTT_PORT), 4)));
-    form->add(new WebTextField(WC_MQTT_USER, PSTR("MQTT User"), SETTINGS->getString(WC_MQTT_USER), 16));
-    form->add(new WebTextField(WC_MQTT_PASSWORD, PSTR("MQTT password"), SETTINGS->getString(WC_MQTT_PASSWORD), 32, true));
-
-    form->add((new WebSubmitButton(WC_SAVE_CONFIGURATION)));
+    form->add((new WebCard(PSTR("Device")))
+                  ->addRow(PSTR("Id"), new WebInput(WC_ID, SETTINGS->getString(WC_ID), 16)));
+    form->add((new WebCard(PSTR("Wifi"), PSTR("2.4G only")))
+                  ->addRow(PSTR("SSID"), new WebInput(WC_SSID, SETTINGS->getString(WC_SSID), 32))
+                  ->addRow(PSTR("Password"), new WebInput(WC_PASSWORD, SETTINGS->getString(WC_PASSWORD), 32, true)));
+    form->add((new WebCard(PSTR("MQTT")))
+                  ->addRow(PSTR("Server"), new WebInput(WC_MQTT_SERVER, SETTINGS->getString(WC_MQTT_SERVER), 32))
+                  ->addRow(PSTR("Port"), new WebInput(WC_MQTT_PORT, SETTINGS->getString(WC_MQTT_PORT), 4))
+                  ->addRow(PSTR("User"), new WebInput(WC_MQTT_USER, SETTINGS->getString(WC_MQTT_USER), 16))
+                  ->addRow(PSTR("Password"), new WebInput(WC_MQTT_PASSWORD, SETTINGS->getString(WC_MQTT_PASSWORD), 32, true)));
+    form->add(new WebSubmitButton(WC_SAVE_CONFIGURATION));
+    return form;
   }
 
   virtual WFormResponse submitForm(WList<WValue>* args) {
@@ -75,15 +53,16 @@ class WResetPage : public WebPage {
   virtual ~WResetPage() {
   }
 
-  virtual void createControls(WebControl* parentNode) {
-    WebControl* div = new WebForm("reset", nullptr);
-    parentNode->add(div);
-    // WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
-    // parentNode->add(div);
-    div->add(new WebDiv((new WebButton(PSTR("Restart")))->onClickSubmit("0")));
-    div->add(new WebDiv((new WebButton(PSTR("Restart in AccessPoint mode")))->onClickSubmit("1")));
-    div->add(new WebDiv((new WebButton(PSTR("Reset all settings")))->onClickSubmit("2")));
-    div->add(new WebDiv((new WebButton(WC_BACK_TO_MAINMENU))->onClickNavigateTo(WC_CONFIG)));
+  /** The same cards and rows the control panel is drawn with. */
+  virtual WebControl* createControls() {
+    WebControl* form = new WebForm(WC_RESET, nullptr);
+    form->add((new WebCard(PSTR("Restart")))
+                  ->addRow(PSTR("Restart device"), (new WebButton(PSTR("Restart")))->onClickSubmit("0"))
+                  ->addRow(PSTR("Access point mode"), (new WebButton(PSTR("Restart")))->onClickSubmit("1")));
+    form->add((new WebCard(PSTR("Settings")))
+                  ->addRow(PSTR("Reset all settings"), (new WebButton(PSTR("Reset")))->danger()->onClickSubmit("2"))
+                  ->addNote(PSTR("Wifi and MQTT settings are lost, the device comes back as an access point.")));
+    return form;
   }
 
   virtual WFormResponse submitForm(WList<WValue>* args) {
@@ -113,40 +92,65 @@ class WRestartPage : public WebPage {
   virtual ~WRestartPage() {
   }
 
-  virtual void createControls(WebControl* parentNode) {
-    WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
-    parentNode->add(div);
-    div->add(new WebLabel(_restartMessage));
-    div->add(new WebLabel(PSTR("ESP reboots...")));
-    div->add(new WebDiv((new WebButton(WC_BACK_TO_MAINMENU))->onClickNavigateTo(WC_CONFIG)));
+  virtual WebControl* createControls() {
+    return (new WebCard(PSTR("Restart")))
+                        ->addMessage(_restartMessage)
+                        ->addNote(PSTR("The device reboots, the page is there again in a moment."));
   }
 
  private:
   const char* _restartMessage;
 };
 
+/** Bytes as they are written in every card of the firmware and the info page. */
+static String _bytes(unsigned long value) { return String(value) + F(" bytes"); }
+
 class WFirmwarePage : public WebPage {
  public:
-  virtual void createControls(WebControl* parentNode) {
-    if (ESP.getSketchSize() < ESP.getFreeSketchSpace() / 2) {
+  /** The same cards and rows the control panel is drawn with. */
+  
+  virtual WebControl* createControls() {
+    WebDiv* result = new WebDiv();
+    //the new firmware must fit into getFreeSketchSpace(): at esp8266 that's
+    //what is left beside the running sketch, at esp32 the size of the next ota
+    //partition. Assume the new firmware is up to 10% larger than the current one.
+    unsigned long available = ESP.getFreeSketchSpace();
+    bool enoughSpace = (available >= (ESP.getSketchSize() * 11 / 10));
+
+    WebCard* installed = new WebCard(PSTR("Installed"), VERSION);
+    if (APPLICATION != nullptr) installed->addRow(PSTR("Application"), APPLICATION);
+    installed->addRow(PSTR("Current sketch size"), _bytes(ESP.getSketchSize()).c_str());
+    installed->addRow(PSTR("Space for an update"), _bytes(available).c_str());
+
+    if (enoughSpace) {
       WebControl* form = new WebForm(WC_FIRMWARE, nullptr);
       form->param(WC_ENCTYPE, WC_MULTIPART_FORM_DATA);
-      parentNode->add(form);
-      form->add(new WebInputFile("update"));
-      form->add(new WebSubmitButton(WC_SAVE_CONFIGURATION));
+      result->add(form);
+      form->add(installed);
+      form->add((new WebCard(PSTR("Update")))
+                    ->addContent(new WebInputFile("update", PSTR("Choose a firmware file (.bin)")))
+                    ->addNote((String(F("The file can be up to ")) + available +
+                               F(" bytes. The device restarts when the update is done."))
+                                  .c_str()));
+      form->add(new WebSubmitButton(PSTR("Install firmware")));
     } else {
-      WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
-      parentNode->add(div);
-      div->add(new WebLabel(PSTR("Not enough free space on ESP for OTA updates.")));
-      div->add(new WebDiv((new WebButton(WC_BACK_TO_MAINMENU))->onClickNavigateTo(WC_CONFIG)));
+      result->add(installed);
+      result->add((new WebCard(PSTR("Update")))
+                          ->addMessage(PSTR("There is not enough space left for an update over the air. "
+                                            "The firmware has to be written over the serial port.")));
     }
+    return result;
   }
 
   virtual WFormResponse submitForm(WList<WValue>* args) {
     LOG->debug("Update finished.");
     SETTINGS->save();
     if (Update.hasError()) {
+#ifdef ARDUINO_ARCH_ESP8266
+      LOG->debug("Error %s", Update.getErrorString().c_str());
+#else
       LOG->debug("Error %s", Update.errorString());
+#endif
     }
     return WFormResponse(FO_RESTART, (Update.hasError() ? PSTR("Some error during update") : PSTR("Update successful")));
   }
@@ -156,105 +160,47 @@ class WInfoPage : public WebPage {
  public:
   WInfoPage(unsigned long running) : WebPage() {
     _running = running;
-    _datas = new WList<WValue>();
   }
 
   virtual ~WInfoPage() {
-    delete _datas;
   }
 
-  virtual void createControls(WebControl* parentNode) {
-    WebControl* div = new WebControl(WC_DIV, WC_CLASS, WC_WHITE_BOX, nullptr);
-    parentNode->add(div);
+  /** The same cards and rows the control panel is drawn with. */
+  virtual WebControl* createControls() {
+    WebDiv* result = new WebDiv();
+
+    WebCard* device = new WebCard(PSTR("Device"));
+    result->add(device);
 #ifdef ARDUINO_ARCH_ESP8266
-    _datas->add(new WValue("ESP8266"), PSTR("Chip"));
+    device->addRow(PSTR("Chip"), PSTR("ESP8266"));
 #elif ARDUINO_ARCH_ESP32
-    _datas->add(new WValue("ESP 32"), PSTR("Chip"));
+    device->addRow(PSTR("Chip"), PSTR("ESP 32"));
 #endif
-    _datas->add(new WValue(WUtils::getChipId()), PSTR("Chip ID"));
-    _datas->add(new WValue(ESP.getFlashChipSize()), PSTR("IDE Flash Size"));
+    device->addRow(PSTR("Chip ID"), String(WUtils::getChipId()).c_str());
+    device->addRow(PSTR("IDE flash size"), _bytes(ESP.getFlashChipSize()).c_str());
 #ifdef ARDUINO_ARCH_ESP8266
-    _datas->add(new WValue(ESP.getFlashChipRealSize()), PSTR("Real Flash Size"));
+    device->addRow(PSTR("Real flash size"), _bytes(ESP.getFlashChipRealSize()).c_str());
 #endif
-    //_datas->add(WProps::create..., PSTR("IP address"));
-    //_datas->add(WProps::createStringProperty()->asString(WiFi.macAddress()), PSTR("MAC address"));
-    _datas->add(new WValue(ESP.getSketchSize()), PSTR("Current sketch size"));
-    _datas->add(new WValue(ESP.getFreeSketchSpace()), PSTR("Available sketch size"));
-    _datas->add(new WValue(ESP.getFreeHeap()), PSTR("Free heap size"));
+    device->addRow(PSTR("IP address"), deviceIp().c_str());
+    device->addRow(PSTR("MAC address"), WiFi.macAddress().c_str());
+    device->addRow(PSTR("Running since"), (String(_running) + F(" minutes")).c_str());
+
+    WebCard* firmware = new WebCard(PSTR("Firmware"));
+    result->add(firmware);
+    firmware->addRow(PSTR("Current sketch size"), _bytes(ESP.getSketchSize()).c_str());
+    firmware->addRow(PSTR("Available sketch size"), _bytes(ESP.getFreeSketchSpace()).c_str());
+
+    WebCard* memory = new WebCard(PSTR("Memory"));
+    result->add(memory);
+    memory->addRow(PSTR("Free heap size"), _bytes(ESP.getFreeHeap()).c_str());
 #ifdef ARDUINO_ARCH_ESP8266
-    _datas->add(new WValue(ESP.getMaxFreeBlockSize()), PSTR("Largest heap block"));
+    memory->addRow(PSTR("Largest heap block"), _bytes(ESP.getMaxFreeBlockSize()).c_str());
 #endif
-    _datas->add(new WValue(_running) /*->unit(PSTR(" minutes"))*/, PSTR("Running since"));
-
-    div->add((new WebTable<WValue>("info", _datas))->onPrintRow([this](Print* stream, int index, WValue* item, const char* id) {
-      WebTable<WValue>::headerCell(stream, id);
-      WebTable<WValue>::dataCell(stream, item->toString());
-    }));
-    div->add(new WebDiv((new WebButton(WC_BACK_TO_MAINMENU))->onClickNavigateTo(WC_CONFIG)));
-    /*
-    if (isWebServerRunning()) {
-      AsyncResponseStream *page = request->beginResponseStream(WC_TEXT_HTML);
-      page->printf(HTTP_HEAD_BEGIN, "Info");
-      page->print(FPSTR(HTTP_STYLE));
-      page->print(FPSTR(HTTP_HEAD_END));
-      _printHttpCaption(page);
-      page->print(F("<table>"));
-      page->print(F("<tr><th>Chip:</th><td>"));
-#ifdef ESP8266
-      page->print(F("ESP 8266"));
-#else
-      page->print(F("ESP 32"));
-#endif
-      page->print(F("</td></tr>"));
-      page->print(F("<tr><th>Chip ID:</th><td>"));
-      page->print(getChipId());
-      page->print(F("</td></tr>"));
-      page->print(F("<tr><th>IDE Flash Size:</th><td>"));
-      page->print(ESP.getFlashChipSize());
-      page->print(F("</td></tr>"));
-#ifdef ESP8266
-      page->print(F("<tr><th>Real Flash Size:</th><td>"));
-      page->print(ESP.getFlashChipRealSize());
-      page->print(F("</td></tr>"));
-#endif
-      page->print(F("<tr><th>IP address:</th><td>"));
-      page->print(this->getDeviceIp().toString());
-      page->print(F("</td></tr>"));
-      page->print(F("<tr><th>MAC address:</th><td>"));
-      page->print(WiFi.macAddress());
-      page->print(F("</td></tr>"));
-
-      page->print(F("<tr><th>Current sketch size:</th><td>"));
-      page->print(ESP.getSketchSize());
-      page->print(F("</td></tr>"));
-      page->print(F("<tr><th>Available sketch size:</th><td>"));
-      page->print(ESP.getFreeSketchSpace());
-      page->print(F("</td></tr>"));
-
-      page->print(F("<tr><th>Free heap size:</th><td>"));
-      page->print(ESP.getFreeHeap());
-      page->print(F("</td></tr>"));
-#ifdef ESP8266
-      page->print(F("<tr><th>Largest free heap block:</th><td>"));
-      page->print(ESP.getMaxFreeBlockSize());
-      page->print(F("</td></tr>"));
-      page->print(F("<tr><th>Heap fragmentation:</th><td>"));
-      page->print(ESP.getHeapFragmentation());
-      page->print(F(" %</td></tr>"));
-#endif
-      page->print(F("<tr><th>Running since:</th><td>"));
-      page->print(((millis() - _startupTime) / 1000 / 60));
-      page->print(F(" minutes</td></tr>"));
-      page->print(F("</table>"));
-      page->printf(HTTP_BUTTON, "config", "get", "Main menu");
-      page->print(FPSTR(HTTP_BODY_END));
-      request->send(page);
-    */
+    return result;
   }
 
  private:
   unsigned long _running;
-  WList<WValue>* _datas;
 };
 
 #endif

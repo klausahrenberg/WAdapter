@@ -62,6 +62,16 @@ class WStringStream : public Stream {
     }
   }
 
+  //buffer can point to PROGMEM (e.g. print(const char*) of a PROGMEM string),
+  //so read it byte safe instead of dereferencing it directly
+  virtual size_t write(const uint8_t *buffer, size_t size) {
+    size_t n = 0;
+    while ((n < size) && (write((uint8_t)pgm_read_byte(buffer + n)))) {
+      n++;
+    }
+    return n;
+  }
+
   unsigned int length() {
     return _position;
   }
@@ -115,9 +125,11 @@ class WStringStream : public Stream {
     size_t n = 0;
     if (c == 's') {
       // wildcard
-      register char *wc = (char *)va_arg(*args, int);
-      for (int b = 0; b < strlen(wc); b++) {
-        if (write(wc[b]))
+      //wc can point to PROGMEM, so read it byte safe
+      const char *wc = (const char *)va_arg(*args, int);
+      size_t len = strlen_P(wc);
+      for (size_t b = 0; b < len; b++) {
+        if (write((uint8_t)pgm_read_byte(wc + b)))
           n++;
         else
           break;

@@ -37,6 +37,20 @@ enum WPropertyVisibility { ALL,
 
 typedef std::function<void()> TOnPropertyChange;
 
+/**
+ * A listener knows who registered it, so it can be taken back when that one is
+ * gone: a control of a web page lives shorter than the property it shows.
+ */
+struct WPropertyListener {
+  WPropertyListener(TOnPropertyChange onChange, void* owner) {
+    this->onChange = onChange;
+    this->owner = owner;
+  }
+
+  TOnPropertyChange onChange;
+  void* owner;
+};
+
 class WRangeProperty;
 class WColorProperty;
 
@@ -169,10 +183,20 @@ class WProperty {
     return this;
   }
 
-  WProperty* addListener(TOnPropertyChange onChange) {
-    _listeners.push_back(onChange);
+  WProperty* addListener(TOnPropertyChange onChange, void* owner = nullptr) {
+    _listeners.push_back(WPropertyListener(onChange, owner));
     return this;
   }
+
+  /** Takes back every listener that was registered by this owner. */
+  void removeListeners(void* owner) {
+    if (owner == nullptr) return;
+    _listeners.remove_if([owner](const WPropertyListener& listener) { return (listener.owner == owner); });
+  }
+
+  /** Reads the value from the hardware, if the property is one that is asked
+   * for it only when it is needed. */
+  void requestValue() { _requestValue(); }
 
   void deviceNotification(TOnPropertyChange deviceNotification) { _deviceNotification = deviceNotification; }
 
@@ -311,7 +335,9 @@ class WProperty {
     return this;
   }
 
-  //double multipleOf() { return _multipleOf.asDouble(); }
+  bool hasMultipleOf() { return (_multipleOf != nullptr); }
+
+  double multipleOf() { return (_multipleOf != nullptr ? _multipleOf->asDouble() : 0.0); }
 
   void multipleOf(double multipleOf) { 
     if (_multipleOf == nullptr) {
@@ -502,6 +528,12 @@ class WProperty {
 
   bool hasEnums() { return (_enums != nullptr); }
 
+  WList<WValue>* enums() { return _enums; }
+
+  /** Whether the property is a WRangeProperty, so it knows a minimum and a
+   * maximum. Told by the property itself, the build has no rtti. */
+  virtual bool isRange() { return false; }
+
   int enumsCount() { return _enums->size(); }
 
   WPropertyVisibility visibility() { return _visibility; }
@@ -569,7 +601,7 @@ class WProperty {
   WValue _readOnly;
   char* _unit = nullptr;
   WValue* _multipleOf = nullptr;
-  std::list<TOnPropertyChange> _listeners;
+  std::list<WPropertyListener> _listeners;
   TOnPropertyChange _onValueRequest;
   TOnPropertyChange _deviceNotification;
   bool _requested;
@@ -585,8 +617,8 @@ class WProperty {
       _lastStateChange = millis();
       if (_store) SETTINGS->save();
       if (!_listeners.empty()) {
-        for (std::list<TOnPropertyChange>::iterator f = _listeners.begin(); f != _listeners.end(); ++f) {
-          f->operator()();
+        for (std::list<WPropertyListener>::iterator f = _listeners.begin(); f != _listeners.end(); ++f) {
+          if (f->onChange) f->onChange();
         }
       }
       if (_deviceNotification) {
@@ -624,6 +656,8 @@ class WRangeProperty : public WProperty {
   int getMinAsInteger() {
     return _min.asInt();
   }
+
+  virtual bool isRange() { return true; }
 
   double getMaxAsDouble() {
     return _max.asDouble();

@@ -117,7 +117,7 @@ class W2812Led : public WGpio {
   }
 
   W2812Led* color(const byte indexRange[], uint32_t color1, byte countColor1 = 0xFF, uint32_t color2 = 0x000000) {
-    if (indexRange[0] != NO_LED) {
+    if (indexRange[0] != 0xFF) {
       for (byte i = indexRange[0]; (countColor1 != 0xFF ? i < indexRange[0] + countColor1 : i <= indexRange[1]); i++) {
         color(i, color1);
       }
@@ -181,7 +181,7 @@ class W2812Led : public WGpio {
   }
 
   W2812Led* blinking(const byte indexRange[], bool blink = true) {
-    if (indexRange[0] != NO_LED) {
+    if (indexRange[0] != 0xFF) {
       for (byte i = indexRange[0]; i <= indexRange[1]; i++) {
         this->blinking(i, blink);
       }

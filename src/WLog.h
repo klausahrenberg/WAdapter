@@ -10,9 +10,10 @@
 #define LOG_LEVEL_DEBUG  2
 #define LOG_LEVEL_NOTICE 3
 
-const static char LOG_LEVEL_STRING_ERROR[] PROGMEM = "error";
-const static char LOG_LEVEL_STRING_DEBUG[] PROGMEM = "debug";
-const static char LOG_LEVEL_STRING_NOTICE[] PROGMEM = "notice";
+//no PROGMEM: getLevelString() hands them to Print::print(const char*)
+const static char LOG_LEVEL_STRING_ERROR[] = "error";
+const static char LOG_LEVEL_STRING_DEBUG[] = "debug";
+const static char LOG_LEVEL_STRING_NOTICE[] = "notice";
 
 /**
  * Logging is a helper class to output informations over
@@ -135,11 +136,15 @@ private:
 		if (format == '%') {
 			_output->print(format);
 		} else if (format == 's') {
-			register char *s = (char *)va_arg(*args, int);
-			_output->print(s);
+			//the string can lie in the flash, so it is read byte safe - but it
+			//can also genuinely be null (an unset value, a key-less array),
+			//which used to print nothing and must keep doing so: Print's flash
+			//overload, unlike its char* one, does not check for null itself
+			const char *s = (const char *)va_arg(*args, int);
+			if (s != nullptr) _output->print(FPSTR(s));
 		} else if (format == 'S') {
-			register __FlashStringHelper *s = (__FlashStringHelper *)va_arg(*args, int);
-			_output->print(s);
+			__FlashStringHelper *s = (__FlashStringHelper *)va_arg(*args, int);
+			if (s != nullptr) _output->print(s);
 		} else if (format == 'd' || format == 'i') {
 			_output->print(va_arg(*args, int), DEC);
 		} else if (format == 'u') {
@@ -168,9 +173,9 @@ private:
 			}
 		} else if (format == 'T') {
 			if (va_arg(*args, int) == 1) {
-				_output->print(WC_TRUE);
+				_output->print(FPSTR(WC_TRUE));
 			} else {
-				_output->print(WC_FALSE);
+				_output->print(FPSTR(WC_FALSE));
 			}
 		}
 	}

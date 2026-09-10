@@ -17,7 +17,7 @@ class WAnalog : public WGpio {
 	}
 
 	void loop(unsigned long now) {
-		if ((this->isInitialized()) && (hasProperty())) {
+		if ((this->_isInitialized()) && (hasProperty())) {
 			int ain = analogRead(pin());
 			ain = constrain(ain, _analogMinimum, _analogMaximum);			
 			ain = map(ain, _minimum, _maximum, _analogMinimum, _analogMaximum);

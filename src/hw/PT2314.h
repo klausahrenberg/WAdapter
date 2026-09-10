@@ -20,7 +20,7 @@
  */
 
 #include "Wire.h"
-#include "../WProperty.h"
+#include "../WProps.h"
 #include "../WI2C.h"
 
 #define PT2314_I2C_ADDRESS 0x44
@@ -58,31 +58,31 @@ unsigned char eq_map[] = {
 class PT2314 : public WI2C{
  public:
  PT2314(int sda = 21, int scl = 22, TwoWire* i2cPort = &Wire)
-			: WI2C(PT2314_I2C_ADDRESS, sda, scl, NO_PIN, i2cPort) {  
-    _bass = WProps::createLevelIntProperty("bass", "Bass", -7, 7);
-    _bass->setInteger(0);
-    _bass->addListener([this] (WProperty* p) { _updateBass(); }); 
-    _treble = WProps::createLevelIntProperty("treble", "Treble", -7, 7);
-    _treble->setInteger(0);
-    _treble->addListener([this] (WProperty* p) { _updateTreble(); }); 
+			: WI2C(GPIO_TYPE_UNKNOWN, PT2314_I2C_ADDRESS, sda, scl, NO_PIN, i2cPort) {  
+    _bass = WProps::createLevelIntProperty("Bass", -7, 7);
+    _bass->asInt(0);
+    _bass->addListener([this] () { _updateBass(); }); 
+    _treble = WProps::createLevelIntProperty("Treble", -7, 7);
+    _treble->asInt(0);
+    _treble->addListener([this] () { _updateTreble(); }); 
 
-    _loudness = WProps::createBooleanProperty("loudness", "Loudness");
-    _loudness->setBoolean(false);
-    _loudness->addListener([this] (WProperty* p) { _updateAudioSwitch(); });
-    _gain = WProps::createByteProperty("gain", "Gain");
-    _gain->setByte(0);
-    _gain->addListener([this] (WProperty* p) { _updateAudioSwitch(); });
+    _loudness = WProps::createBooleanProperty("Loudness");
+    _loudness->asBool(false);
+    _loudness->addListener([this] () { _updateAudioSwitch(); });
+    _gain = WProps::createByteProperty("Gain");
+    _gain->asByte(0);
+    _gain->addListener([this] () { _updateAudioSwitch(); });
 
-    _channel = WProps::createByteProperty("channel", "Channel");
-    _channel->setByte(0);
-    _channel->addListener([this] (WProperty* p) { _updateAudioSwitch(); });
+    _channel = WProps::createByteProperty("Channel");
+    _channel->asByte(0);
+    _channel->addListener([this] () { _updateAudioSwitch(); });
 
-    _volume = WProps::createLevelIntProperty("volume", "Volume", 0, 100);
-    _volume->setInteger(100);
-    _volume->addListener([this] (WProperty* p) { _updateVolume(); }); 
-    _mute = WProps::createBooleanProperty("mute", "Mute");
-    _mute->setBoolean(false);
-    _mute->addListener([this] (WProperty* p) { _updateAttenuation(); _updateVolume(); });
+    _volume = WProps::createLevelIntProperty("Volume", 0, 100);
+    _volume->asInt(100);
+    _volume->addListener([this] () { _updateVolume(); }); 
+    _mute = WProps::createBooleanProperty("Mute");
+    _mute->asBool(false);
+    _mute->addListener([this] () { _updateAttenuation(); _updateVolume(); });
 
     _attenuationL = 100;
     _attenuationR = 100;      
@@ -131,14 +131,14 @@ class PT2314 : public WI2C{
   }
 
   bool _updateVolume() {
-    unsigned int val = volume_to_pt2314(_volume->getInteger());
+    unsigned int val = volume_to_pt2314(_volume->asInt());
     return (writeI2CChar(val) == 0) ? true : false;
   }
 
   bool _updateAttenuation() {
     unsigned int aL = map(_attenuationL, 0, 100, 0b00011111, 0b00000000);
     unsigned int aR = map(_attenuationR, 0, 100, 0b00011111, 0b00000000);
-    if (_mute->getBoolean()) {
+    if (_mute->asBool()) {
       if (writeI2CChar(0b11011111) != 0) {
         return false;
       }
@@ -177,24 +177,24 @@ class PT2314 : public WI2C{
     int audioByte = 0b01000000;  // audio switch + gain +11.25dB.
     // gain byte, 0b00011000 = no gain, 0b00010000 = +3.75dB, 0b00001000 =
     // +7.5dB, 0b00000000 = +11.25dB
-    byte g = ((3 - _gain->getByte()) << 3);
+    byte g = ((3 - _gain->asByte()) << 3);
     audioByte |= g;
-    if (_loudness->getBoolean()) {
+    if (_loudness->asBool()) {
       audioByte |= 0b00000000;
     } else {
       audioByte |= 0b00000100;
     }
-    audioByte |= _channel->getByte();
+    audioByte |= _channel->asByte();
     return (writeI2CChar(audioByte) == 0) ? true : false;
   }
 
   bool _updateBass() {
-    unsigned int val = eq_map[_bass->getInteger()];// eq_to_pt2314(map(_bass->getInteger(), -10, 10, 0, 28));
+    unsigned int val = eq_map[_bass->asInt() + 7];// eq_to_pt2314(map(_bass->asInt(), -10, 10, 0, 28));
     return (writeI2CChar(0x60 | val) == 0) ? true : false;
   }
 
   bool _updateTreble() {
-    unsigned int val = eq_map[_treble->getInteger()];// eq_to_pt2314(map(_treble->getInteger(), -10, 10, 0, 28));
+    unsigned int val = eq_map[_treble->asInt() + 7];// eq_to_pt2314(map(_treble->asInt(), -10, 10, 0, 28));
     return (writeI2CChar(0x70 | val) == 0) ? true : false;
   }
 

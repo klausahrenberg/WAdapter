@@ -5,22 +5,8 @@
 #include "WebPage.h"
 #include "WebSocketsServer.h"
 
-//4096 crashes with PSRAM
+// 4096 crashes with PSRAM
 #define SIZE_RESPONSE_STREAM 2048U
-
-struct WebPageItem {
-  WebPageItem(WebPageInitializer initializer, const char* title, bool showInMainMenu = true) {
-    this->initializer = initializer;
-    this->title = title;
-    this->showInMainMenu = showInMainMenu;
-  }
-
-  WebPageInitializer initializer;
-  const char* title;
-  bool showInMainMenu;
-  WebPage* instance = nullptr;
-  unsigned long lastAlive = 0;
-};
 
 class WebApp {
  public:
@@ -28,7 +14,7 @@ class WebApp {
     //_webSocketsServer = new WebSocketsServer();
     WEB_SOCKETS = new WebSocketsServer(81);
     //"/ws", _webSocketHandler->eventHandler());
-    //WEB_SOCKETS->begin();
+    // WEB_SOCKETS->begin();
 
     WEB_SOCKETS->onEvent([this](uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
       switch (type) {
@@ -56,11 +42,15 @@ class WebApp {
                 } else if (pi->instance != nullptr) {
                   WValue* id = args->getById(WC_ID);
                   WValue* cdata = args->getById(WC_DATA);
-                  if (id != nullptr) {
+                  WList<WValue>* eventData = (((cdata != nullptr) && (cdata->type() == WDataType::LIST)) ? cdata->asList() : nullptr);
+                  if (id == nullptr) {
+                    // an event that names no control is one of the page itself
+                    pi->instance->handleEvent(event, eventData);
+                  } else {
                     WebControl* control = pi->instance->getElementById(id->asString());
                     if (control != nullptr) {
                       LOG->debug("control found");
-                      control->handleEvent(event, ((cdata != nullptr) && (cdata->type() == WDataType::LIST)) ? cdata->asList() : nullptr);
+                      control->handleEvent(event, eventData);
                     } else {
                       LOG->debug(F("Control for handling not found %s"), id->asString());
                     }
@@ -119,7 +109,7 @@ class WebApp {
   ~WebApp() {
     WEB_SOCKETS->close();
     delete WEB_SOCKETS;
-    WEB_SOCKETS = nullptr;    
+    WEB_SOCKETS = nullptr;
   }
 
   // AsyncWebSocket *webSockets() { return WEB_SOCKETS; }
@@ -138,7 +128,11 @@ class WebApp {
     WEB_SOCKETS->loop();
     if ((_lastPing == 0) || (now - _lastPing > 10000)) {
       _lastPing = now;
+#ifdef ARDUINO_ARCH_ESP8266
+      LOG->debug("Ping  %d (Memory Free: %u  Max: %u)", now, ESP.getFreeHeap(), ESP.getMaxFreeBlockSize());
+#else
       LOG->debug("Ping  %d (Memory Free: %u  Min: %u  Max: %u)", now, ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
+#endif
       WebAppSockets::sendMessage(WC_PING, nullptr, nullptr);
       _cleanUpDeadSessions();
     }
@@ -152,7 +146,28 @@ class WebApp {
   }
 
   void bindRootPage(AsyncWebServer* webServer) {
-    if (_webPages->size() > 0) _bind(webServer, _webPages->get(0), "");
+    // without webthings the control panel is the entry as well, it is the page
+    // the user is meant to land on
+    const char* id = WC_UI;
+    WebPageItem* pi = _webPages->getById(id);
+    if ((pi == nullptr) && (_webPages->size() > 0)) {
+      pi = _webPages->get(0);
+      id = _webPages->_getNode(0)->id;
+    }
+    // the page keeps its own id, so its events find it although it is the root
+    if (pi != nullptr) webServer->on("/", HTTP_GET, std::bind(&WebApp::_handleGet, this, std::placeholders::_1, pi, String(id)));
+  }
+
+  /**
+   * Answers a request for the root with the control panel. Used where the root
+   * is the description of the webthings for every other client, so the page is
+   * the one of the menu and not a copy that no event would reach.
+   */
+  bool handleUiPage(AsyncWebServerRequest* request) {
+    WebPageItem* pi = _webPages->getById(WC_UI);
+    if (pi == nullptr) return false;
+    _handleGet(request, pi, WC_UI);
+    return true;
   }
 
   WFormResponse handleHttpEventArgs(AsyncWebServerRequest* request, WList<WValue>* args) {
@@ -173,21 +188,189 @@ class WebApp {
     return WFormResponse();
   }
 
+  virtual void toString(Print* stream, WebPageItem* pi) {
+    WStringList* styles = new WStringList();
+    styles->add(CSS_GENERAL_STYLE, CSS_GENERAL_ID);
+    styles->add(CSS_BODY_STYLE, CSS_BODY_ID);
+    styles->add(CSS_H2_STYLE, WC_H2);
+    styles->add(CSS_SHELL_STYLE, CSS_SHELL_ID);
+    WStringList* scripts = new WStringList();
+    // Bar - Styles and Scripts
+    WebControl* bar = _createBar(styles);
+    bar->createStyles(styles);
+    bar->createScripts(scripts);
+    // Side - Styles and Scripts
+    WebControl* side = _createSide(styles, pi);
+    side->createStyles(styles);
+    side->createScripts(scripts);
+    // Mobile View
+    styles->add(CSS_MEDIA_MOBILE_STYLE, CSS_MEDIA_MOBILE_ID);
+    // WebPage - Styles and Scripts
+    pi->instance->createStyles(styles);
+    pi->instance->createScripts(scripts);
+    // Print
+    WHtml::commandParamsAndNullptr(stream, WC_DOCTYPE_HTML, true, WC_HTML, nullptr);
+    WHtml::commandParamsAndNullptr(stream, WC_HTML, true, WC_LANG, F("en"), nullptr);
+    // Head
+    WHtml::command(stream, WC_HEAD, true);
+    WHtml::commandParamsAndNullptr(stream, WC_META, true, WC_CHARSET, F("utf-8"), nullptr);
+    WHtml::commandParamsAndNullptr(stream, WC_META, true, WC_NAME, F("viewport"), WC_CONTENT, F("width=device-width, initial-scale=1, user-scalable=no"), nullptr);
+    WHtml::command(stream, WC_TITLE, true);
+    if (APPLICATION) stream->print(APPLICATION);
+    const char* heading = (pi->title != nullptr ? pi->title : pi->instance->title());
+    if (heading != nullptr) {
+      if (APPLICATION) stream->print(F(" - "));
+      // a heading of a page lies in the flash, so read it byte safe
+      stream->print(FPSTR(heading));
+    }
+    WHtml::command(stream, WC_TITLE, false);  // Title end
+    WHtml::commandParamsAndNullptr(stream, WC_LINK, true, WC_REL, F("shortcut icon"), WC_TYPE, F("image/svg"), WC_HREF, WC_ICON_KAMSA, nullptr);
+    // Style
+    WHtml::command(stream, WC_STYLE, true);
+    // stream->print(FPSTR(WC_STYLE_SHELL));
+    styles->forEach([this, stream](int index, const char* style, const char* id) { WHtml::styleToString(stream, id, style); });
+    WHtml::command(stream, WC_STYLE, false);  // Style end
+    WHtml::command(stream, WC_HEAD, false);   // Head end
+    // Body
+    WHtml::command(stream, WC_BODY, true);
+    // Bar with the name of the application and what it is running on
+
+    bar->toString(stream);
+    // Navigation and content
+    WHtml::commandParamsAndNullptr(stream, WC_DIV, true, WC_CLASS, WC_SHELL, nullptr);
+
+    side->toString(stream);
+    pi->instance->toString(stream);
+    WHtml::command(stream, WC_DIV, false);  // End of WC_SHELL
+    // Scripts
+    if (!scripts->empty()) {
+      WHtml::command(stream, WC_SCRIPT, true);
+      if (pi->instance->statefulWebPage()) {
+        // the page tells the socket which page it is, the url it was opened
+        // with can be the root one as well
+        stream->print(FPSTR(WC_SCRIPT_FORM_ID));
+        if (pi->instance->pageId()) stream->print(pi->instance->pageId());
+        stream->print(FPSTR(WC_SCRIPT_FORM_ID_END));
+        scripts->add(WC_SCRIPT_INITIALIZE_SOCKET);
+      }
+      scripts->forEach([this, stream](int index, const char* script, const char* id) {
+        stream->print(script);
+      });
+      WHtml::command(stream, WC_SCRIPT, false);
+    }
+    WHtml::command(stream, WC_BODY, false);  // Body end
+    WHtml::command(stream, WC_HTML, false);  // Page end
+    delete bar;
+    delete side;
+    delete styles;
+    delete scripts;
+  }
+
  private:
   WStringStream* _stream = nullptr;
   unsigned long _lastPing = 0;
   WList<WebPageItem>* _webPages = new WList<WebPageItem>();
 
+  WebControl* _createBar(WStringList* styles) {
+    WebControl* bar = new WebControl(WC_DIV, WC_CLASS, WC_BAR, nullptr);
+    // Burger
+    bar->add((new WebIconButton("&#9776;"))->param(WC_CLASS, CSS_BURGER_BUTTON_CLASS)->param(WC_ON_CLICK, PSTR("document.body.classList.toggle('nav')")));
+    bar->add((new WebControl(WC_H2, nullptr))->content(APPLICATION));
+    const char* deviceId = SETTINGS->getString(WC_ID);
+    //deviceId can point to PROGMEM, so don't compare it byte wise
+    if ((deviceId != nullptr) && (strlen_P(deviceId) != 0)) {
+      bar->add(new WebLabel(deviceId));
+    }  
+    if (VERSION) {
+      bar->add(new WebLabel(VERSION));
+    }  
+    if (DEBUG) {
+      bar->add(new WebLabel(PSTR("(debug)")));
+    }
+    styles->add(CSS_BAR_STYLE, CSS_BAR_ID);
+    styles->add(WC_DISPLAY_NONE, CSS_BURGER_ID);
+    return bar;
+
+    /*stream->print(FPSTR(WC_HTML_BAR));
+    if (APPLICATION) stream->print(APPLICATION);
+    stream->print(FPSTR(WC_HTML_BAR_SUB));
+    const char* deviceId = SETTINGS->getString(WC_ID);
+    //deviceId can point to PROGMEM, so don't compare it byte wise
+    if ((deviceId != nullptr) && (strlen_P(deviceId) != 0)) {
+      stream->print(deviceId);
+      if (VERSION) stream->print(WC_SPACE);
+    }
+    if (VERSION) {
+      stream->print(F("Rev "));
+      stream->print(VERSION);
+      if (DEBUG) stream->print(F(" (debug)"));
+    }*/
+  }
+
+  WebControl* _createSide(WStringList* styles, WebPageItem* pi) {
+    WebControl* side = new WebControl(WC_NAV, WC_CLASS, WC_SIDE, nullptr);
+    _webPages->forEach([this, pi, side](int index, WebPageItem* item, const char* id) {
+      if ((item->showInMainMenu) && (item->title != nullptr) && (id != nullptr)) {
+        WebIconButton* wib = new WebIconButton(item->title);
+        wib->onClickNavigateTo(String(WC_SLASH + String(id)).c_str());
+        if (pi == item) {
+          wib->param(WC_CLASS, PSTR("icon on"));
+        }
+        side->add(wib);
+      }
+    });
+
+    styles->add(CSS_SIDE_STYLE, CSS_SIDE_ID);
+    styles->add(CSS_SIDE_BUTTON_STYLE, CSS_SIDE_BUTTON_ID);
+    return side;
+    /*stream->print(FPSTR(WC_HTML_NAV));
+    _printNavigation(stream);
+    stream->print(FPSTR(WC_HTML_MAIN));
+    if (heading != nullptr) {
+      WHtml::command(stream, WC_H2, true);
+      stream->print(heading);
+      WHtml::command(stream, WC_H2, false);
+    }
+    _parentNode->toString(stream);
+    stream->print(FPSTR(WC_HTML_SHELL_END));
+
+    void _printNavigation(Print* stream) {
+    if (WEB_PAGES == nullptr) return;
+    WEB_PAGES->forEach([this, stream](int index, WebPageItem* item, const char* id) {
+      if ((item->showInMainMenu) && (item->title != nullptr) && (id != nullptr)) {
+        //id can point to PROGMEM, _pageId is always in RAM
+        bool active = ((_pageId != nullptr) && (strcmp_P(_pageId, id) == 0));
+        stream->print(FPSTR(WC_HTML_LINK));
+        stream->print(id);
+        stream->print(active ? FPSTR(WC_HTML_LINK_ON) : FPSTR(WC_HTML_LINK_OFF));
+        //a title of a page lies in the flash, so read it byte safe
+        stream->print(FPSTR(item->title));
+        stream->print(FPSTR(WC_HTML_LINK_END));
+      }
+    });
+  }
+
+    */
+  }
+
   void _handleGet(AsyncWebServerRequest* request, WebPageItem* pi, String id) {
     LOG->notice(F("Request with id '%s'"), id);
+    // a reloaded page leaves its session behind
+    if (pi->instance != nullptr) {
+      delete pi->instance;
+      pi->instance = nullptr;
+    }
     WebPage* page = pi->initializer();
+    page->add(page->createControls());
+    page->pageId(id.c_str());
 
     AsyncResponseStream* stream = request->beginResponseStream(WC_TEXT_HTML, SIZE_RESPONSE_STREAM);
-    page->toString(stream);
+    pi->instance = page;
+    toString(stream, pi);
     if (!page->statefulWebPage()) {
       delete page;
+      pi->instance = nullptr;
     } else {
-      pi->instance = page;
       pi->lastAlive = millis();
     }
     request->send(stream);
@@ -207,7 +390,7 @@ class WebApp {
         LOG->debug("Removed dead session '%s'", id);
       }
     });
-    //WEB_SOCKETS->cleanupClients();
+    // WEB_SOCKETS->cleanupClients();
   }
 
   WStringStream* _prepareStream() {

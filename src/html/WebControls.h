@@ -47,10 +47,12 @@ class WebControl {
   }
 
   WebControl* content(const char* content) {
+    //only a content that takes the place of an earlier one is news for the
+    //browser, the first one is printed with the page anyway
+    bool update = (_content != nullptr);
     if (_content) delete _content;
-    _content = new char[strlen_P(content) + 1];
-    strcpy_P(_content, content);
-    WebAppSockets::sendMessage("textAreaUpdate", id(), _content);
+    _content = WString::duplicate(content);
+    if (update) WebAppSockets::sendMessage("textAreaUpdate", id(), _content);
     return this;
   }
 
@@ -77,11 +79,11 @@ class WebControl {
   virtual WebControl* param(const char* key, const char* pattern, const char* params, ...) {
     if (_params == nullptr) _params = new WStringList();
     if ((pattern != nullptr) && (params != nullptr)) {
-      va_list args2;
-      va_start(args2, params);
+      //both the pattern and what is put into it can lie in the flash, so the
+      //pattern is read byte safe and the value is copied to the ram before
       char buffer[128];
-      snprintf(buffer, sizeof(buffer), pattern, params, args2);
-      va_end(args2);
+      String value = String(FPSTR(params));
+      snprintf_P(buffer, sizeof(buffer), pattern, value.c_str());
       _params->add(buffer, key);
     } else {
       _params->add(pattern, key);
@@ -162,12 +164,98 @@ class WebControl {
 
 class WebDiv : public WebControl {
  public:
+  WebDiv() : WebControl(WC_DIV, nullptr) {
+    
+  }
+
   WebDiv(WebControl* child) : WebControl(WC_DIV, nullptr) {
     this->add(child);
   }
+};
 
-  virtual ~WebDiv() {
+class WebSpan : public WebControl {
+ public:
+  WebSpan(const char* className, WebControl* child) : WebControl(WC_SPAN, nullptr) {
+    this->param(WC_CLASS, className);
+    this->add(child);
+  }  
+};
+
+/**
+ * A card with a heading and a row per value: the look of the control panel.
+ * A row carries the label at the left and the control at the right, a control
+ * that is a box of its own (class 'ctl') is taken as that box.
+ */
+class WebCard : public WebControl {
+ public:
+  WebCard(const char* title, const char* subTitle = nullptr) : WebControl(WC_SECTION, WC_CLASS, CSS_CARD_CLASS, nullptr) {
+    WebControl* head = new WebControl(WC_H3, nullptr);
+    head->content(title);
+    //subTitle can point to PROGMEM, so don't compare it byte wise
+    if ((subTitle != nullptr) && (strlen_P(subTitle) != 0)) {
+      head->add((new WebControl(WC_SPAN, WC_CLASS, WC_CLASS_CARD_TYPE, nullptr))->content(subTitle));
+    }
+    this->add(head);
   }
+
+  virtual void createStyles(WStringList* styles) {
+    WebControl::createStyles(styles);
+    styles->add(WC_STYLE_FORM_PLAIN, WC_FORM);
+    styles->add(CSS_CARD_STYLE, CSS_CARD_ID);
+    styles->add(CSS_CARD_H3_STYLE, CSS_CARD_H3_ID);
+    styles->add(CSS_CARD_ROW_STYLE, CSS_CARD_ROW_ID);
+    styles->add(CSS_CARD_ROW_READ_ONLY_STYLE, CSS_CARD_ROW_READ_ONLY_ID);
+    styles->add(CSS_CARD_LABEL_STYLE, CSS_CARD_LABEL_ID);
+    styles->add(CSS_CARD_CTL_STYLE, CSS_CARD_CTL_ID);
+  }
+  /*
+  virtual void createStyles(WStringList* styles) {
+    //the rule comes after the one of the page, so a form around the cards
+    //loses the box it would draw behind them
+    styles->add(WC_STYLE_FORM_PLAIN, WC_FORM);
+    WebControl::createStyles(styles);
+  }*/
+
+  WebCard* addRow(const char* label, WebControl* control, bool readOnly = false) {
+    WebControl* row = new WebControl(WC_DIV, WC_CLASS, (readOnly ? CSS_CARD_ROW_READ_ONLY_CLASS : CSS_CARD_ROW_CLASS), nullptr);
+    row->add((new WebControl(WC_DIV, WC_CLASS, CSS_CARD_LABEL_CLASS, nullptr))->content(label));
+    const char* cls = control->param(WC_CLASS);
+    if ((cls != nullptr) && (strcmp_P(cls, CSS_CARD_CTL_CLASS) == 0)) {
+      row->add(control);
+    } else {
+      WebControl* box = new WebControl(WC_DIV, WC_CLASS, CSS_CARD_CTL_CLASS, nullptr);
+      box->add(control);
+      row->add(box);
+    }
+    this->add(row);
+    return this;
+  }
+
+  /** A row that shows a text only, at the right where every value stands. */
+  WebCard* addRow(const char* label, const char* value) {
+    return addRow(label, (new WebControl(WC_SPAN, WC_CLASS, WC_CLASS_VALUE, nullptr))->content(value), true);
+  }
+
+  /** Something that is no row of its own: a table, a text area, a file. */
+  WebCard* addContent(WebControl* content) {
+    WebControl* box = new WebControl(WC_DIV, WC_CLASS, CSS_CARD_ROW_CLASS, nullptr);
+    box->add(content);
+    this->add(box);
+    return this;
+  }
+
+  /** A line instead of rows, where a card has nothing to show. */
+  WebCard* addMessage(const char* message) {
+    this->add((new WebControl(WC_DIV, WC_CLASS, WC_CLASS_MESSAGE, nullptr))->content(message));
+    return this;
+  }
+
+  /** A line of text under the rows, the address of the device for example. */
+  WebCard* addNote(const char* note) {
+    this->add((new WebControl(WC_DIV, WC_CLASS, CSS_CARD_ROW_READ_ONLY_CLASS, nullptr))->content(note));
+    return this;
+  }
+
 };
 
 class WebForm : public WebControl {
@@ -205,6 +293,9 @@ function onButtonClick(elem) {
 class WebButton : public WebControl {
  public:
   WebButton(const char* title, const char* id = nullptr) : WebControl(WC_BUTTON, nullptr) {
+    //html reads a button without a type as a submit one, so a button in a form
+    //would send it off besides doing what it was made for
+    param(WC_TYPE, WC_BUTTON);
     if (id) param(WC_ID, id);
     content(title);
   }
@@ -213,14 +304,26 @@ class WebButton : public WebControl {
   }
 
   virtual void createStyles(WStringList* styles) {
-    styles->add(WC_STYLE_BUTTON, WC_BUTTON);
-    styles->add(WC_STYLE_BUTTON_HOVER, WC_CSS_BUTTON_HOVER);
     WebControl::createStyles(styles);
+    styles->add(CSS_BUTTON_STYLE, WC_BUTTON);
+    styles->add(CSS_BUTTON_HOVER_STYLE, CSS_BUTTON_HOVER_ID);
+    styles->add(CSS_BUTTON_ON_STYLE, CSS_BUTTON_ON_ID);
+    if (_danger) {
+      styles->add(WC_STYLE_BUTTON_DANGER, WC_CSS_BUTTON_DANGER);
+      styles->add(WC_STYLE_BUTTON_DANGER_HOVER, WC_CSS_BUTTON_DANGER_HOVER);
+    }
   }
 
   virtual void createScripts(WStringList* scripts) {
     WebControl::createScripts(scripts);
     if (hasParam(WC_ON_CLICK)) scripts->add(WC_SCRIPT_CONTROL_EVENT, WC_SCRIPT_NAME_CONTROL_EVENT);
+  }
+
+  /** Marks an action that cannot be taken back. */
+  WebButton* danger() {
+    param(WC_CLASS, WC_DANGER);
+    _danger = true;
+    return this;
   }
 
   void onClickNavigateBack() { param(WC_ON_CLICK, WC_HISTORY_BACK); }
@@ -255,7 +358,21 @@ class WebButton : public WebControl {
 
  private:
   WebControlHandler _onClick = nullptr;
+  bool _danger = false;
 };
+
+class WebIconButton : public WebButton {
+ public:
+  WebIconButton(const char* title, const char* id = nullptr) : WebButton(title, id) {
+    param(WC_CLASS, CSS_BUTTON_ICON_CLASS);
+  }
+
+  virtual void createStyles(WStringList* styles) {
+    WebButton::createStyles(styles);
+    styles->add(CSS_BUTTON_ICON_STYLE, CSS_BUTTON_ICON_ID);
+    styles->add(CSS_BUTTON_ICON_HOVER_STYLE, CSS_BUTTON_ICON_HOVER_ID);
+  }
+};    
 
 class WebSubmitButton : public WebControl {
  public:
@@ -264,8 +381,8 @@ class WebSubmitButton : public WebControl {
   }
 
   virtual void createStyles(WStringList* styles) {
-    styles->add(WC_STYLE_BUTTON, WC_BUTTON);
-    styles->add(WC_STYLE_BUTTON_HOVER, WC_CSS_BUTTON_HOVER);
+    styles->add(CSS_BUTTON_STYLE, WC_BUTTON);
+    styles->add(CSS_BUTTON_HOVER_STYLE, CSS_BUTTON_HOVER_ID);
     WebControl::createStyles(styles);
   }
 };
@@ -316,13 +433,20 @@ class WebSwitch : public WebControl {
   }
 
   virtual void createStyles(WStringList* styles) {
+    WebControl::createStyles(styles);
     styles->add(WC_STYLE_SWITCH, WC_CSS_SWITCH);
     styles->add(WC_STYLE_SWITCH_INPUT, WC_CSS_SWITCH_INPUT);
     styles->add(WC_STYLE_SLIDER, WC_CSS_SLIDER);
     styles->add(WC_STYLE_SLIDER_BEFORE, WC_CSS_SLIDER_BEFORE);
     styles->add(WC_STYLE_INPUT_CHECKED_SLIDER, WC_CSS_INPUT_CHECKED_SLIDER);
     styles->add(WC_STYLE_INPUT_CHECKED_SLIDER_BEFORE, WC_CSS_INPUT_CHECKED_SLIDER_BEFORE);
-    WebControl::createStyles(styles);
+  }
+};
+
+class WebLink : public WebControl {
+ public:
+  WebLink(const char* target, const char* title = nullptr) : WebControl("a", WC_HREF, target, nullptr) {
+    content(title != nullptr ? title : target);
   }
 };
 
@@ -335,6 +459,11 @@ class WebInput : public WebControl {
     param(WC_ON_CHANGE, WC_SCRIPT_NAME_CONTROL_EVENT, WC_ON_CHANGE, nullptr);
     closing(false);
   }
+
+  virtual void createStyles(WStringList* styles) {
+    WebControl::createStyles(styles);
+    styles->add(CSS_INPUT_STYLE, CSS_INPUT_ID);
+  }  
 
   virtual void createScripts(WStringList* scripts) {
     WebControl::createScripts(scripts);
@@ -392,31 +521,54 @@ class WebTextField : public WebLabeledControl {
 
 class WebTextArea : public WebLabeledControl {
  public:
-  WebTextArea(const char* id, const char* title, WOnPrint textFactory, byte rows = 20, byte cols = 80)
-      : WebLabeledControl(title, new WebControl(WC_TEXTAREA, WC_ID, id, WC_NAME, id, WC_ROWS, String(rows).c_str(), WC_COLS, String(cols).c_str(), nullptr)) {
+  /** json: the content is laid out, checked and refused when it is broken. */
+  WebTextArea(const char* id, const char* title, WOnPrint textFactory, byte rows = 20, byte cols = 80, bool json = false)
+      : WebLabeledControl(title, new WebControl(WC_TEXTAREA, WC_ID, id, WC_NAME, id, WC_ROWS, String(rows).c_str(), WC_COLS, String(cols).c_str(),
+                                                WC_SPELLCHECK, WC_FALSE, PSTR("autocapitalize"), PSTR("off"), PSTR("wrap"), PSTR("off"), nullptr)) {
     if (textFactory != nullptr) _control->contentFactory(textFactory);
+    if (json) _control->param(PSTR("data-json"), WC_TRUE);
+  }
+
+  virtual void createStyles(WStringList* styles) {
+    WebControl::createStyles(styles);
+    styles->add(WC_STYLE_TEXTAREA, WC_TEXTAREA);
   }
 
   virtual void createScripts(WStringList* scripts) {
     WebControl::createScripts(scripts);
-    scripts->add(WC_SCRIPT_TEXTAREA);
+    //the id keeps the script at one copy, however many textareas a page has
+    scripts->add(WC_SCRIPT_TEXTAREA, WC_TEXTAREA);
   }
 };
 
 class WebInputFile : public WebControl {
  public:
-  WebInputFile(const char* id) : WebControl(WC_DIV, nullptr) {
-    this->add(new WebLabel(PSTR("Add file"), id));
-    WebControl* input = new WebControl(WC_INPUT, WC_ID, id, WC_NAME, id, WC_TYPE, WC_FILE, WC_ACCEPT, PSTR(".bin"), nullptr);
+  WebInputFile(const char* id, const char* label = nullptr) : WebControl(WC_DIV, nullptr) {
+    this->add(new WebLabel((label != nullptr ? label : PSTR("Add file")), id));
+    WebControl* input = new WebControl(WC_INPUT, WC_ID, id, WC_NAME, id, WC_TYPE, WC_FILE, WC_ACCEPT, PSTR(".bin"), WC_STYLE, WC_DISPLAY_NONE, nullptr);
     input->closing(false);
     this->add(input);
+    this->add((new WebButton(PSTR("Select file")))->param(WC_ON_CLICK, PSTR("document.getElementById('update').click()")));
+    //the upload script finds this by tag and fills it in while it runs - no
+    //id needed, and nothing shows here as long as no upload is in progress
+    this->add(new WebControl(WC_PROGRESS, WC_VALUE, "0", WC_MAX, "100", nullptr));
     this->param(WC_CLASS, WC_BUTTON);
+    this->param(WC_STYLE, WC_WIDTH_100PERCENT);
   }
 
   virtual void createStyles(WStringList* styles) {
-    // styles->add(WC_STYLE_BUTTON, PSTR("input::file-selector-button"));
-    // styles->add("width:fit-content", PSTR("input::file-selector-button"));
+    styles->add(WC_STYLE_FILE, WC_CSS_FILE);
+    styles->add(WC_STYLE_FILE_BUTTON, WC_CSS_FILE_BUTTON);
+    styles->add(WC_STYLE_FILE_BUTTON_HOVER, WC_CSS_FILE_BUTTON_HOVER);
+    styles->add(WC_STYLE_PROGRESS, WC_CSS_PROGRESS);
+    styles->add(WC_STYLE_PROGRESS_BAR, WC_CSS_PROGRESS_BAR);
+    styles->add(WC_STYLE_PROGRESS_VALUE, WC_CSS_PROGRESS_VALUE);
     WebControl::createStyles(styles);
+  }
+
+  virtual void createScripts(WStringList* scripts) {
+    WebControl::createScripts(scripts);
+    scripts->add(WC_SCRIPT_FILE_UPLOAD, WC_SCRIPT_NAME_FILE_UPLOAD);
   }
 };
 
@@ -433,14 +585,16 @@ class WebTable : public WebControl {
  public:
   static void headerCell(Print* stream, const char* header) {
     WHtml::command(stream, WC_TABLE_HEADER, true, nullptr);
-    if (header) stream->print(header);
+    //a header of a table can lie in the flash, so read it byte safe
+    if (header) stream->print(FPSTR(header));
     WHtml::command(stream, WC_TABLE_HEADER, false, nullptr);
   }
 
   static void dataCell(Print* stream, const char* data, bool editable = false) {
     //empty value: html5 reads the bare attribute as contenteditable="true"
     WHtml::commandParamsAndNullptr(stream, WC_TABLE_DATA, true, (editable ? WC_CONTENT_EDITABLE : nullptr), nullptr);
-    if (data) stream->print(data);
+    //a cell can lie in the flash, so read it byte safe
+    if (data) stream->print(FPSTR(data));
     WHtml::command(stream, WC_TABLE_DATA, false, nullptr);
   }
 
@@ -730,24 +884,19 @@ class WebFieldset : public WebControl {
   }
 };
 
-class WebCombobox : public WebControl {
+/** A list to choose one entry from, the label is the one of its row. */
+class WebSelect : public WebControl {
  public:
-  WebCombobox(const char* id, const char* title) : WebControl(WC_DIV, nullptr) {
-    this->add(new WebLabel(title, id));
-    _select = new WebControl(WC_SELECT, WC_ID, id, WC_NAME, id, nullptr);
-    this->add(_select);
+  WebSelect(const char* id) : WebControl(WC_SELECT, WC_ID, id, WC_NAME, id, nullptr) {
   }
 
-  WebCombobox* option(const char* option, bool selected, const char* optionTitle = nullptr) {
-    _select->add((new WebControl(WC_OPTION,
-                                 WC_VALUE, option,
-                                 (selected ? WC_SELECTED : ""), (selected ? "" : nullptr), nullptr))
-                     ->content(optionTitle != nullptr ? optionTitle : option));
+  WebSelect* option(const char* option, bool selected, const char* optionTitle = nullptr) {
+    this->add((new WebControl(WC_OPTION,
+                              WC_VALUE, option,
+                              (selected ? WC_SELECTED : ""), (selected ? "" : nullptr), nullptr))
+                  ->content(optionTitle != nullptr ? optionTitle : option));
     return this;
   }
-
- private:
-  WebControl* _select;
 };
 
 #endif

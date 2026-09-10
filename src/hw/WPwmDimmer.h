@@ -36,7 +36,7 @@ protected:
 	}
 
 	virtual void _onChange() {    
-    if (isInitialized()) {
+    if (_isInitialized()) {
       #ifdef ESP8266
 			analogWrite(this->pin(), 0);
 			#else

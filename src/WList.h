@@ -1,6 +1,9 @@
 #ifndef W_LIST_H
 #define W_LIST_H
 
+//uint8_t, pgm_read_byte and strcmp_P must be known, this header can be included first
+#include <Arduino.h>
+
 /*
   Inspired by Stefan Kremser github.com/spacehuhn
   https://github.com/spacehuhn/SimpleList
@@ -12,7 +15,30 @@
   Added features:
   - method forEach for fast iteration through the list
   - method getIf
+  - optional hash index on the ids, see WLIST_HASH_... below
 */
+
+/*
+  Hash index for the id based access (getById, existsId, indexOfId and the
+  check for double ids at insert).
+  To keep the footprint small the table is created lazily: as long as the list
+  holds less than WLIST_HASH_MIN_SIZE entries a linear search is cheaper than
+  the table itself. The table holds only pointers, so it costs
+  16 slots = 64 bytes, 32 slots = 128 bytes, plus 4 bytes per node for the
+  chaining. Collisions are chained, so the lookup stays correct at any size.
+*/
+#ifndef WLIST_HASH_MIN_SIZE
+#define WLIST_HASH_MIN_SIZE 8
+#endif
+#ifndef WLIST_HASH_SLOTS_SMALL
+#define WLIST_HASH_SLOTS_SMALL 16
+#endif
+#ifndef WLIST_HASH_SLOTS_LARGE
+#define WLIST_HASH_SLOTS_LARGE 32
+#endif
+#ifndef WLIST_HASH_GROW_SIZE
+#define WLIST_HASH_GROW_SIZE 32
+#endif
 
 template <typename T>
 class IWIterable {
@@ -31,12 +57,14 @@ struct WListNode {
   }
 
   virtual ~WListNode() {
-    if (id) delete id;
+    if (id) delete[] id;
   }
 
   T* value;
   char* id = nullptr;
   WListNode<T>* next = nullptr;
+  //chaining of the id hash index, only used for nodes with an id
+  WListNode<T>* hashNext = nullptr;
 };
 
 enum class WListChangeType {
@@ -85,10 +113,89 @@ class WList : public IWIterable<T> {
   typedef std::function<void(WListNode<T>* listNode)> TOnListNode;
   typedef std::function<void(WListChange<T> change)> WListListener;
 
+ protected:
+  //hash index of the ids, nullptr as long as the list is small.
+  //declared before the first usage, some compilers don't look ahead in templates
+  WListNode<T>** _hash;
+  uint8_t _hashMask;
+
+  //FNV-1a folded to 8 bits, pgm_read_byte keeps ids in the flash (PSTR) valid
+  static uint8_t _hashOf(const char* id) {
+    uint32_t h = 2166136261u;
+    char c;
+    while ((c = (char) pgm_read_byte(id++)) != '\0') {
+      h ^= (uint8_t) c;
+      h *= 16777619u;
+    }
+    return (uint8_t) (h ^ (h >> 8) ^ (h >> 16) ^ (h >> 24));
+  }
+
+  uint8_t _hashIndex(const char* id) { return (_hashOf(id) & _hashMask); }
+
+  void _hashDrop() {
+    if (_hash != nullptr) {
+      delete[] _hash;
+      _hash = nullptr;
+      _hashMask = 0;
+    }
+  }
+
+  //appends at the end of the slot, so the first added id is found first
+  void _hashPut(WListNode<T>* node) {
+    if ((_hash == nullptr) || (node->id == nullptr)) return;
+    node->hashNext = nullptr;
+    WListNode<T>** slot = &_hash[_hashIndex(node->id)];
+    while (*slot != nullptr) slot = &((*slot)->hashNext);
+    *slot = node;
+  }
+
+  //(re)builds the table for all nodes, the slot order stays the list order
+  void _hashCreate(uint8_t slots) {
+    _hashDrop();
+    _hash = new WListNode<T>*[slots];
+    if (_hash == nullptr) return;
+    for (uint8_t i = 0; i < slots; i++) _hash[i] = nullptr;
+    _hashMask = slots - 1;
+    WListNode<T>* node = _firstNode;
+    while (node != nullptr) {
+      _hashPut(node);
+      node = node->next;
+    }
+  }
+
+  //called after a node was linked into the list
+  void _hashInsert(WListNode<T>* node) {
+    if (node->id == nullptr) return;
+    if (_hash == nullptr) {
+      if (_size >= WLIST_HASH_MIN_SIZE) _hashCreate(WLIST_HASH_SLOTS_SMALL);
+    } else if ((_hashMask < WLIST_HASH_SLOTS_LARGE - 1) && (_size > WLIST_HASH_GROW_SIZE)) {
+      _hashCreate(WLIST_HASH_SLOTS_LARGE);
+    } else {
+      _hashPut(node);
+    }
+  }
+
+  //called before a node is unlinked from the list
+  void _hashRemove(WListNode<T>* node) {
+    if ((_hash == nullptr) || (node->id == nullptr)) return;
+    WListNode<T>** slot = &_hash[_hashIndex(node->id)];
+    while (*slot != nullptr) {
+      if (*slot == node) {
+        *slot = node->hashNext;
+        node->hashNext = nullptr;
+        return;
+      }
+      slot = &((*slot)->hashNext);
+    }
+  }
+
+ public:
   WList(bool noDoubleIds = false) {
     _noDoubleIds = noDoubleIds;
     _size = 0;
     _firstNode = nullptr;
+    _hash = nullptr;
+    _hashMask = 0;
     _resetCaching();
   };
 
@@ -99,11 +206,9 @@ class WList : public IWIterable<T> {
   void add(T* value, const char* id = nullptr) { this->insert(value, _size, id); }
 
   virtual void insert(T* value, int index, const char* id = nullptr) {
-    WListNode<T>* newNode = (_noDoubleIds ? _getListNodeById(id) : nullptr);
-    if (newNode == nullptr) {
+    WListNode<T>* existingNode = (_noDoubleIds ? _getListNodeById(id) : nullptr);
+    if (existingNode == nullptr) {
       WListNode<T>* newNode = new WListNode<T>(id);
-
-      bool isString = std::is_same<T, const char>::value;
       newNode->value = value;
       if (index == 0) {
         newNode->next = _firstNode;
@@ -117,11 +222,12 @@ class WList : public IWIterable<T> {
       _lastIndexGot = index;
       _lastNodeGot = newNode;
       _size++;
+      this->_hashInsert(newNode);
       _notifyAdd(index, newNode->value);
     } else {
-      T* oldItem = newNode->value;
-      newNode->value = value;
-      _notifyChanged(index, value, newNode->value); 
+      T* oldItem = existingNode->value;
+      existingNode->value = value;
+      _notifyChanged(index, value, oldItem);
       if (oldItem) delete oldItem;      
     }    
   };
@@ -130,6 +236,7 @@ class WList : public IWIterable<T> {
     while (_size > 0) {
       this->remove(0, true);
     }
+    this->_hashDrop();
   }
 
   void remove(int index, bool freeMemoryForValues = false) {
@@ -141,17 +248,33 @@ class WList : public IWIterable<T> {
       } else {
         nodePrev->next = nodeToDelete->next;
       }
+      this->_hashRemove(nodeToDelete);
       _notifyRemove(index, nodeToDelete->value);
       if ((freeMemoryForValues) && (nodeToDelete) && (nodeToDelete->value)) {
         delete nodeToDelete->value;
       }
       delete nodeToDelete;
       _size--;
+      if (_size == 0) this->_hashDrop();
       _resetCaching();
     }
   }
 
   int indexOfId(const char* id) {
+    if (id == nullptr) return -1;
+    if (_hash != nullptr) {
+      //hash finds the node, the list is walked for the index only (pointer compare)
+      WListNode<T>* found = _getListNodeById(id);
+      if (found == nullptr) return -1;
+      WListNode<T>* node = _firstNode;
+      int index = 0;
+      while (node != nullptr) {
+        if (node == found) return index;
+        index++;
+        node = node->next;
+      }
+      return -1;
+    }
     WListNode<T>* node = _firstNode;
     int index = 0;
     while (node != nullptr) {
@@ -180,6 +303,7 @@ class WList : public IWIterable<T> {
     if (comparator != nullptr) {
       WListNode<T>* nodePrev = nullptr;
       WListNode<T>* node = _firstNode;
+      int index = 0;
       while (node != nullptr) {
         if (comparator(node->value)) {
           WListNode<T>* nodeToDelete = node;
@@ -189,12 +313,20 @@ class WList : public IWIterable<T> {
             nodePrev->next = nodeToDelete->next;
           }
           node = nodeToDelete->next;
+          this->_hashRemove(nodeToDelete);
+          _notifyRemove(index, nodeToDelete->value);
           delete nodeToDelete;
+          _size--;
           result = true;
         } else {
           nodePrev = node;
           node = node->next;
+          index++;
         }
+      }
+      if (result) {
+        if (_size == 0) this->_hashDrop();
+        _resetCaching();
       }
     }
     return result;
@@ -266,12 +398,23 @@ class WList : public IWIterable<T> {
 
   WListNode<T>* _getListNodeById(const char* id) {
     if (id != nullptr) {
-      WListNode<T>* node = _firstNode;
-      while (node != nullptr) {
-        if ((node->id != nullptr) && (strcmp_P(node->id, id) == 0)) {
-          return node;
+      if (_hash != nullptr) {
+        //only the nodes of one slot have to be compared
+        WListNode<T>* node = _hash[this->_hashIndex(id)];
+        while (node != nullptr) {
+          if (strcmp_P(node->id, id) == 0) {
+            return node;
+          }
+          node = node->hashNext;
         }
-        node = node->next;
+      } else {
+        WListNode<T>* node = _firstNode;
+        while (node != nullptr) {
+          if ((node->id != nullptr) && (strcmp_P(node->id, id) == 0)) {
+            return node;
+          }
+          node = node->next;
+        }
       }
     }
     return nullptr;

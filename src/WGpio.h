@@ -61,7 +61,7 @@ const char S_GPIO_TYPE_MCP444x[] PROGMEM = "mcp444x";
 const char S_GPIO_TYPE_PCF8575[] PROGMEM = "pcf8575";
 const char* const S_GPIO_TYPE[] PROGMEM = { S_GPIO_TYPE_GROUP, S_GPIO_TYPE_MODE,
                                             S_GPIO_TYPE_LED, S_GPIO_TYPE_RELAY, S_GPIO_TYPE_RGB_WS2812, S_GPIO_TYPE_RGB_PL9823, S_GPIO_TYPE_RGB_SINGLE,
-                                            S_GPIO_TYPE_PWM, S_GPIO_TYPE_SERIAL_DIMMER, S_GPIO_TYPE_TPL0501, S_GPIO_TYPE_X9C104, S_GPIO_TYPE_MCP4x000, 
+                                            S_GPIO_TYPE_PWM, S_GPIO_TYPE_SERIAL_DIMMER, S_GPIO_TYPE_TPL0501, S_GPIO_TYPE_X9C104, S_GPIO_TYPE_MCP4x000, S_GPIO_TYPE_MCP444x,
                                             S_GPIO_TYPE_DISPLAY,                                           
                                             S_GPIO_TYPE_BUTTON, S_GPIO_TYPE_SWITCH, S_GPIO_TYPE_HTU21, S_GPIO_TYPE_SHT30, S_GPIO_TYPE_KY013, S_GPIO_TYPE_STATE,
                                             S_GPIO_TYPE_PCF8575 };
@@ -241,7 +241,7 @@ class WGroup : public WGpio {
     _items->add(output, id);
   }
 
-  WValue id() { return _id; }
+  WValue* id() { return _id; }
 
   WValue* title() { return _title; }
 

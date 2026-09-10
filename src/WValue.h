@@ -64,7 +64,12 @@ struct WValue {
     asInt(value);
   }
 
-  WValue(uint32_t value) {
+  WValue(unsigned int value) {
+    _type = WDataType::UNSIGNED_LONG;
+    asUnsignedLong(value);
+  }
+
+  WValue(unsigned long value) {
     _type = WDataType::UNSIGNED_LONG;
     asUnsignedLong(value);
   }
@@ -98,12 +103,17 @@ struct WValue {
     asByteArray(length, getter);
   }
 
-  virtual ~WValue() {
-    if ((_type == WDataType::STRING) && (!_isNull)) delete[] _asString;
-    if ((_type == WDataType::BYTE_ARRAY) && (!_isNull)) free(_asByteArray);
-    if ((_type == WDataType::LIST) && (!_isNull)) delete _asList;
-    if (_toString) delete[] _toString;
+  WValue(const WValue& other) { _copyFrom(other); }
+
+  WValue& operator=(const WValue& other) {
+    if (this != &other) {
+      _release();
+      _copyFrom(other);
+    }
+    return *this;
   }
+
+  virtual ~WValue() { _release(); }
 
   WDataType type() { return _type; }
 
@@ -323,7 +333,7 @@ struct WValue {
                 ((!_isNull) && (newValue == nullptr)) ||
                 (strcmp_P(_asString, newValue) != 0);
       if (changed) {
-        if (!_isNull) delete _asString;
+        if (!_isNull) delete[] _asString;
         _isNull = (newValue == nullptr);
         if (!_isNull) {
           _asString = new char[strlen_P(newValue) + 1];
@@ -378,7 +388,8 @@ struct WValue {
     switch (_type) {
       case WDataType::BOOLEAN: {
         v.toLowerCase();
-        return asBool(v.equals(WC_TRUE));
+        //WC_TRUE lies in the flash, so don't compare it byte wise
+        return asBool(strcmp_P(v.c_str(), WC_TRUE) == 0);
       }
       case WDataType::DOUBLE:
         return asDouble(v.toDouble());
@@ -498,7 +509,8 @@ struct WValue {
     va_list args;
     va_start(args, pattern);
     char buffer[128];
-    vsnprintf(buffer, sizeof(buffer), pattern, args);
+    //the pattern can lie in the flash, so read it byte safe
+    vsnprintf_P(buffer, sizeof(buffer), pattern, args);
     va_end(args);
     return WValue::ofString(buffer);
   }
@@ -525,9 +537,11 @@ struct WValue {
     va_list arg;
     va_start(arg, text);
     while (text) {
+      //text can point to PROGMEM, so read it byte safe
       int index = 0;
-      while (text[index] != '\0') {
-        switch (text[index]) {
+      char c = (char)pgm_read_byte(text);
+      while (c != '\0') {
+        switch (c) {
           case '\n': {
             stream->print("\\n");
             break;
@@ -537,11 +551,11 @@ struct WValue {
             break;
           }
           default:
-            stream->print((char)text[index]);
+            stream->print(c);
         }
         index++;
+        c = (char)pgm_read_byte(text + index);
       }
-      // stream->printf_P(text);
       text = va_arg(arg, const char*);
     }
     va_end(arg);
@@ -557,7 +571,8 @@ struct WValue {
   }
 
   static void boolToString(Print* stream, bool value) {
-    stream->print(value ? WC_TRUE : WC_FALSE);
+    //the words lie in the flash, so read them byte safe
+    stream->print(FPSTR(value ? WC_TRUE : WC_FALSE));
   }
 
   static void intToString(Print* stream, int value) {
@@ -605,6 +620,52 @@ struct WValue {
 
  protected:
  private:
+  void _release() {
+    if (!_isNull) {
+      if (_type == WDataType::STRING) delete[] _asString;
+      else if (_type == WDataType::BYTE_ARRAY) free(_asByteArray);
+      else if (_type == WDataType::LIST) delete _asList;
+    }
+    if (_toString) delete[] _toString;
+    _toString = nullptr;
+    _isNull = true;
+  }
+
+  /** Deep copy: everything the value owns needs its own memory in the copy. */
+  void _copyFrom(const WValue& other) {
+    _type = other._type;
+    _isNull = other._isNull;
+    _toString = nullptr;
+    if (_isNull) return;
+    switch (_type) {
+      case WDataType::STRING: {
+        _asString = new char[strlen(other._asString) + 1];
+        strcpy(_asString, other._asString);
+        break;
+      }
+      case WDataType::BYTE_ARRAY: {
+        byte length = other._asByteArray[0];
+        _asByteArray = (byte*) malloc(length + 1);
+        memcpy(_asByteArray, other._asByteArray, length + 1);
+        break;
+      }
+      case WDataType::LIST: {
+        _asList = new WList<WValue>();
+        other._asList->forEach([this] (int index, WValue* item, const char* id) {
+          _asList->add(new WValue(*item), id);
+        });
+        break;
+      }
+      case WDataType::BOOLEAN: _asBool = other._asBool; break;
+      case WDataType::DOUBLE: _asDouble = other._asDouble; break;
+      case WDataType::SHORT: _asShort = other._asShort; break;
+      case WDataType::UNSIGNED_SHORT: _asUnsignedShort = other._asUnsignedShort; break;
+      case WDataType::INTEGER: _asInt = other._asInt; break;
+      case WDataType::UNSIGNED_LONG: _asUnsignedLong = other._asUnsignedLong; break;
+      case WDataType::BYTE: _asByte = other._asByte; break;
+    }
+  }
+
   WDataType _type;
   bool _isNull = true;
   const char* _toString = nullptr;
