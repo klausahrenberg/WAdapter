@@ -21,22 +21,22 @@ class WebControl {
       } else {
         // WKeyValue* kv = new WKeyValue(key, params);
         param(key, params);
-        delete key;
+        delete[] key;
         key = nullptr;
       }
       params = va_arg(arg, const char*);
     }
     if (key != nullptr) {
       param(key, nullptr);
-      delete key;
+      delete[] key;
       key = nullptr;
     }
     va_end(arg);
   }
 
   virtual ~WebControl() {
-    if (_tag) delete _tag;
-    if (_content) delete _content;
+    if (_tag) delete[] _tag;
+    if (_content) delete[] _content;
     if (_params) delete _params;
     if (_items) delete _items;
   }
@@ -50,7 +50,7 @@ class WebControl {
     //only a content that takes the place of an earlier one is news for the
     //browser, the first one is printed with the page anyway
     bool update = (_content != nullptr);
-    if (_content) delete _content;
+    if (_content) delete[] _content;
     _content = WString::duplicate(content);
     if (update) WebAppSockets::sendMessage("textAreaUpdate", id(), _content);
     return this;

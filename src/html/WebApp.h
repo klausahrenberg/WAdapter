@@ -31,8 +31,9 @@ class WebApp {
         case WStype_TEXT: {
           LOG->notice(F("[%d] get Text: %s"), num, (const char*)payload);
           WList<WValue>* args = WJsonParser::asMap((const char*)payload);
-          WValue* event = args->getById(WC_EVENT);
-          if ((args != nullptr) && (event != nullptr)) {
+          //a broken payload gives no list at all
+          WValue* event = (args != nullptr ? args->getById(WC_EVENT) : nullptr);
+          if (event != nullptr) {
             WValue* form = args->getById(WC_FORM);
             if (form != nullptr) {
               WebPageItem* pi = _webPages->getById(form->asString());
@@ -191,7 +192,8 @@ class WebApp {
    * request is settled and does not answer it a second time.
    */
   WFormResponse handleHttpEventArgs(AsyncWebServerRequest* request, WList<WValue>* args, bool* answered = nullptr) {
-    WValue* formName = args->getById(WC_FORM);
+    //a post body that is no json at all gives no list
+    WValue* formName = (args != nullptr ? args->getById(WC_FORM) : nullptr);
     if (formName != nullptr) {
       WebPageItem* pi = _webPages->getById(formName->asString());
       if (pi != nullptr) {

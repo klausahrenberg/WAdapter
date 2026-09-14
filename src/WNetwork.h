@@ -706,6 +706,11 @@ class WNetwork {
                 // set all properties
                 LOG->notice(F("Try to set several properties for device %s"), device->id());
                 WList<WValue>* properties = WJsonParser::asMap(_body_data);
+                //a payload that is no json at all gives no list
+                if (properties == nullptr) {
+                  LOG->error(F("Payload is no valid json, no properties set."));
+                  return;
+                }
                 LOG->debug("list items count: %d", properties->size());
                 for (int i = 0; i < properties->size(); i++) {
                   WValue* value = properties->get(i);
@@ -1221,6 +1226,11 @@ class WNetwork {
         return;
       }
       WList<WValue>* properties = WJsonParser::asMap(_body_data);
+      //a body that is no json at all gives no list
+      if (properties == nullptr) {
+        request->send(422);
+        return;
+      }
       LOG->debug("list items count: %d", properties->size());
       if (properties->size() > 0) {
         AsyncResponseStream* response = request->beginResponseStream(APPLICATION_JSON);

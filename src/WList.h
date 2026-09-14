@@ -239,6 +239,9 @@ class WList : public IWIterable<T> {
     this->_hashDrop();
   }
 
+  //how a value is freed, WStringList stores char arrays and overrides it
+  virtual void _deleteValue(T* value) { delete value; }
+
   void remove(int index, bool freeMemoryForValues = false) {
     if ((index >= 0) && (index < _size)) {
       WListNode<T>* nodePrev = _getNode(index - 1);
@@ -251,7 +254,7 @@ class WList : public IWIterable<T> {
       this->_hashRemove(nodeToDelete);
       _notifyRemove(index, nodeToDelete->value);
       if ((freeMemoryForValues) && (nodeToDelete) && (nodeToDelete->value)) {
-        delete nodeToDelete->value;
+        this->_deleteValue(nodeToDelete->value);
       }
       delete nodeToDelete;
       _size--;
@@ -518,7 +521,12 @@ class WStringList : public WList<const char> {
   }
 
   virtual ~WStringList() {
+    //clear() here, in ~WList the override of _deleteValue is not reached anymore
+    this->clear();
   }
+
+  //insert() stores copies made with new char[]
+  virtual void _deleteValue(const char* value) { delete[] value; }
 
   virtual void insert(const char* value, int index, const char* id = nullptr) {
     if (value) {

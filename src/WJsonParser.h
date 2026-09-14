@@ -46,7 +46,7 @@ struct WMapItem {
   }
 
   virtual ~WMapItem() {
-    if (objectId) delete objectId;
+    if (objectId) delete[] objectId;
   }
 };
 
@@ -64,7 +64,11 @@ class WJsonParser {
   }
 
   virtual ~WJsonParser() {
-    if (_currentKey) delete _currentKey;
+    if (_currentKey) delete[] _currentKey;
+    //the stack owns the WMapItems that are still on it. The mapOrList of the
+    //root item is the parse result and belongs to the caller, ~WMapItem
+    //doesn't touch it
+    if (_stack) delete _stack;
   }
 
   static WList<WValue>* asMap(const char* payload) {    
@@ -76,7 +80,9 @@ class WJsonParser {
     for (int i = 0; i < strlen(payload); i++) {
       _parseChar(payload[i]);
     }
-    return _stack->peek()->mapOrList;
+    //a broken payload can leave the stack empty
+    WMapItem* root = _stack->peek();
+    return (root != nullptr ? root->mapOrList : nullptr);
   }
   
  private:
@@ -96,11 +102,11 @@ class WJsonParser {
 
   void _processKeyValue(const char* key, const char* value) {
     WMapItem* peeked = _stack->peek();
-    if (peeked->mapOrList != nullptr) {                   
+    if ((peeked != nullptr) && (peeked->mapOrList != nullptr)) {                   
       if (value != nullptr) {
         peeked->mapOrList->add(new WValue(value), _currentKey);        
       }
-      if (_currentKey) delete _currentKey;
+      if (_currentKey) delete[] _currentKey;
       _currentKey = nullptr;
     }
 
@@ -162,8 +168,9 @@ class WJsonParser {
         }
         break;
       case WS_AFTER_VALUE: {
-        // not safe for size == 0!!!
-        WType within = _stack->peek()->type;
+        WMapItem* peeked = _stack->peek();
+        if (peeked == nullptr) break;
+        WType within = peeked->type;
         if (within == WT_OBJECT) {
           if (c == WC_SEND) {
             _endObject();
@@ -254,9 +261,14 @@ class WJsonParser {
 
   void _endString() {
     WMapItem* popped = _stack->pop();
+    //a malformed payload can run the stack empty
+    if (popped == nullptr) {
+      _bufferPos = 0;
+      return;
+    }
     if (popped->type == WT_KEY) {
       _buffer[_bufferPos] = '\0';
-      if (_currentKey) delete _currentKey;
+      if (_currentKey) delete[] _currentKey;
       _currentKey = new char[strlen(_buffer) + 1];
       strcpy(_currentKey, _buffer); 
       _state = WS_END_KEY;
@@ -267,6 +279,8 @@ class WJsonParser {
       _state = WS_AFTER_VALUE;    
     }
     _bufferPos = 0;
+    //pop() only unlinks the node, the item has to be freed here
+    delete popped;
   }
 
   void _startValue(char c) {
@@ -303,15 +317,25 @@ class WJsonParser {
 
   void _endArray() {
     WMapItem* popped = _stack->pop();
+    //a malformed payload can run the stack empty
+    if (popped == nullptr) return;
     if (popped->type != WT_ARRAY) {
       // throw new ParsingError("Unexpected end of array encountered.");
     }
     _state = WS_AFTER_VALUE;
     if (_stack->empty()) {
+      //the root array stays on the stack, it's freed together with the stack
       _stack->push(popped);
       _endDocument();
-    } else if ((_stack->peek()->mapOrList != nullptr) && (popped->objectId != nullptr)) {
-      _stack->peek()->mapOrList->add(new WValue(popped->mapOrList), popped->objectId);
+    } else {
+      if ((_stack->peek()->mapOrList != nullptr) && (popped->objectId != nullptr)) {
+        //the new WValue takes the list over
+        _stack->peek()->mapOrList->add(new WValue(popped->mapOrList), popped->objectId);
+      } else if (popped->mapOrList != nullptr) {
+        //nobody takes the list over, e.g. an array inside an array
+        delete popped->mapOrList;
+      }
+      delete popped;
     }
   }
 
@@ -322,16 +346,25 @@ class WJsonParser {
 
   void _endObject() {
     WMapItem* popped = _stack->pop();
+    //a malformed payload can run the stack empty
+    if (popped == nullptr) return;
     if (popped->type != WT_OBJECT) {
       LOG->error(F("jsonParser->endObject(): Unexpected end of object encountered."));
     }
+    //the root object stays on the stack, it's freed together with the stack
+    bool isRoot = false;
     if (popped->mapOrList != nullptr) {
       // tbi
 			if (_stack->empty()) {
 				_stack->push(popped);
+        isRoot = true;
 			} else if (_stack->peek()->mapOrList != nullptr) {        
+        //the new WValue takes the list over
         _stack->peek()->mapOrList->add(new WValue(popped->mapOrList), popped->objectId);
-			}	
+			} else {
+        //nobody takes the list over
+        delete popped->mapOrList;
+      }	
     } else {
       LOG->error(F("jsonParser->endObject(): Stack has no object map inside, can't create object."));
     }
@@ -339,6 +372,8 @@ class WJsonParser {
     if (_stack->empty()) {
       _endDocument();
     }
+    //pop() only unlinks the node, the item has to be freed here
+    if (!isRoot) delete popped;
   }
 
   void _processEscapeCharacters(char c) {
@@ -477,14 +512,14 @@ class WJsonParser {
     _state = WS_IN_ARRAY;
     LOG->debug("startArray '%s'", _currentKey);
     _stack->push(new WMapItem(WT_ARRAY, _currentKey, new WList<WValue>()));
-    if (_currentKey) delete _currentKey;
+    if (_currentKey) delete[] _currentKey;
     _currentKey = nullptr;
   }
 
   void _startObject() {
     _state = WS_IN_OBJECT;    
     _stack->push(new WMapItem(WT_OBJECT, _currentKey, new WList<WValue>()));
-    if (_currentKey) delete _currentKey;
+    if (_currentKey) delete[] _currentKey;
     _currentKey = nullptr;
   }
 
