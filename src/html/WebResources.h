@@ -657,7 +657,7 @@ function fileUpload(e) {
   };
   xhr.upload.onload = function() { bar.removeAttribute('value'); };
   xhr.onload = function() { document.write(xhr.responseText); };
-  xhr.open('POST', 'events');
+  xhr.open('POST', '/events');
   xhr.send(new FormData(form));
 }
 document.querySelectorAll('input[type=file]').forEach(function(input) {

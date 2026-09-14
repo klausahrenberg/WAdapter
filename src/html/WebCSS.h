@@ -116,6 +116,31 @@ font-weight:600;
 background:var(--lb);
 )=====";  
 
+//a row of small buttons at the right end of the title of a card
+const static char CSS_CARD_TOOLS_CLASS[] PROGMEM = "tools";
+const static char CSS_CARD_TOOLS_ID[] PROGMEM = ".card > h3 > .tools";
+const static char CSS_CARD_TOOLS_STYLE[] PROGMEM = R"=====(
+display:flex;
+align-items:center;
+gap:.2rem;
+margin-left:auto;
+align-self:center;
+)=====";
+
+//the head lines up its parts by their baseline, a square button has none that
+//fits - so it is sized here and centered by the rule above
+const static char CSS_CARD_TOOLS_BUTTON_ID[] PROGMEM = ".card > h3 > .tools button";
+const static char CSS_CARD_TOOLS_BUTTON_STYLE[] PROGMEM = R"=====(
+display:flex;
+align-items:center;
+justify-content:center;
+width:1.7rem;
+height:1.7rem;
+padding:0;
+font-size:1.2rem;
+line-height:1;
+)=====";
+
 //const static char CSS_CARD_CLASS[] PROGMEM = "thing";
 const static char CSS_CARD_ROW_CLASS[] PROGMEM = "crow";
 const static char CSS_CARD_ROW_ID[] PROGMEM = ".crow";
@@ -189,6 +214,16 @@ const static char CSS_MEDIA_MOBILE_STYLE[] PROGMEM = R"=====(
   }
   main {
   padding:1rem;
+  }
+)=====";
+
+const static char CSS_MEDIA_LIGHT_ID[] PROGMEM = "@media(prefers-color-scheme:light)";
+const static char CSS_MEDIA_LIGHT_STYLE[] PROGMEM = R"=====(
+  * {
+  --db:#f5f6f8;
+  --lb:#ffffff;
+  --df:#5a6472;
+  --lf:#1d1d22;
   }
 )=====";
 

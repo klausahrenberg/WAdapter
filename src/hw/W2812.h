@@ -6,6 +6,9 @@
 
 #define COLOR_DEFAULT 0x000000
 #define COLOR_OFF 0x000000
+//a range that starts with this one names no led at all - a board that has no
+//led for something says so this way
+#define NO_LED_INDEX 0xFF
 #define BLINK_MILLIS 300
 const static char WRGB_NUMBER_OF_LEDS[] PROGMEM = "leds";
 const int COUNT_LED_PROGRAMS = 3;
@@ -20,6 +23,10 @@ class W2812Led : public WGpio {
     _programStatusCounter = 0;
     _lastUpdate = 0;
     _color = new WColorProperty("Color", 255, 0, 0);
+    //the four arrays are made here once and keep this length, whatever the
+    //number of leds is set to later on - so this, and not numberOfLeds(), is
+    //what an index has to stay within
+    _countLeds = numberOfLeds;
     _colors = new uint32_t[numberOfLeds];
     _alwaysOn = new bool[numberOfLeds];
     _conditions = new TColorPicker[numberOfLeds];
@@ -111,35 +118,36 @@ class W2812Led : public WGpio {
   WRangeProperty* brightness() { return _brightness; }
 
   W2812Led* color(byte index, uint32_t color) {
+    if (index >= _countLeds) return this;
     _needsUpdate = _needsUpdate || ((_colors[index] != color));
     _colors[index] = color;
     return this;
   }
 
   W2812Led* color(const byte indexRange[], uint32_t color1, byte countColor1 = 0xFF, uint32_t color2 = 0x000000) {
-    if (indexRange[0] != 0xFF) {
-      for (byte i = indexRange[0]; (countColor1 != 0xFF ? i < indexRange[0] + countColor1 : i <= indexRange[1]); i++) {
-        color(i, color1);
-      }
-      if (countColor1 != 0xFF) {
-        for (byte i = indexRange[0] + countColor1; i <= indexRange[1]; i++) {
-          color(i, color2);
-        }
-      }
+    int last = _lastInRange(indexRange);
+    //the first countColor1 leds of the range get the one color, the rest of it
+    //the other - without a count the whole range gets the first one
+    int untilColor1 = last;
+    if (countColor1 != 0xFF) {
+      int wanted = (int)indexRange[0] + countColor1 - 1;
+      untilColor1 = (wanted < last ? wanted : last);
     }
+    for (int i = indexRange[0]; i <= untilColor1; i++) color((byte)i, color1);
+    for (int i = untilColor1 + 1; i <= last; i++) color((byte)i, color2);
     return this;
   }
 
   W2812Led* color(byte index, TColorPicker condition) {
+    if (index >= _countLeds) return this;
     _conditions[index] = condition;
     _needsUpdate = true;
     return this;
   }
 
   W2812Led* color(const byte indexRange[], TColorPicker condition) {
-    for (byte i = indexRange[0]; i <= indexRange[1]; i++) {
-      this->color(i, condition);
-    }
+    int last = _lastInRange(indexRange);
+    for (int i = indexRange[0]; i <= last; i++) this->color((byte)i, condition);
     return this;
   }
 
@@ -162,30 +170,28 @@ class W2812Led : public WGpio {
   }
 
   W2812Led* alwaysOn(byte index, bool alwaysOn = true) {
+    if (index >= _countLeds) return this;
     _alwaysOn[index] = alwaysOn;
     _needsUpdate = true;
     return this;
   }
 
   W2812Led* alwaysOn(const byte indexRange[], bool alwaysOn = true) {
-    for (byte i = indexRange[0]; i <= indexRange[1]; i++) {
-      this->alwaysOn(i, alwaysOn);
-    }
+    int last = _lastInRange(indexRange);
+    for (int i = indexRange[0]; i <= last; i++) this->alwaysOn((byte)i, alwaysOn);
     return this;
   }
 
   W2812Led* blinking(byte index, bool blink = true) {
+    if (index >= _countLeds) return this;
     _blinking[index] = blink;
     _needsUpdate = true;
     return this;
   }
 
   W2812Led* blinking(const byte indexRange[], bool blink = true) {
-    if (indexRange[0] != 0xFF) {
-      for (byte i = indexRange[0]; i <= indexRange[1]; i++) {
-        this->blinking(i, blink);
-      }
-    }
+    int last = _lastInRange(indexRange);
+    for (int i = indexRange[0]; i <= last; i++) this->blinking((byte)i, blink);
     return this;
   }
 
@@ -289,6 +295,22 @@ class W2812Led : public WGpio {
   }
 
  protected:
+  /**
+   * The last led of a range, cut to what the strip has. Answers less than the
+   * first one where the range names no led at all or lies beyond the strip, so
+   * the loops over it simply do not run.
+   *
+   * The counting is done in an int on purpose: a byte counter would wrap at a
+   * range that ends at 0xFF and never reach the end, which turns the loop into
+   * an endless one while it writes past every array of the strip.
+   */
+  int _lastInRange(const byte indexRange[]) {
+    if (indexRange[0] == NO_LED_INDEX) return -1;
+    int last = indexRange[1];
+    int lastLed = (int)_countLeds - 1;
+    return (last < lastLed ? last : lastLed);
+  }
+
   void _updateOn() {
     _needsUpdate = true;
   };
@@ -317,6 +339,7 @@ class W2812Led : public WGpio {
   WRangeProperty* _brightness;
   unsigned long _lastUpdate;
   bool _needsUpdate = false;
+  byte _countLeds = 0;
   uint32_t* _colors;
   bool* _alwaysOn;
   TColorPicker* _conditions;

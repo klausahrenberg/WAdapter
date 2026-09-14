@@ -170,7 +170,27 @@ class WebApp {
     return true;
   }
 
-  WFormResponse handleHttpEventArgs(AsyncWebServerRequest* request, WList<WValue>* args) {
+  /**
+   * Prints a page that no url is bound to - the answer to a submitted form,
+   * which is followed by a restart - in the same frame as every other page.
+   * Without the frame the browser gets the bare content of the page without a
+   * document around it and shows nothing at all.
+   */
+  void toString(Print* stream, WebPage* page, const char* title) {
+    //the item is only the handle WebApp::toString draws a page by, it is not
+    //added to the pages the menu and the events are looked up in
+    WebPageItem pi(nullptr, title, false);
+    pi.instance = page;
+    page->add(page->createControls());
+    toString(stream, &pi);
+  }
+
+  /**
+   * Works a submitted form out. Where it finds nothing to hand the form to it
+   * answers the request itself - 'answered' says so, so the caller knows the
+   * request is settled and does not answer it a second time.
+   */
+  WFormResponse handleHttpEventArgs(AsyncWebServerRequest* request, WList<WValue>* args, bool* answered = nullptr) {
     WValue* formName = args->getById(WC_FORM);
     if (formName != nullptr) {
       WebPageItem* pi = _webPages->getById(formName->asString());
@@ -178,12 +198,14 @@ class WebApp {
         WebPage* p = pi->initializer();
         return p->submitForm(args);
       } else {
-        LOG->debug(F("No page '%s' found."), formName);
+        LOG->debug(F("No page '%s' found."), formName->asString());
         request->send(404);
+        if (answered != nullptr) *answered = true;
       }
     } else {
       LOG->debug(F("No form name found."));
       request->send(404);
+      if (answered != nullptr) *answered = true;
     }
     return WFormResponse();
   }
@@ -205,6 +227,8 @@ class WebApp {
     side->createScripts(scripts);
     // Mobile View
     styles->add(CSS_MEDIA_MOBILE_STYLE, CSS_MEDIA_MOBILE_ID);
+    //Light/Dark-Mode
+    styles->add(CSS_MEDIA_LIGHT_STYLE, CSS_MEDIA_LIGHT_ID);
     // WebPage - Styles and Scripts
     pi->instance->createStyles(styles);
     pi->instance->createScripts(scripts);

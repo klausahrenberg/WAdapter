@@ -183,7 +183,7 @@ class WMCP444x : public WI2C {
       return 0x0FFF;  // return something that is out of the expected bounds to signify an error
     }
     byte cmd_byte = 0x0F, highbyte, lowbyte;
-    cmd_byte = (mem_addr << 4) | B00001100;
+    cmd_byte = (mem_addr << 4) | 0b00001100;
 
     Wire.beginTransmission(address());
     Wire.write(cmd_byte);

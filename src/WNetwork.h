@@ -33,6 +33,10 @@
 #define ESP_MAX_PUT_BODY_SIZE 512
 #define WIFI_RECONNECTION 50000
 #define WIFI_RECONNECTION_TRYS 2
+//upper limit for how long a background retry may occupy the shared radio while
+//the configuration AccessPoint is open. it is only the safety net - a retry
+//that fails is normally ended as soon as the disconnect event reports it
+#define WIFI_RECONNECTION_AP_WINDOW 12000
 const char* CONFIG_PASSWORD = "12345678";
 const char* APPLICATION_JSON = "application/json";
 const char* TEXT_PLAIN = "text/plain";
@@ -71,6 +75,8 @@ class WNetwork {
     _startupTime = millis();
     _loadNetworkSettings();
     _lastMqttConnect = _lastWifiConnect = 0;
+    _apStaRetryStarted = 0;
+    _apStaRetryFailed = false;
     _initialMqttSent = false;
     _lastWillEnabled = true;
     _wifiConnectTrys = 0;
@@ -129,10 +135,18 @@ class WNetwork {
   void onGotIP() {
     LOG->notice(F("Station connected, IP: %s Host Name is '%s'"), this->getDeviceIp().toString().c_str(), _hostname);
     _wifiConnectTrys = 0;
+    _apStaRetryStarted = 0;
+    _apStaRetryFailed = false;
     _notify(false);
   }
 
   void onDisconnected() {
+    //a retry running next to the ap has failed: loop() frees the radio for the
+    //ap right away instead of waiting out the whole window. the station is not
+    //touched from inside the event itself
+    if (_apStaRetryStarted != 0) {
+      _apStaRetryFailed = true;
+    }
     if (!isSoftAP()) {
       LOG->notice("Station disconnected");
       this->disconnectMqtt();
@@ -162,10 +176,20 @@ class WNetwork {
         _stopAccessPoint();
       } else if (WiFi.status() != WL_CONNECTED) {
         bool hasSsid = (strcmp(getSsid(), "") != 0);
+        //a retry that runs next to an open ap gets a limited time window: both
+        //share one radio, so a station that keeps searching scans across all
+        //channels and takes the ap off its own channel for as long as it runs.
+        //once the window is up the station is silenced again until the next try
+        if ((_apStaRetryStarted != 0) &&
+            ((_apStaRetryFailed) ||
+             (now - _apStaRetryStarted > WIFI_RECONNECTION_AP_WINDOW))) {
+          _stopStationRetry(now);
+        }
         //not connected: keep retrying in the background, at the usual interval,
         //whether or not an own ap is already open for configuration - that way
         //a returning router is picked up without a restart of the device
-        if ((hasSsid) && ((_lastWifiConnect == 0) || (now - _lastWifiConnect > WIFI_RECONNECTION)) &&
+        if ((hasSsid) && (_apStaRetryStarted == 0) &&
+            ((_lastWifiConnect == 0) || (now - _lastWifiConnect > WIFI_RECONNECTION)) &&
             ((isSoftAP()) || (_wifiConnectTrys < WIFI_RECONNECTION_TRYS))) {
           if (isSoftAP()) {
             LOG->notice("Retrying '%s' while the configuration AccessPoint is open", getSsid());
@@ -544,6 +568,10 @@ class WNetwork {
   WiFiClient* _wifiClient;
   PubSubClient* _mqttClient = nullptr;
   unsigned long _lastMqttConnect, _lastWifiConnect, _lastWifiConnectFirstTry;
+  //!= 0 while a background retry is running with the AccessPoint open
+  unsigned long _apStaRetryStarted;
+  //set from the disconnect event when that retry has failed
+  bool _apStaRetryFailed;
   byte _wifiConnectTrys;
   WLed* _statusLed;
   bool _statusLedOnIfConnected;
@@ -555,7 +583,13 @@ class WNetwork {
   bool _initialMqttSent;
   bool _lastWillEnabled;
   bool _waitForWifiConnection;
+  //the hand over from the body handler of a post to its request handler, both
+  //of which run for one and the same request - consumed and cleared there, so
+  //nothing of one request is ever read by the next one
   WFormResponse _postResponse = WFormResponse(FO_NONE);
+  //tells the request handler that the body handler has worked the post out
+  //already, which FO_NONE alone cannot say - it also means 'nothing yet'
+  bool _postHandled = false;
   WebApp* _webApp = nullptr;
 
   bool _aDeviceNeedsWebThings() {
@@ -813,7 +847,16 @@ class WNetwork {
 
   void _handleHttpEvent(AsyncWebServerRequest* request) {
     LOG->debug(F("Simple http event handling"));
-    if (_postResponse.operation == FO_NONE) {
+    //where the post carries json, the body handler of this same request has
+    //worked the form out before this one runs. what it left is picked up here
+    //and the members are free again right away
+    WFormResponse response = _postResponse;
+    bool handledInBody = _postHandled;
+    _postResponse = WFormResponse(FO_NONE);
+    _postHandled = false;
+    //set where handleHttpEventArgs has answered the request on its own
+    bool answered = false;
+    if (!handledInBody) {
       WList<WValue>* args = new WList<WValue>();
       int params = request->params();
       for (int i = 0; i < params; i++) {
@@ -821,17 +864,22 @@ class WNetwork {
         LOG->debug("..POST[%s]: %s", p->name().c_str(), p->value().c_str());
         args->add(new WValue(p->value().c_str()), p->name().c_str());
       }
-      _postResponse = _webApp->handleHttpEventArgs(request, args);
+      response = _webApp->handleHttpEventArgs(request, args, &answered);
       delete args;
     }
-    if (_postResponse.operation != FO_NONE) {
-      AsyncResponseStream* stream = request->beginResponseStream(WC_TEXT_HTML);
-      WebPage* result = new WRestartPage(_postResponse.message == nullptr ? PSTR("Restart...") : _postResponse.message);
-      result->toString(stream);
+    if (response.operation != FO_NONE) {
+      AsyncResponseStream* stream = request->beginResponseStream(WC_TEXT_HTML, SIZE_RESPONSE_STREAM);
+      WebPage* result = new WRestartPage(response.message == nullptr ? PSTR("Restart...") : response.message);
+      if (_webApp != nullptr) {
+        _webApp->toString(stream, result, PSTR("Restart"));
+      } else {
+        result->add(result->createControls());
+        result->toString(stream);
+      }
       request->client()->setNoDelay(true);
       request->send(stream);
       delete result;
-      switch (_postResponse.operation) {
+      switch (response.operation) {
         case FO_RESTART: {
           restart();
           break;
@@ -846,9 +894,15 @@ class WNetwork {
           restart();
           break;
         }
+        //FO_NONE does not reach this, the block is only entered without it
         default:
-          request->send(200);
+          break;
       }
+    } else if ((!handledInBody) && (!answered)) {
+      //a page has taken the form without asking for a restart, and nobody has
+      //answered the request yet - without this the browser would wait for an
+      //answer that never comes
+      request->send(200);
     }
   }
 
@@ -859,9 +913,16 @@ class WNetwork {
       ss->write(data[i]);
     }
     WList<WValue>* args = WJsonParser::asMap(ss->c_str());
-    _postResponse = _webApp->handleHttpEventArgs(request, args);
+    bool answered = false;
+    _postResponse = _webApp->handleHttpEventArgs(request, args, &answered);
+    //the request handler runs after this one for the very same request: it is
+    //told not to read the post a second time, which it would do without a form
+    //name in hand and answer with a 404 on top of the answer given here
+    _postHandled = true;
     delete ss;
-    if (_postResponse.operation == FO_NONE) request->send(200);
+    //a restart is answered with its page by the request handler, everything
+    //else is settled here - unless handleHttpEventArgs has answered already
+    if ((_postResponse.operation == FO_NONE) && (!answered)) request->send(200);
     delete args;
   }
 
@@ -946,14 +1007,36 @@ class WNetwork {
 #endif
     }
     WiFi.mode(isSoftAP() ? WIFI_AP_STA : WIFI_STA);
+#ifdef ARDUINO_ARCH_ESP32
+    //next to an open ap the station must not retry on its own: every driver
+    //retry is another scan across all channels on the radio the ap needs, and
+    //those retries come every few seconds. the retries are driven from loop()
+    //instead, so they stay within a bounded window
+    WiFi.setAutoReconnect(!isSoftAP());
+#endif
+    if (isSoftAP()) {
+      _apStaRetryStarted = now;
+      _apStaRetryFailed = false;
+    }
     WiFi.begin(getSsid(), getPassword());
-    while ((_waitForWifiConnection) && (WiFi.status() != WL_CONNECTED)) {
+    //waiting here blocks everything including the ap's webserver, so it is only
+    //done while there is no ap that has to stay responsive
+    while ((_waitForWifiConnection) && (!isSoftAP()) && (WiFi.status() != WL_CONNECTED)) {
       delay(100);
       if (millis() - now >= 5000) {
         break;
       }
     }
     _lastWifiConnect = now;
+  }
+
+  //ends a background retry: disconnecting stops the station from searching, so
+  //the radio belongs to the ap alone again until the next try is due
+  void _stopStationRetry(unsigned long now) {
+    _apStaRetryStarted = 0;
+    _apStaRetryFailed = false;
+    _lastWifiConnect = now;
+    WiFi.disconnect(false);
   }
 
   // opens the own ap for configuration, next to the station that keeps
@@ -963,6 +1046,20 @@ class WNetwork {
     LOG->notice(F("Start AccessPoint for configuration. SSID '%s'; password '%s'"), apSsid.c_str(), this->apPassword().c_str());
     _dnsApServer = new DNSServer();
     WiFi.mode(WIFI_AP_STA);
+#ifdef ARDUINO_ARCH_ESP32
+    //the station shares one radio with the ap: left to itself it would keep
+    //searching for the configured network in the background, and modem sleep
+    //would park the radio on top of that - together they make the ap either
+    //unreachable or unusably slow, which is what the configuration needs
+    WiFi.setAutoReconnect(false);
+    WiFi.setSleep(false);
+#endif
+    //a connection attempt may still be running from this same loop pass: it is
+    //stopped so the ap comes up on a quiet radio
+    WiFi.disconnect(false);
+    _apStaRetryStarted = 0;
+    _apStaRetryFailed = false;
+    _lastWifiConnect = millis();
     WiFi.softAP(apSsid.c_str(), this->apPassword().c_str());
     _dnsApServer->setErrorReplyCode(DNSReplyCode::NoError);
     _dnsApServer->start(53, "*", WiFi.softAPIP());
@@ -983,6 +1080,14 @@ class WNetwork {
     _dnsApServer = nullptr;
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_STA);
+#ifdef ARDUINO_ARCH_ESP32
+    //no ap left to share the radio with: the station gets its own retries and
+    //its default power saving back
+    WiFi.setAutoReconnect(true);
+    WiFi.setSleep(true);
+#endif
+    _apStaRetryStarted = 0;
+    _apStaRetryFailed = false;
     _notify(true);
   }
 
@@ -1034,13 +1139,10 @@ class WNetwork {
 
   void _sendDevicesStructure(AsyncWebServerRequest* request) {
     if (!isUpdateRunning()) {
-      //a browser gets the control panel, every other client the description of
-      //the things: the root of a webthing has to stay what a gateway expects
-      const AsyncWebHeader* accept = request->getHeader(F("Accept"));
-      if ((accept != nullptr) && (strstr(accept->value().c_str(), WC_TEXT_HTML) != nullptr) &&
-          (_webApp != nullptr) && (_webApp->handleUiPage(request))) {
-        return;
-      }
+      //every client gets the description of the things, a browser as well: this
+      //is bound as the root only where a device needs webthings and the station
+      //is connected, and a gateway expects the description there and nothing
+      //else. the control panel keeps its own url, '/ui', and stays in the menu
       LOG->notice(F("Send description for all devices... "));
       AsyncResponseStream* response = request->beginResponseStream(APPLICATION_JSON);
       WJson* json = new WJson(response);

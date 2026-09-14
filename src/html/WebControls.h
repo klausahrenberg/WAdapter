@@ -189,13 +189,13 @@ class WebSpan : public WebControl {
 class WebCard : public WebControl {
  public:
   WebCard(const char* title, const char* subTitle = nullptr) : WebControl(WC_SECTION, WC_CLASS, CSS_CARD_CLASS, nullptr) {
-    WebControl* head = new WebControl(WC_H3, nullptr);
-    head->content(title);
+    _head = new WebControl(WC_H3, nullptr);
+    _head->content(title);
     //subTitle can point to PROGMEM, so don't compare it byte wise
     if ((subTitle != nullptr) && (strlen_P(subTitle) != 0)) {
-      head->add((new WebControl(WC_SPAN, WC_CLASS, WC_CLASS_CARD_TYPE, nullptr))->content(subTitle));
+      _head->add((new WebControl(WC_SPAN, WC_CLASS, WC_CLASS_CARD_TYPE, nullptr))->content(subTitle));
     }
-    this->add(head);
+    this->add(_head);
   }
 
   virtual void createStyles(WStringList* styles) {
@@ -207,6 +207,12 @@ class WebCard : public WebControl {
     styles->add(CSS_CARD_ROW_READ_ONLY_STYLE, CSS_CARD_ROW_READ_ONLY_ID);
     styles->add(CSS_CARD_LABEL_STYLE, CSS_CARD_LABEL_ID);
     styles->add(CSS_CARD_CTL_STYLE, CSS_CARD_CTL_ID);
+    //the rules come after the ones of the buttons themselves, so a tool keeps
+    //the look of its kind and is only made small and square here
+    if (_tools != nullptr) {
+      styles->add(CSS_CARD_TOOLS_STYLE, CSS_CARD_TOOLS_ID);
+      styles->add(CSS_CARD_TOOLS_BUTTON_STYLE, CSS_CARD_TOOLS_BUTTON_ID);
+    }
   }
   /*
   virtual void createStyles(WStringList* styles) {
@@ -256,11 +262,37 @@ class WebCard : public WebControl {
     return this;
   }
 
+  /**
+   * A small button at the right end of the title, for what acts on the card as
+   * a whole - adding a row, removing what is selected. Tools stand in the head
+   * and keep their place there, whatever the card shows below and however long
+   * that gets. They are added in the order they are meant to be read in.
+   */
+  WebCard* addTool(WebControl* tool) {
+    if (tool != nullptr) {
+      if (_tools == nullptr) {
+        _tools = new WebControl(WC_DIV, WC_CLASS, CSS_CARD_TOOLS_CLASS, nullptr);
+        _head->add(_tools);
+      }
+      _tools->add(tool);
+    }
+    return this;
+  }
+
+ private:
+  WebControl* _head;
+  //the box the tools stand in, made at the first one so a card without them
+  //prints no empty box and asks for no rule of its own
+  WebControl* _tools = nullptr;
 };
 
 class WebForm : public WebControl {
  public:
-  WebForm(const char* id, WebControl* child = nullptr) : WebControl(WC_FORM, WC_METHOD, WC_POST, WC_ACTION, "events", nullptr) {
+  //the target is absolute: a page is reachable both as '/wifi' and, after the
+  //captive portal redirect, as '/wifi/' - a relative target would turn into
+  //'/wifi/events' there, which no handler answers, so the post would end up in
+  //the redirect of the unknown-url handler and silently lose the form
+  WebForm(const char* id, WebControl* child = nullptr) : WebControl(WC_FORM, WC_METHOD, WC_POST, WC_ACTION, "/events", nullptr) {
     this->add((new WebControl(WC_INPUT, WC_TYPE, WC_HIDDEN, WC_NAME, WC_FORM, WC_VALUE, id, nullptr))->closing(false));
     this->add(child);
   }
