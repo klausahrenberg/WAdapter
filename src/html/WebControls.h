@@ -46,17 +46,16 @@ class WebControl {
     _contentFactory = contentFactory;
   }
 
-  WebControl* content(const char* content) {
-    //only a content that takes the place of an earlier one is news for the
-    //browser, the first one is printed with the page anyway
-    bool update = (_content != nullptr);
+  virtual WebControl* content(const char* content) {
     if (_content) delete[] _content;
     _content = WString::duplicate(content);
-    if (update) WebAppSockets::sendMessage("textAreaUpdate", id(), _content);
+    //news for the browser is every content that arrives after the control was
+    //printed, everything before that goes out with the page itself
+    if (_printed) WebAppSockets::sendMessage(WC_EVENT_TEXTAREA_UPDATE, id(), _content);
     return this;
   }
 
-  const char* content() { return _content; }
+  virtual const char* content() { return _content; }
 
   WebControl* closing(bool closing) {
     _closing = closing;
@@ -134,6 +133,7 @@ class WebControl {
     }
     if (_items) _items->forEach([this, stream](int index, WebControl* wc, const char* id) { wc->toString(stream); });
     if (_closing) WHtml::command(stream, _tag, false, nullptr);
+    _printed = true;
   }
 
   WList<WebControl>* items() { return _items; }
@@ -158,6 +158,8 @@ class WebControl {
   char* _content = nullptr;
   WOnPrint _contentFactory = nullptr;
   bool _closing = true;
+  //tells whether the browser has seen this control already
+  bool _printed = false;
   WStringList* _params = nullptr;
   WList<WebControl>* _items = nullptr;
 };
@@ -529,6 +531,15 @@ class WebLabeledControl : public WebControl {
     return _control->param(key);
   }
 
+  //the label and the control live in this div, a content belongs to the
+  //control inside - a text area writes its text there, not into the wrapper
+  virtual WebControl* content(const char* content) {
+    _control->content(content);
+    return this;
+  }
+
+  virtual const char* content() { return _control->content(); }
+
   virtual void handleEvent(WValue* event, WList<WValue>* data) {
     _control->handleEvent(event, data);
   }
@@ -546,7 +557,9 @@ class WebTextField : public WebLabeledControl {
   virtual void handleEvent(WValue* event, WList<WValue>* data) {
     WebControl::handleEvent(event, data);
     if (event->equals(WC_ON_CHANGE)) {
-      value(data->getById(WC_VALUE)->asString());
+      //an event that carries no value at all is no reason to go down
+      WValue* v = (data != nullptr ? data->getById(WC_VALUE) : nullptr);
+      if (v != nullptr) value(v->asString());
     }
   }
 };
@@ -559,6 +572,20 @@ class WebTextArea : public WebLabeledControl {
                                                 WC_SPELLCHECK, WC_FALSE, PSTR("autocapitalize"), PSTR("off"), PSTR("wrap"), PSTR("off"), nullptr)) {
     if (textFactory != nullptr) _control->contentFactory(textFactory);
     if (json) _control->param(PSTR("data-json"), WC_TRUE);
+  }
+
+  /**
+   * Adds text at the end of what the browser shows - for a monitor that only
+   * grows. Only the new text goes over the socket, the log itself stays in the
+   * browser: a text that is sent as a whole every time runs into the size of a
+   * packet after a while, and a message that is cut off there is no json
+   * anymore.
+   */
+  WebTextArea* appendContent(const char* text) {
+    if ((text != nullptr) && (_control->id() != nullptr)) {
+      WebAppSockets::sendMessage(WC_EVENT_TEXTAREA_APPEND, _control->id(), text);
+    }
+    return this;
   }
 
   virtual void createStyles(WStringList* styles) {

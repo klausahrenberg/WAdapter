@@ -597,7 +597,16 @@ webSocket.onerror = function() { online(false); };
 webSocket.onmessage = function(event) {
   var payload = event.data;
   console.log(payload);
-  var json = JSON.parse(event.data);
+  var json;
+  //a message that arrives broken - cut off by the size of a packet, say - may
+  //not take the handler down: the ping answer runs through here as well, and
+  //without it the server drops the session
+  try {
+    json = JSON.parse(payload);
+  } catch (e) {
+    console.log("broken message: " + e.message);
+    return;
+  }
   switch (json.event) {
       case "PING":
           sendWebSocketMessage("PING", null, null);
@@ -667,6 +676,12 @@ document.querySelectorAll('input[type=file]').forEach(function(input) {
 
 const static char WC_SCRIPT_NAME_TEXTAREA[] PROGMEM = "textAreaUpdate(json)";
 
+//the whole text goes out with 'update', a monitor that only grows appends with
+//'append' - one line per message instead of the whole log every time, so a
+//long running log never runs into the size of a packet
+const static char WC_EVENT_TEXTAREA_UPDATE[] PROGMEM = "textAreaUpdate";
+const static char WC_EVENT_TEXTAREA_APPEND[] PROGMEM = "textAreaAppend";
+
 //A textarea is the code editor of this app: monospace, real tab stops and no
 //line wrapping, so a structure stays readable where it is
 const static char WC_STYLE_TEXTAREA[] PROGMEM = "width:100%;box-sizing:border-box;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;line-height:1.35;tab-size:2;white-space:pre;overflow:auto;resize:vertical";
@@ -676,6 +691,14 @@ function textAreaUpdate(json) {
   var textArea = document.getElementById(json.id);
   if (textArea !== null) {
     textArea.innerHTML = json.data;
+  }
+}
+function textAreaAppend(json) {
+  var textArea = document.getElementById(json.id);
+  if (textArea !== null) {
+    textArea.value += json.data;
+    //a monitor follows what comes in, as long as the reader has not scrolled up
+    textArea.scrollTop = textArea.scrollHeight;
   }
 }
 document.querySelectorAll('textarea').forEach(function(t) {
