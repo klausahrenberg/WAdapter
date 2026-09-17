@@ -502,7 +502,32 @@ class WebInput : public WebControl {
   virtual void createScripts(WStringList* scripts) {
     WebControl::createScripts(scripts);
     scripts->add(WC_SCRIPT_CONTROL_EVENT, WC_SCRIPT_NAME_CONTROL_EVENT);
+    if (_onEnter) scripts->add(WC_SCRIPT_CONTROL_ENTER, WC_SCRIPT_NAME_CONTROL_ENTER);
   }
+
+  /**
+   * Enter in the field, for what the field is typed in for: sending it off.
+   * The handler is given the value that was typed, it is stored before.
+   */
+  WebInput* onEnter(WebControlHandler onEnter) {
+    param(WC_ON_KEYDOWN, WC_SCRIPT_NAME_CONTROL_ENTER);
+    _onEnter = onEnter;
+    return this;
+  }
+
+  virtual void handleEvent(WValue* event, WList<WValue>* data) {
+    WebControl::handleEvent(event, data);
+    bool enter = event->equals(WC_ON_ENTER);
+    if ((event->equals(WC_ON_CHANGE)) || (enter)) {
+      //an event that carries no value at all is no reason to go down
+      WValue* v = (data != nullptr ? data->getById(WC_VALUE) : nullptr);
+      if (v != nullptr) value(v->asString());
+    }
+    if ((enter) && (_onEnter)) _onEnter(value());
+  }
+
+ private:
+  WebControlHandler _onEnter = nullptr;
 };
 
 class WebLabeledControl : public WebControl {

@@ -68,6 +68,8 @@ const static char WC_NAME[] PROGMEM = "name";
 const static char WC_NAV[] PROGMEM = "nav";
 const static char WC_ON_CHANGE[] PROGMEM = "onchange";
 const static char WC_ON_CLICK[] PROGMEM = "onclick";
+const static char WC_ON_ENTER[] PROGMEM = "onenter";
+const static char WC_ON_KEYDOWN[] PROGMEM = "onkeydown";
 const static char WC_OPTION[] PROGMEM = "option";
 const static char WC_PASSWORD[] PROGMEM = "password";
 const static char WC_PING[] PROGMEM = "PING";
@@ -647,6 +649,20 @@ const static char WC_SCRIPT_NAME_CONTROL_EVENT[] PROGMEM = "controlEvent(this, '
 const static char WC_SCRIPT_CONTROL_EVENT[] PROGMEM = R"=====(
 function controlEvent(elem, event) {
   if (typeof sendWebSocketMessage === "function") sendWebSocketMessage(event, elem.id, {"value":elem.value});
+}
+)=====";
+
+//enter in a text field, for what the field is typed in for - sending it off.
+//The value rides in the same message as the key, so the server has it in hand
+//when it calls the handler, and no order of two messages has to hold
+const static char WC_SCRIPT_NAME_CONTROL_ENTER[] PROGMEM = "controlEnter(this, event)";
+
+const static char WC_SCRIPT_CONTROL_ENTER[] PROGMEM = R"=====(
+function controlEnter(elem, event) {
+  if (event.key != 'Enter') return;
+  //a field inside a form would send the form off on enter
+  event.preventDefault();
+  if (typeof sendWebSocketMessage === "function") sendWebSocketMessage('onenter', elem.id, {"value":elem.value});
 }
 )=====";
 

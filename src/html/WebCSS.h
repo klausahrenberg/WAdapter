@@ -180,7 +180,6 @@ gap:.7rem;
 const static char CSS_INPUT_ID[] PROGMEM = "input[type=text],input[type=password],input[type=number],select,textarea";
 const static char CSS_INPUT_STYLE[] PROGMEM = R"=====(
 width: 100%;
-max-width:24rem;
 padding:.4rem.6rem;
 border:1px solid var(--lb);
 border-radius:.4rem;
