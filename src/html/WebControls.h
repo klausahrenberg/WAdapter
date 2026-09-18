@@ -57,6 +57,20 @@ class WebControl {
 
   virtual const char* content() { return _content; }
 
+  /**
+   * Whether the browser shows this control. A page that is already printed is
+   * told about it, so a card can come and go while the page stands open.
+   */
+  virtual WebControl* visible(bool visible) {
+    if (_visible != visible) {
+      _visible = visible;
+      if (_printed) WebAppSockets::sendMessage(WC_EVENT_ELEMENT_SHOW, id(), (visible ? WC_TRUE : WC_FALSE));
+    }
+    return this;
+  }
+
+  virtual bool visible() { return _visible; }
+
   WebControl* closing(bool closing) {
     _closing = closing;
     return this;
@@ -125,6 +139,9 @@ class WebControl {
   }
 
   virtual void toString(Print* stream) {
+    //the attribute the browser hides a control with. The own params are meant
+    //here, a wrapper hides itself and not what it wraps
+    if (!_visible) WebControl::param(WC_HIDDEN, WC_TRUE);
     WHtml::command(stream, _tag, true, _params);
     if (_contentFactory) {
       _contentFactory(stream);
@@ -160,6 +177,7 @@ class WebControl {
   bool _closing = true;
   //tells whether the browser has seen this control already
   bool _printed = false;
+  bool _visible = true;
   WStringList* _params = nullptr;
   WList<WebControl>* _items = nullptr;
 };
@@ -505,6 +523,23 @@ class WebInput : public WebControl {
     if (_onEnter) scripts->add(WC_SCRIPT_CONTROL_ENTER, WC_SCRIPT_NAME_CONTROL_ENTER);
   }
 
+  //the getter of the base stays reachable next to the setter below
+  using WebControl::value;
+
+  /**
+   * A value the device learns while the page is open - a name a module
+   * answers with, say - is written into the field of the browser as well.
+   * A field that is being typed in right now keeps what stands in it, that is
+   * settled in the browser where it is known who has the cursor.
+   */
+  virtual WebControl* value(const char* value) {
+    const char* current = this->value();
+    bool changed = ((current == nullptr) || (value == nullptr) || (strcmp_P(current, value) != 0));
+    WebControl::value(value);
+    if ((_printed) && (changed)) WebAppSockets::sendMessage(WC_EVENT_VALUE_UPDATE, id(), this->value());
+    return this;
+  }
+
   /**
    * Enter in the field, for what the field is typed in for: sending it off.
    * The handler is given the value that was typed, it is stored before.
@@ -521,7 +556,8 @@ class WebInput : public WebControl {
     if ((event->equals(WC_ON_CHANGE)) || (enter)) {
       //an event that carries no value at all is no reason to go down
       WValue* v = (data != nullptr ? data->getById(WC_VALUE) : nullptr);
-      if (v != nullptr) value(v->asString());
+      //the value comes from the browser here, it does not have to be sent back
+      if (v != nullptr) param(WC_VALUE, v->asString());
     }
     if ((enter) && (_onEnter)) _onEnter(value());
   }

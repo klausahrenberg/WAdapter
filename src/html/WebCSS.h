@@ -47,7 +47,7 @@ padding:.5rem.8rem;
 border-radius:.4rem;
 border:none;
 background:var(--bb);
-color:#08211f;
+color:var(--lf);
 )=====";
 
 const static char CSS_BUTTON_HOVER_ID[] PROGMEM = "button:hover";
@@ -68,6 +68,77 @@ const static char CSS_BUTTON_ICON_HOVER_STYLE[] PROGMEM = "background:var(--db);
 const static char CSS_BURGER_BUTTON_CLASS[] PROGMEM = "icon burger";
 const static char CSS_BURGER_ID[] PROGMEM = ".icon.burger";
 //WC_DISPLAY_NONE
+
+const static char CSS_SWITCH_ID[] = ".sw";
+const static char CSS_SWITCH_STYLE[] PROGMEM = R"=====(
+position: relative;
+border: 0;
+flex: 0 0 auto;
+width: 2.9rem;
+height: 1.6rem;
+margin: 0;
+padding: 0;
+border-radius: 1rem;
+background:var(--db);
+transition: background .18s;
+)=====";
+const static char CSS_SWITCH_ID_CHECKED[] = ".sw[aria-checked=true]";
+const static char CSS_SWITCH_STYLE_CHECKED[] PROGMEM = R"=====(
+background:var(--bb);
+)=====";
+const static char CSS_SWITCH_ID_I[] = ".sw i";
+const static char CSS_SWITCH_STYLE_I[] PROGMEM = R"=====(
+position: absolute;
+top:.2rem;
+left:.2rem;
+width:1.2rem;
+height:1.2rem;
+border-radius:50%;
+background:var(--lb);
+transition:transform.2s;
+)=====";
+const static char CSS_SWITCH_ID_CHECKED_I[] = ".sw[aria-checked=true] i";
+const static char CSS_SWITCH_STYLE_CHECKED_I[] PROGMEM = R"=====(
+transform: translateX(1.3rem);
+)=====";
+
+//a drop down list in a card: the ground, the radius and the padding the other
+//controls carry, and no more width than its longest option asks for
+const static char CSS_SELECT_ID[] = ".sel";
+const static char CSS_SELECT_STYLE[] PROGMEM = R"=====(
+flex:0 0 auto;
+padding:.4rem.6rem;
+border:1px solid var(--lb);
+border-radius:.4rem;
+background:var(--db);
+color:var(--lf);
+font:inherit;
+)=====";
+
+const static char CSS_SEGMENT_ID[] = ".seg";
+const static char CSS_SEGMENT_STYLE[] PROGMEM = R"=====(
+display:flex;
+border-radius:.4rem;
+gap:.2rem;
+padding:.2rem;
+background:var(--db);
+)=====";
+
+const static char CSS_SEGMENT_BUTTON_ID[] = ".seg button";
+const static char CSS_SEGMENT_BUTTON_STYLE[] PROGMEM = R"=====(
+margin:0;
+padding:.3rem.7rem;
+background:0 0;
+color:var(--df);
+font-size:.9rem;
+)=====";
+
+const static char CSS_SEGMENT_BUTTON_PRESSED_ID[] = ".seg button[aria-pressed=true]";
+const static char CSS_SEGMENT_BUTTON_PRESSED_STYLE[] PROGMEM = R"=====(
+background:var(--bb);
+color:var(--lf);
+)=====";
+
 
 const static char CSS_SHELL_ID[] PROGMEM = ".shell";
 const static char CSS_SHELL_STYLE[] PROGMEM = R"=====(
@@ -219,10 +290,10 @@ const static char CSS_MEDIA_MOBILE_STYLE[] PROGMEM = R"=====(
 const static char CSS_MEDIA_LIGHT_ID[] PROGMEM = "@media(prefers-color-scheme:light)";
 const static char CSS_MEDIA_LIGHT_STYLE[] PROGMEM = R"=====(
   * {
-  --db:#f5f6f8;
-  --lb:#ffffff;
-  --df:#5a6472;
-  --lf:#1d1d22;
+  --db: #ebebed;
+  --lb: #ffffff;
+  --df: #5a6472;
+  --lf: #1d1d22;
   }
 )=====";
 

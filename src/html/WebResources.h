@@ -94,39 +94,6 @@ const static char WC_STATE[] PROGMEM = "state";
 const static char WC_STYLE[] PROGMEM = "style";
 const static char WC_SUBMIT[] PROGMEM = "submit";
 
-const static char WC_SWITCH_ID[] = ".sw";
-const static char WC_SWITCH_STYLE[] PROGMEM = R"=====(
-  position: relative;
-  border: 0;
-  flex: 0 0 auto;
-  width: 2.9rem;
-  height: 1.6rem;
-  margin: 0;
-  padding: 0;
-  border-radius: 1rem;
-  background: #5a6472;
-  transition: background .18s;
-)=====";
-const static char WC_SWITCH_ID_CHECKED[] = ".sw[aria-checked=true]";
-const static char WC_SWITCH_STYLE_CHECKED[] PROGMEM = R"=====(
-  background: #24b3a8;
-)=====";
-const static char WC_SWITCH_ID_I[] = ".sw i";
-const static char WC_SWITCH_STYLE_I[] PROGMEM = R"=====(
-  position: absolute;
-  top: .2rem;
-  left: .2rem;
-  width: 1.2rem;
-  height: 1.2rem;
-  border-radius: 50%;
-  background: #fff;
-  transition: transform .18s;
-)=====";
-const static char WC_SWITCH_ID_CHECKED_I[] = ".sw[aria-checked=true] i";
-const static char WC_SWITCH_STYLE_CHECKED_I[] PROGMEM = R"=====(
-  transform: translateX(1.3rem);
-)=====";
-
 const static char WC_TABLE[] PROGMEM = "table";
 const static char WC_TABLE_BODY[] PROGMEM = "tbody";
 const static char WC_TABLE_DATA[] PROGMEM = "td";
@@ -514,28 +481,6 @@ textarea {
   margin: 0;
 }
 
-.seg {
-  display: flex;
-  gap: .25rem;
-  padding: .2rem;
-  border-radius: .45rem;
-  background: #2f3540;
-}
-
-.seg button {
-  margin: 0;
-  padding: .3rem .7rem;
-  border-radius: .35rem;
-  background: 0 0;
-  color: #c8cfd8;
-  font-weight: 400;
-  font-size: .85rem;
-}
-
-.seg button[aria-pressed=true] {
-  background: #24b3a8;
-  color: #08211f;
-}
 
 .box {
   padding: .85rem 1.1rem;
@@ -629,6 +574,13 @@ function sendWebSocketMessage(event, id, data) {
     }
 }
 
+//shows or hides one control, told by its id - the page stays as it is drawn,
+//only what belongs to the moment is on the screen
+function elementShow(json) {
+  var elem = document.getElementById(json.id);
+  if (elem !== null) elem.hidden = (json.data != "true");
+}
+
 function executeFunctionByName(functionName, context /*, args */) {
     var args = Array.prototype.slice.call(arguments, 2);
     var namespaces = functionName.split(".");
@@ -646,9 +598,22 @@ function executeFunctionByName(functionName, context /*, args */) {
 
 const static char WC_SCRIPT_NAME_CONTROL_EVENT[] PROGMEM = "controlEvent(this, '%s')";
 
+//the value of an input that the device learns while the page is open - a name
+//the bluetooth module answers with, say - is written into the field from here
+const static char WC_EVENT_VALUE_UPDATE[] PROGMEM = "valueUpdate";
+
+//a control that comes or goes while the page stands open - a card that only
+//belongs there as long as something is missing, say
+const static char WC_EVENT_ELEMENT_SHOW[] PROGMEM = "elementShow";
+
 const static char WC_SCRIPT_CONTROL_EVENT[] PROGMEM = R"=====(
 function controlEvent(elem, event) {
   if (typeof sendWebSocketMessage === "function") sendWebSocketMessage(event, elem.id, {"value":elem.value});
+}
+function valueUpdate(json) {
+  var elem = document.getElementById(json.id);
+  //what is being typed in right now is not overwritten
+  if ((elem !== null) && (elem !== document.activeElement)) elem.value = json.data;
 }
 )=====";
 

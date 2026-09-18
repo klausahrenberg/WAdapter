@@ -44,6 +44,7 @@ const static char WC_CLASS_PILL[] PROGMEM = "pill";
 const static char WC_CLASS_PILL_ON[] PROGMEM = "pill on";
 const static char WC_CLASS_SWITCH[] PROGMEM = "sw";
 const static char WC_CLASS_SEGMENT[] PROGMEM = "seg";
+const static char WC_CLASS_SELECT[] PROGMEM = "sel";
 const static char WC_ON[] PROGMEM = "On";
 const static char WC_OFF[] PROGMEM = "Off";
 const static char WC_NO_DEVICE[] PROGMEM = "No device found.";
@@ -289,11 +290,11 @@ class WThingSwitch : public WThingControl {
   }
 
   virtual void createStyles(WStringList* styles) {
-    styles->add(WC_SWITCH_STYLE, WC_SWITCH_ID);
-    styles->add(WC_SWITCH_STYLE_CHECKED, WC_SWITCH_ID_CHECKED);
-    styles->add(WC_SWITCH_STYLE_I, WC_SWITCH_ID_I);
-    styles->add(WC_SWITCH_STYLE_CHECKED_I, WC_SWITCH_ID_CHECKED_I);
     WebControl::createStyles(styles);
+    styles->add(CSS_SWITCH_STYLE, CSS_SWITCH_ID);
+    styles->add(CSS_SWITCH_STYLE_CHECKED, CSS_SWITCH_ID_CHECKED);
+    styles->add(CSS_SWITCH_STYLE_I, CSS_SWITCH_ID_I);
+    styles->add(CSS_SWITCH_STYLE_CHECKED_I, CSS_SWITCH_ID_CHECKED_I);    
   }
 };
 
@@ -310,12 +311,20 @@ class WThingSegment : public WThingControl {
       this->add(button->content(text.c_str()));
     });
   }
+
+  virtual void createStyles(WStringList* styles) {
+    WebControl::createStyles(styles);
+    styles->add(CSS_SEGMENT_STYLE, CSS_SEGMENT_ID);
+    styles->add(CSS_SEGMENT_BUTTON_STYLE, CSS_SEGMENT_BUTTON_ID);
+    styles->add(CSS_SEGMENT_BUTTON_PRESSED_STYLE, CSS_SEGMENT_BUTTON_PRESSED_ID);
+  }
 };
 
 /** More or longer options: a drop down list. */
 class WThingSelect : public WThingControl {
  public:
   WThingSelect(const char* id, WProperty* property) : WThingControl(WC_SELECT, id, property) {
+    param(WC_CLASS, WC_CLASS_SELECT);
     param(WC_ON_CHANGE, WC_CALL_THING_CHANGE);
     property->enums()->forEach([this](int index, WValue* option, const char* optionId) {
       WStringStream text(SIZE_THING_VALUE);
@@ -325,6 +334,11 @@ class WThingSelect : public WThingControl {
       if (_isValue(text.c_str())) item->param(WC_SELECTED, "");
       this->add(item->content(text.c_str()));
     });
+  }
+
+  virtual void createStyles(WStringList* styles) {
+    WebControl::createStyles(styles);
+    styles->add(CSS_SELECT_STYLE, CSS_SELECT_ID);
   }
 };
 
