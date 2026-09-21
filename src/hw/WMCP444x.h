@@ -150,11 +150,42 @@ class WMCP444x : public WI2C {
     delay(20);               // allow the write to complete (this is wasteful - better to check if the write has completed)
   }
 
+  // Reads back a volatile wiper register, returns -1, if the device does not answer
+  int16_t getVolatileWiper(uint8_t wiper) {
+    uint8_t c_byte;
+    switch (wiper) {
+      case 0:
+        c_byte = MCP4461_VW0;
+        break;
+      case 1:
+        c_byte = MCP4461_VW1;
+        break;
+      case 2:
+        c_byte = MCP4461_VW2;
+        break;
+      case 3:
+        c_byte = MCP4461_VW3;
+        break;
+      default:
+        return -1;  // not a valid wiper
+    }
+    c_byte |= MCP4461_READ;
+    // send command byte, don't release the bus. endTransmission(false) only marks the
+    // transfer as non-stop, it is sent by requestFrom() as a repeated start. Therefore
+    // no early return between both calls, that would keep the bus lock.
+    _i2cPort->beginTransmission(_address);
+    _i2cPort->write(c_byte);
+    _i2cPort->endTransmission(false);
+    if (_i2cPort->requestFrom(_address, (uint8_t)2) != 2) return -1;
+    uint16_t value = _i2cPort->read() << 8;
+    value |= _i2cPort->read();
+    return (int16_t)(value & 0x01FF);
+  }
+
   void setVolatileWipers(uint16_t wiper_value) {
   }
 
   void setNonVolatileWipers(uint16_t) {}
-  uint16_t getVolatileWiper(uint8_t) { return 0; }
   uint16_t getNonVolatileWiper(uint8_t) const { return 0; }
 
   uint16_t read_2(byte mem_addr) {

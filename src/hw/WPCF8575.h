@@ -50,6 +50,10 @@ class WPCF8575 : public WI2C, public IWExpander {
     return (_transmissionStatus == 0);
   }
 
+  bool started() {
+    return _started;
+  }
+
   virtual void mode(uint8_t pin, uint8_t mode) {
     if (mode == OUTPUT) {
       _writeMode = _writeMode | bit(pin);

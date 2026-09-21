@@ -90,8 +90,6 @@ class WGpio : public IWJsonable {
 
   virtual WGpio* on(bool isOn) {
     if (isOn != _on) {
-      Serial.printf("WGpio: set on for pin %d / newOn %d / _on %d", pin(), isOn, _on);
-      Serial.println();
       _on = isOn;
       _lastStateChange = millis();
       _updateOn();      
