@@ -4,6 +4,9 @@
 #include "Audio.h"
 #include "WProperty.h"
 
+#define AUDIO_RETRY_DELAY 5000
+#define AUDIO_CONNECT_TIMEOUT 20000
+
 // Forward declarations
 class WAudio;
 WAudio* wAudio = nullptr;
@@ -31,6 +34,11 @@ class WAudio : public Audio, public WGpio {
     if (_playRequested) {
       _playRequested = false;
       _connectToStation();
+    } else if ((isOn()) && (_pending) && (millis() - _lastConnect >= (Audio::isRunning() ? AUDIO_CONNECT_TIMEOUT : AUDIO_RETRY_DELAY))) {
+      //the station did not come up or the stream broke off: without trying
+      //again here only switching the input to and fro would restart it
+      LOG->debug(F("Station not playing, try again"));
+      _connectToStation();
     }
     if (isOn()) {
       Audio::loop();
@@ -55,7 +63,10 @@ class WAudio : public Audio, public WGpio {
    * the next loop(), and it does nothing while the audio is off - being
    * switched on starts the chosen station by itself.
    */
-  void playStation() { _playRequested = true; }
+  void playStation() {
+    _playRequested = true;
+    if (isOn()) _pending = true;
+  }
 
   void audioEvent(Audio::msg_t m) {
     // Zeigt die rohe Nachricht im Seriellen Monitor an (ähnlich wie das alte audio_info)
@@ -63,9 +74,19 @@ class WAudio : public Audio, public WGpio {
 
     // Filter nach den spezifischen Event-IDs (m.e)
     switch (m.e) {
+      case Audio::evt_info:
+        //only now data arrives. evt_name comes too early for this: a playlist
+        //(.m3u, .pls) sends it already, before the stream itself is connected
+        if ((m.msg != nullptr) && (strcmp(m.msg, "stream ready") == 0)) _pending = false;
+        break;
+
+      case Audio::evt_eof:
+        //the stream ended or broke off, loop() connects again
+        if (isOn()) _pending = true;
+        break;
+
       case Audio::evt_name:  // Entspricht dem alten audio_showstation
         Serial.printf(">>> Radiosender Name: %s <<<\n", m.msg);
-        _pending = false;
         break;
 
       case Audio::evt_streamtitle:  // Entspricht dem alten audio_showstreamtitle
@@ -94,16 +115,22 @@ class WAudio : public Audio, public WGpio {
     //what plays ends in any case: with no station to go to the audio stays on
     //but silent, rather than playing on what was chosen before
     Audio::stopSong();
-    _pending = false;
     if ((url == nullptr) || (strlen(url) == 0)) {
       LOG->debug(F("No station to play"));
+      _pending = false;
+      return;
+    }
+    //stays pending until the stream is ready, a failed attempt is repeated
+    //from loop() after AUDIO_RETRY_DELAY
+    _pending = true;
+    _lastConnect = millis();
+    if (!_network->isWifiConnected()) {
+      LOG->debug(F("No wifi, station '%s' waits"), url);
       return;
     }
     LOG->debug(F("Connect to station '%s'"), url);
     if (!Audio::connecttohost(url)) {
       LOG->debug(F("Can't connect to station '%s'"), url);
-    } else {
-      _pending = true;
     }
   }
 
@@ -114,29 +141,22 @@ class WAudio : public Audio, public WGpio {
       //  _starting = true;
         LOG->debug("radio on..");
         // play
-        if (_network->isWifiConnected()) {
-          LOG->debug("radio on...");
-
-          log_w("a) radio gaga");
-          //_tuner = new WAudio();
-
-          // this->radio->init(WM8978_I2S_BCK, WM8978_I2S_WS, WM8978_I2S_DOUT, WM8978_I2S_MCLKPIN);
-          //_tuner->setPinout(PIN_DAC_BCK, PIN_DAC_LRC, PIN_DAC_DOUT);
-          if (pin() != NO_PIN) {
-            LOG->debug("b) XSMT on");
-            WGpio::writeOutput(pin(), HIGH);
-          }
-          delay(100);
-          playStation();
-          log_w("c) radio gaga");
-          setVolume(20);
+        //also without wifi yet: the station then waits in loop() until
+        //the wifi is up, before it was never started in that case
+        if (pin() != NO_PIN) {
+          LOG->debug("b) XSMT on");
+          WGpio::writeOutput(pin(), HIGH);
         }
+        delay(100);
+        playStation();
+        setVolume(20);
       //  _starting = false;
       //}
     } else {
       LOG->debug("radio off.");
       // if (_tuner != nullptr) {
       Audio::stopSong();
+      _pending = false;
       //_starting = false;
       if (pin() != NO_PIN) {
         WGpio::writeOutput(pin(), LOW);
@@ -152,6 +172,7 @@ class WAudio : public Audio, public WGpio {
   bool _playRequested = false;
   bool _initialized = false;
   bool _pending = false;
+  unsigned long _lastConnect = 0;
 };
 
 void audioTaskEvent(Audio::msg_t m) {
