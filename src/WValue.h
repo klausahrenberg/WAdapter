@@ -94,9 +94,8 @@ struct WValue {
     asBool(value);
   }
 
-  WValue(byte length, const byte* ba) {
-    WValue(length, [ba](byte i) { return ba[i]; });
-  }
+  WValue(byte length, const byte* ba)
+      : WValue(length, std::function<byte(byte)>([ba](byte i) { return ba[i]; })) {}
 
   WValue(byte length, std::function<byte(byte)> getter) {
     _type = WDataType::BYTE_ARRAY;

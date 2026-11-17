@@ -219,6 +219,7 @@ class WNetwork {
     if ((isWifiConnected()) && (_supportsWebServer)) {
       this->startWebServer();
     }
+    for (AsyncWebSocket* ws : _webSockets) ws->cleanupClients();
     // MQTT connection
     if ((isWifiConnected()) && (isSupportingMqtt()) &&
         (!_mqttClient->connected()) &&
@@ -557,6 +558,7 @@ class WNetwork {
   bool _restartFlag = false;
   DNSServer* _dnsApServer;
   AsyncWebServer* _webServer;
+  std::list<AsyncWebSocket*> _webSockets;
   int _networkState;
   WValue* _supportingMqtt;
   bool _supportsWebServer;
@@ -1286,11 +1288,41 @@ class WNetwork {
                          NULL, std::bind(&WNetwork::_handleBody, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
         }
       });
+      _bindPropertyPush(device, deviceBase);
       String propertiesBase = deviceBase + "/properties";
       _webServer->on(propertiesBase.c_str(), HTTP_GET, std::bind(&WNetwork::_sendDeviceValues, this, std::placeholders::_1, device));
       _webServer->on(deviceBase.c_str(), HTTP_GET, std::bind(&WNetwork::_sendDeviceStructure, this, std::placeholders::_1, device));
       device->bindWebServerCalls(_webServer);
     }
+  }
+
+  // Web Thing standard push: ws://<device>/things/<id> sends every change of a
+  // visible property as {"messageType":"propertyStatus","data":{"id":value}}
+  void _bindPropertyPush(WDevice* device, const String& deviceBase) {
+    if (!device->needsWebThings()) return;
+    AsyncWebSocket* ws = new AsyncWebSocket(deviceBase.c_str());
+    _webServer->addHandler(ws);
+    _webSockets.push_back(ws);
+    device->properties()->forEach([this, ws](int index, WProperty* property, const char* id) {
+      if (property->isVisible(WEBTHING)) {
+        property->addListener([this, ws, property, id]() { _pushPropertyStatus(ws, property, id); });
+      }
+    });
+  }
+
+  void _pushPropertyStatus(AsyncWebSocket* ws, WProperty* property, const char* id) {
+    if ((ws->count() == 0) || (isUpdateRunning())) return;
+    WStringStream* message = createResponseStream();
+    WJson* json = new WJson(message);
+    json->beginObject();
+    json->propertyString("messageType", "propertyStatus", nullptr);
+    json->beginObject("data");
+    property->toJsonValue(json, id);
+    json->endObject();
+    json->endObject();
+    delete json;
+    ws->textAll(message->c_str());
+    delete message;
   }
 
   WDevice* _getDeviceById(const char* deviceId) {

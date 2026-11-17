@@ -73,6 +73,7 @@ const static char WC_ON_KEYDOWN[] PROGMEM = "onkeydown";
 const static char WC_OPTION[] PROGMEM = "option";
 const static char WC_PASSWORD[] PROGMEM = "password";
 const static char WC_PING[] PROGMEM = "PING";
+const static char WC_PLACEHOLDER[] PROGMEM = "placeholder";
 const static char WC_POST[] PROGMEM = "post";
 const static char WC_PROGRESS[] PROGMEM = "progress";
 const static char WC_REFUSED[] PROGMEM = "refused";

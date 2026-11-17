@@ -4,7 +4,9 @@
 #include "Arduino.h"
 #include "WJson.h"
 
-#define BUFFER_MAX_LENGTH 64
+//a longer string is clipped without a word, and the url of a stream is
+//regularly longer than a hundred characters
+#define BUFFER_MAX_LENGTH 256
 
 enum WState {
   WS_START_DOCUMENT,

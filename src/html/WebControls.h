@@ -566,6 +566,32 @@ class WebInput : public WebControl {
   WebControlHandler _onEnter = nullptr;
 };
 
+/**
+ * A drop down list (select). The selection is sent with the form under the id
+ * of the control, the value of the chosen option is what the page gets in
+ * submitForm().
+ */
+class WebCombobox : public WebControl {
+ public:
+  WebCombobox(const char* id) : WebControl(WC_SELECT, WC_ID, id, WC_NAME, id, nullptr) {
+  }
+
+  /** An entry of the list; value is what is sent, title is what is shown. */
+  WebCombobox* option(const char* value, const char* title, bool selected = false) {
+    WebControl* o = new WebControl(WC_OPTION, WC_VALUE, value, nullptr);
+    if (selected) o->param(WC_SELECTED, WC_SELECTED);
+    o->content(title);
+    this->add(o);
+    return this;
+  }
+
+  virtual void createStyles(WStringList* styles) {
+    WebControl::createStyles(styles);
+    //the style of the input fields is bound to select as well
+    styles->add(CSS_INPUT_STYLE, CSS_INPUT_ID);
+  }
+};
+
 class WebLabeledControl : public WebControl {
  public:
   WebLabeledControl(const char* title, WebControl* control) : WebControl(WC_DIV, nullptr) {

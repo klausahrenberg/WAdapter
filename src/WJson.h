@@ -148,6 +148,43 @@ class WJson {
     return *this;
   }
 
+  /*
+  // Gibt "name":"<text>" aus. Der Text entsteht per printf-Format mit Parametern:
+  //   propertyString("id", "ESP-%06x", WUtils::getChipId());
+  //   propertyString("sdk", "%s", ESP.getSdkVersion());
+  // Ablauf: Laenge per vsnprintf(nullptr, 0, ...) ermitteln, Puffer anlegen, formatieren,
+  // dann mit JSON-Escaping (", \\, Steuerzeichen) in den Stream schreiben. Kann kein Puffer
+  // angelegt werden, wird null ausgegeben. Das Ergebnis ist immer ein gueltiger JSON-String.
+  // Hinweise: Format muss im RAM liegen (kein F()/PROGMEM). Fremde Texte immer als Parameter
+  // uebergeben ("%s", text), nie als Format. Zahlen/Booleans ohne Anfuehrungszeichen:
+  // propertyValue / propertyBoolean.
+  __attribute__((format(printf, 3, 4)))
+  WJson& propertyString(const char* name, const char* format, ...) {
+    va_list arg;
+    va_start(arg, format);
+    va_list copy;
+    va_copy(copy, arg);
+    int len = vsnprintf(nullptr, 0, format, copy);
+    va_end(copy);
+    char* buffer = (len >= 0) ? new (std::nothrow) char[len + 1] : nullptr;
+    if (!buffer) {
+      va_end(arg);
+      return propertyNull(name);
+    }
+    vsnprintf(buffer, len + 1, format, arg);
+    va_end(arg);
+    _ifSeparator();
+    _separatorAlreadyCalled = true;
+    memberName(name);
+    _stream->print(WC_QUOTE);
+    WValue::string(_stream, buffer, nullptr);
+    _stream->print(WC_QUOTE);
+    _separatorAlreadyCalled = false;
+    delete[] buffer;
+    return *this;
+  }
+  */
+
   WJson& propertyObject(const char* name, IWJsonable* value) {
     _ifSeparator();
     _separatorAlreadyCalled = true;
