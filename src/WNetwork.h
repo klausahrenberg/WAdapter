@@ -534,6 +534,9 @@ class WNetwork {
 
   void _notify(bool sendState) {
     _updateLedState();
+    if (_onNotify) {
+      _onNotify();
+    }
   }
 
   void _handleHttpEvent(AsyncWebServerRequest* request) {
@@ -735,17 +738,6 @@ class WNetwork {
     LOG->notice(F("Start AccessPoint for configuration. SSID '%s'; password '%s'"), apSsid.c_str(), this->apPassword().c_str());
     _dnsApServer = new DNSServer();
     WiFi.mode(WIFI_AP_STA);
-#ifdef ARDUINO_ARCH_ESP32
-    //the station shares one radio with the ap: left to itself it would keep
-    //searching for the configured network in the background, and modem sleep
-    //would park the radio on top of that - together they make the ap either
-    //unreachable or unusably slow, which is what the configuration needs
-    WiFi.setAutoReconnect(false);
-    WiFi.setSleep(false);
-#endif
-    //a connection attempt may still be running from this same loop pass: it is
-    //stopped so the ap comes up on a quiet radio
-    WiFi.disconnect(false);
     _apStaRetryStarted = 0;
     _apStaRetryFailed = false;
     _lastWifiConnect = millis();
@@ -753,6 +745,8 @@ class WNetwork {
     _dnsApServer->setErrorReplyCode(DNSReplyCode::NoError);
     _dnsApServer->start(53, "*", WiFi.softAPIP());
     this->startWebServer();
+    //lets the display switch over to the ap screen with the qr code
+    _notify(false);
   }
 
   // closes the own ap once the configured network is reachable again
