@@ -52,7 +52,7 @@ class WKY040 : public WSwitch {
         _rotatingLeft->asBool(_irqEventLeft);
       }
       if (_rotatingRight != nullptr) {
-        _rotatingRight->asBool(!_irqEventRight);
+        _rotatingRight->asBool(_irqEventRight);
       };
     }
     _irqEventLeft = false;

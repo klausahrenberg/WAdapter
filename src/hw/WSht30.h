@@ -62,11 +62,11 @@ class WSht30 : public WI2CTemperature {
 				} else {
 					_temperatureValue = _temperatureValue / (double) SHT30_AVERAGE_COUNTS;							
 					if (hasProperty()) {
-						property()->asDouble(_temperatureValue + _correctionTemperature);				
+						property()->asDouble(_temperatureValue + _correctionTemperature, true);				
 					}				
 					_humidityValue = _humidityValue / (double) SHT30_AVERAGE_COUNTS;
 					if (hasHumidity()) {
-						humidity()->asDouble(_humidityValue + _correctionHumidity);
+						humidity()->asDouble(_humidityValue + _correctionHumidity, true);
 					}
 					_lastMeasure = now;
         	_reset(); //IDLE		

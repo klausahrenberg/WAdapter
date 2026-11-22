@@ -71,7 +71,7 @@ public:
 						} else {
 							_temperatureValue = _temperatureValue / (double) HTU21D_AVERAGE_COUNTS;							
 							if (hasProperty()) {
-								property()->asDouble(_temperatureValue + _correctionTemperature);
+								property()->asDouble(_temperatureValue + _correctionTemperature, true);
 							}
 							_counter = 0;
 							_request(now, TRIGGER_HUMD_MEASURE_NOHOLD, STATE_READ_HUMIDITY);
@@ -86,7 +86,7 @@ public:
 						} else {
 							_humidityValue = _humidityValue / (double) HTU21D_AVERAGE_COUNTS;
 							if (hasHumidity()) {
-								humidity()->asDouble(_humidityValue + _correctionHumidity);
+								humidity()->asDouble(_humidityValue + _correctionHumidity, true);
 							}
 							_reset();
 							_lastError = ERROR_NONE;

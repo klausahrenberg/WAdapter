@@ -272,12 +272,12 @@ const static char CSS_MEDIA_MOBILE_STYLE[] PROGMEM = R"=====(
   top:3rem;
   bottom:0;
   left:0;
-  z-index:2;
+  z-index:100;
   width:12rem;
   background:var(--lb);
   transform:translateX(-100%);
   transition:transform .2s;
-  border-right:1px solid val(--db);
+  border-right:1px solid var(--db);
   }
   body.nav .side {
   transform:none;

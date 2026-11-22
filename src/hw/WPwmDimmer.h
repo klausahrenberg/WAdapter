@@ -40,10 +40,10 @@ protected:
       #ifdef ESP8266
 			analogWrite(this->pin(), 0);
 			#else
-			ledcSetup(_pwmChannel, 100000, 8);
-			ledcAttachPin(pin(), _pwmChannel);
+			//ledcSetup(_pwmChannel, 100000, 8);
+			//ledcAttachPin(pin(), _pwmChannel);
 			//ledcWrite(_pwmChannel, 0xFF);
-			ledcWrite(_pwmChannel, 0x30);
+			//ledcWrite(_pwmChannel, 0x30);
 
 			/*ledcSetup(_pwmChannel, 5000, 0x400);
 			ledcAttachPin(pin(), _pwmChannel);

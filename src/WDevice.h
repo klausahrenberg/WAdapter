@@ -76,6 +76,12 @@ class WDevice : public IWGpioRegister, public IWPropertyRegister {
     result.concat(this->id());
     json->propertyString("href", result.c_str(), nullptr);
     json->propertyString("@context", "https://iot.mozilla.org/schemas", nullptr);
+    // the firmware, as the thing description of the web of things names a version
+    if ((isMainDevice()) && (VERSION != nullptr)) {
+      json->beginObject("version");
+      json->propertyString("instance", VERSION, nullptr);
+      json->endObject();
+    }
     // type
     json->beginArray("@type");
     json->string(type(), nullptr);
@@ -104,10 +110,6 @@ class WDevice : public IWGpioRegister, public IWPropertyRegister {
   }
 
   virtual void bindWebServerCalls(AsyncWebServer* webServer) {}
-
-  virtual void handleUnknownMqttCallback(bool getState, String completeTopic,
-                                         String partialTopic, char* payload,
-                                         unsigned int length) {}
 
   virtual bool isDeviceStateComplete() { return true; }
 

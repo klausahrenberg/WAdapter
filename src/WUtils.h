@@ -16,7 +16,14 @@ const static char WC_TYPE[] PROGMEM = "type";
 const static char* APPLICATION = nullptr;
 const static char* VERSION = nullptr;
 static byte FLAG_SETTINGS = 0x23;
+#ifdef W_NO_LOG
+//there is no log output compiled in, so there is nothing to switch on
+static const bool DEBUG = false;
+static inline void setDebug(bool on) {}
+#else
 static bool DEBUG = true;
+static inline void setDebug(bool on) { DEBUG = on; }
+#endif
 
 class WUtils {
  public:

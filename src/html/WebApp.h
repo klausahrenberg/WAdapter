@@ -7,6 +7,10 @@
 
 // 4096 crashes with PSRAM
 #define SIZE_RESPONSE_STREAM 2048U
+// A page with a socket carries the scripts of the controls, it is about 10k big.
+// The response grows by copying, which needs the old and the new block at once
+// and is not met by the heap of an esp8266, so such a page is reserved at once
+#define SIZE_RESPONSE_STREAM_STATEFUL 11264U
 
 class WebApp {
  public:
@@ -218,22 +222,18 @@ class WebApp {
     styles->add(CSS_BODY_STYLE, CSS_BODY_ID);
     styles->add(CSS_H2_STYLE, WC_H2);
     styles->add(CSS_SHELL_STYLE, CSS_SHELL_ID);
-    WStringList* scripts = new WStringList();
-    // Bar - Styles and Scripts
+    // Bar - Styles
     WebControl* bar = _createBar(styles);
     bar->createStyles(styles);
-    bar->createScripts(scripts);
-    // Side - Styles and Scripts
+    // Side - Styles
     WebControl* side = _createSide(styles, pi);
     side->createStyles(styles);
-    side->createScripts(scripts);
     // Mobile View
     styles->add(CSS_MEDIA_MOBILE_STYLE, CSS_MEDIA_MOBILE_ID);
     //Light/Dark-Mode
     styles->add(CSS_MEDIA_LIGHT_STYLE, CSS_MEDIA_LIGHT_ID);
     // WebPage - Styles and Scripts
     pi->instance->createStyles(styles);
-    pi->instance->createScripts(scripts);
     // Print
     WHtml::commandParamsAndNullptr(stream, WC_DOCTYPE_HTML, true, WC_HTML, nullptr);
     WHtml::commandParamsAndNullptr(stream, WC_HTML, true, WC_LANG, F("en"), nullptr);
@@ -256,16 +256,25 @@ class WebApp {
     // stream->print(FPSTR(WC_STYLE_SHELL));
     styles->forEach([this, stream](int index, const char* style, const char* id) { WHtml::styleToString(stream, id, style); });
     WHtml::command(stream, WC_STYLE, false);  // Style end
+    //the styles are printed, and the heap of an esp8266 is too small to keep
+    //their copies while the rest of the page is made
+    delete styles;
+    WStringList* scripts = new WStringList();
+    bar->createScripts(scripts);
+    side->createScripts(scripts);
+    pi->instance->createScripts(scripts);
     WHtml::command(stream, WC_HEAD, false);   // Head end
     // Body
     WHtml::command(stream, WC_BODY, true);
     // Bar with the name of the application and what it is running on
 
     bar->toString(stream);
+    delete bar;
     // Navigation and content
     WHtml::commandParamsAndNullptr(stream, WC_DIV, true, WC_CLASS, WC_SHELL, nullptr);
 
     side->toString(stream);
+    delete side;
     pi->instance->toString(stream);
     WHtml::command(stream, WC_DIV, false);  // End of WC_SHELL
     // Scripts
@@ -286,9 +295,6 @@ class WebApp {
     }
     WHtml::command(stream, WC_BODY, false);  // Body end
     WHtml::command(stream, WC_HTML, false);  // Page end
-    delete bar;
-    delete side;
-    delete styles;
     delete scripts;
   }
 
@@ -390,7 +396,7 @@ class WebApp {
     page->add(page->createControls());
     page->pageId(id.c_str());
 
-    AsyncResponseStream* stream = request->beginResponseStream(WC_TEXT_HTML, SIZE_RESPONSE_STREAM);
+    AsyncResponseStream* stream = request->beginResponseStream(WC_TEXT_HTML, (page->statefulWebPage() ? SIZE_RESPONSE_STREAM_STATEFUL : SIZE_RESPONSE_STREAM));
     pi->instance = page;
     toString(stream, pi);
     if (!page->statefulWebPage()) {

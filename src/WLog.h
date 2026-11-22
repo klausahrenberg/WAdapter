@@ -66,16 +66,22 @@ public:
 		_printLineBreak = printLineBreak;
 	}
 
-	template<class T, typename ... Args> void error(T msg, Args ... args) {
+	template<class T, typename ... Args> void error(T msg, Args ...args) {
+#ifndef W_NO_LOG
 		printLevel(LOG_LEVEL_ERROR, msg, args...);
+#endif
 	}
 
 	template<class T, typename ... Args> void debug(T msg, Args ...args) {
+#ifndef W_NO_LOG
 		printLevel(LOG_LEVEL_DEBUG, msg, args...);
+#endif
 	}
 
 	template<class T, typename ... Args> void notice(T msg, Args ...args) {
+#ifndef W_NO_LOG
 		printLevel(LOG_LEVEL_NOTICE, msg, args...);
+#endif
 	}
 
 	template<class T> void printLevel(int level, T msg, ...) {

@@ -19,11 +19,6 @@ class WNetworkPage : public WebPage {
     form->add((new WebCard(PSTR("Wifi"), PSTR("2.4G only")))
                   ->addRow(PSTR("SSID"), new WebInput(WC_SSID, SETTINGS->getString(WC_SSID), 32))
                   ->addRow(PSTR("Password"), new WebInput(WC_PASSWORD, SETTINGS->getString(WC_PASSWORD), 32, true)));
-    form->add((new WebCard(PSTR("MQTT")))
-                  ->addRow(PSTR("Server"), new WebInput(WC_MQTT_SERVER, SETTINGS->getString(WC_MQTT_SERVER), 32))
-                  ->addRow(PSTR("Port"), new WebInput(WC_MQTT_PORT, SETTINGS->getString(WC_MQTT_PORT), 4))
-                  ->addRow(PSTR("User"), new WebInput(WC_MQTT_USER, SETTINGS->getString(WC_MQTT_USER), 16))
-                  ->addRow(PSTR("Password"), new WebInput(WC_MQTT_PASSWORD, SETTINGS->getString(WC_MQTT_PASSWORD), 32, true)));
     form->add(new WebSubmitButton(WC_SAVE_CONFIGURATION));
     return form;
   }
@@ -33,13 +28,9 @@ class WNetworkPage : public WebPage {
     SETTINGS->setString(WC_ID, args->getById(WC_ID)->asString());
     SETTINGS->setString(WC_SSID, args->getById(WC_SSID)->asString());
     SETTINGS->setString(WC_PASSWORD, args->getById(WC_PASSWORD)->asString());
-    SETTINGS->setString(WC_MQTT_SERVER, args->getById(WC_MQTT_SERVER)->asString());
-    SETTINGS->setString(WC_MQTT_PORT, args->getById(WC_MQTT_PORT)->asString());
-    SETTINGS->setString(WC_MQTT_USER, args->getById(WC_MQTT_USER)->asString());
-    SETTINGS->setString(WC_MQTT_PASSWORD, args->getById(WC_MQTT_PASSWORD)->asString());
     SETTINGS->save();
     // delay(300);
-    return WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));
+    return WFormResponse(FO_RESTART, PSTR("Settings saved."));
   }
 
  protected:
@@ -61,7 +52,7 @@ class WResetPage : public WebPage {
                   ->addRow(PSTR("Access point mode"), (new WebButton(PSTR("Restart")))->onClickSubmit("1")));
     form->add((new WebCard(PSTR("Settings")))
                   ->addRow(PSTR("Reset all settings"), (new WebButton(PSTR("Reset")))->danger()->onClickSubmit("2"))
-                  ->addNote(PSTR("Wifi and MQTT settings are lost, the device comes back as an access point.")));
+                  ->addNote(PSTR("Wifi settings are lost, the device comes back as an access point.")));
     return form;
   }
 
@@ -77,7 +68,7 @@ class WResetPage : public WebPage {
       default:
         return WFormResponse(FO_NONE);
     }
-    return WFormResponse(FO_RESTART, PSTR("Settings saved. If MQTT activated, subscribe to topic 'devices/#' at your broker."));
+    return WFormResponse(FO_RESTART, PSTR("Settings saved."));
   }
 
  private:
@@ -195,6 +186,7 @@ class WInfoPage : public WebPage {
     memory->addRow(PSTR("Free heap size"), _bytes(ESP.getFreeHeap()).c_str());
 #ifdef ARDUINO_ARCH_ESP8266
     memory->addRow(PSTR("Largest heap block"), _bytes(ESP.getMaxFreeBlockSize()).c_str());
+    device->addRow(PSTR("mDNS responder"), MDNS.isRunning() ? "running" : "not running");
 #endif
     return result;
   }

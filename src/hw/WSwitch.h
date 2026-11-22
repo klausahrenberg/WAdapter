@@ -140,6 +140,15 @@ class WSwitch : public WGpio {
     return (_triggerProperty != nullptr);
   }
 
+  bool isLongPressing() {
+    return ((supportLongPress()) && (_longPressStartTime > 0));
+  }
+
+  //the debounced state, as the loop sees it: true while the button is held
+  bool isPressed() {
+    return ((_isInitialized()) && (_state == _onLevel()));
+  }
+
   virtual void registerSettings() {
     WGpio::registerSettings();
     SETTINGS->add(_config, nullptr);   

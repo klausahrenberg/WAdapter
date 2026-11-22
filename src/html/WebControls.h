@@ -272,7 +272,7 @@ class WebCard : public WebControl {
 
   /** A line instead of rows, where a card has nothing to show. */
   WebCard* addMessage(const char* message) {
-    this->add((new WebControl(WC_DIV, WC_CLASS, WC_CLASS_MESSAGE, nullptr))->content(message));
+    this->add((new WebControl(WC_DIV, WC_CLASS, CSS_CARD_ROW_CLASS, nullptr))->content(message));
     return this;
   }
 
@@ -709,6 +709,7 @@ class WebInputFile : public WebControl {
     styles->add(WC_STYLE_PROGRESS, WC_CSS_PROGRESS);
     styles->add(WC_STYLE_PROGRESS_BAR, WC_CSS_PROGRESS_BAR);
     styles->add(WC_STYLE_PROGRESS_VALUE, WC_CSS_PROGRESS_VALUE);
+    styles->add(WC_STYLE_PROGRESS_MOZ_VALUE, WC_CSS_PROGRESS_MOZ_VALUE);
     WebControl::createStyles(styles);
   }
 

@@ -11,6 +11,12 @@
 #define NO_LED_INDEX 0xFF
 #define BLINK_MILLIS 300
 const static char WRGB_NUMBER_OF_LEDS[] PROGMEM = "leds";
+const static char WRGB_RAINBOW[] PROGMEM = "rainbow";
+//bit 7 of the stored mode byte: the rainbow runs while the leds are on. It is
+//a bit of the byte that was stored before, so nothing in the settings moves
+//and a configuration saved without it simply has it off
+#define RAINBOW_FLAG 0x80
+#define RAINBOW_INTERVAL 30
 const int COUNT_LED_PROGRAMS = 3;
 const float PI180 = 0.01745329;
 const neoPixelType LED_TYPE_WS2812 = NEO_GRB + NEO_KHZ800;
@@ -23,25 +29,15 @@ class W2812Led : public WGpio {
     _programStatusCounter = 0;
     _lastUpdate = 0;
     _color = new WColorProperty("Color", 255, 0, 0);
-    //the four arrays are made here once and keep this length, whatever the
-    //number of leds is set to later on - so this, and not numberOfLeds(), is
-    //what an index has to stay within
-    _countLeds = numberOfLeds;
-    _colors = new uint32_t[numberOfLeds];
-    _alwaysOn = new bool[numberOfLeds];
-    _conditions = new TColorPicker[numberOfLeds];
-    _blinking = new bool[numberOfLeds];
-    for (byte b = 0; b < numberOfLeds; b++) {
-      _colors[b] = COLOR_DEFAULT;
-      _alwaysOn[b] = false;
-      _conditions[b] = nullptr;
-      _blinking[b] = false;
-    }
     // network->getSettings()->add(this->color);
     _brightness = new WRangeProperty("Brightness", WDataType::INTEGER, WValue::ofInt(10), WValue::ofInt(255), TYPE_LEVEL_PROPERTY);
     _brightness->asInt(160);
     // network->getSettings()->add(this->brightness);
-    _brightness->addListener([this]() { _strip->setBrightness(_brightness->asInt()); });
+    _brightness->addListener([this]() {
+      if (_strip != nullptr) _strip->setBrightness(_brightness->asInt());
+      _needsUpdate = true;
+    });
+    _resize(0);
     this->numberOfLeds(numberOfLeds);
   }
 
@@ -55,12 +51,13 @@ class W2812Led : public WGpio {
     delete _numberOfLeds;
     delete[] _colors;
     delete[] _alwaysOn;
+    delete[] _conditions;
     delete[] _blinking;
     if (_strip) delete _strip;
   }
 
   void onChanged() {
-    if (!WGpio::isOn()) {
+    if ((_strip != nullptr) && (!WGpio::isOn())) {
       for (int i = 0; i < _strip->numPixels(); i++) {
         _strip->setPixelColor(i, _strip->Color(0, 0, 0));
       }
@@ -73,6 +70,7 @@ class W2812Led : public WGpio {
   W2812Led* numberOfLeds(byte numberOfLeds) {
     if (numberOfLeds != _numberOfLeds->asByte()) {
       _numberOfLeds->asByte(numberOfLeds);
+      _resize(numberOfLeds);
       _onChange();
     }
     return this;
@@ -91,14 +89,26 @@ class W2812Led : public WGpio {
     }
   }
 
-  byte rgbMode() { return _rgbMode->asByte(); }
+  byte rgbMode() { return (_rgbMode->asByte() & ~RAINBOW_FLAG); }
+
+  /** Whether the leds run the rainbow while they are on, instead of the colors
+   * that are set for them. Off unless it is asked for. */
+  bool rainbow() { return ((_rgbMode->asByte() & RAINBOW_FLAG) != 0); }
+
+  W2812Led* rainbow(bool on) {
+    if (on != rainbow()) {
+      _rgbMode->asByte(rgbMode() | (on ? RAINBOW_FLAG : 0));
+      _needsUpdate = true;
+    }
+    return this;
+  }
 
   void setRgbMode(byte rgbMode) {
     if (rgbMode >= COUNT_LED_PROGRAMS) {
       rgbMode = 0;
     }
-    if (_rgbMode->asByte() != rgbMode) {
-      _rgbMode->asByte(rgbMode);
+    if (this->rgbMode() != rgbMode) {
+      _rgbMode->asByte(rgbMode | (rainbow() ? RAINBOW_FLAG : 0));
       _programStatusCounter = 0;
       if (_settingsRegistered) SETTINGS->save();
     }
@@ -155,6 +165,8 @@ class W2812Led : public WGpio {
     WGpio::registerSettings();
     SETTINGS->add(_numberOfLeds, nullptr);
     SETTINGS->add(_rgbMode, nullptr);
+    //the number may have been read from the settings, past the setter
+    _resize(_numberOfLeds->asByte());
     _onChange();
   }
 
@@ -162,11 +174,15 @@ class W2812Led : public WGpio {
     WGpio::fromJson(list);
     WValue* v = list->getById(WRGB_NUMBER_OF_LEDS);
     numberOfLeds(v != nullptr ? v->asByte() : numberOfLeds());
+    v = list->getById(WRGB_RAINBOW);
+    //a configuration without the entry runs the rainbow, it has to be switched off explicitly
+    rainbow(v != nullptr ? v->asBool() : true);
   }
 
   virtual void toJson(WJson* json) {
     WGpio::toJson(json);
     json->propertyValue(WRGB_NUMBER_OF_LEDS, _numberOfLeds);
+    json->propertyBoolean(WRGB_RAINBOW, rainbow());
   }
 
   W2812Led* alwaysOn(byte index, bool alwaysOn = true) {
@@ -215,7 +231,13 @@ class W2812Led : public WGpio {
     if ((_onFor != 0) && (isOnSince(_onFor))) {
       on(false);
     }
+    //no strip (no pin or no leds yet): nothing to drive
+    if (_strip == nullptr) return;
     bool ison = WGpio::isOn();
+    if ((ison) && (rainbow())) {
+      _runRainbow(now);
+      return;
+    }
     for (byte i = 0; i < _numberOfLeds->asByte(); i++) {
       if ((ison) || (_alwaysOn[i])) {
         uint32_t newColor = _colors[i];
@@ -240,58 +262,6 @@ class W2812Led : public WGpio {
     if (_needsUpdate) _strip->show();
     _needsUpdate = false;
 
-    if (WGpio::isOn()) {
-      /*if (now - _lastUpdate > 200) {
-        switch (rgbMode()) {
-          case 0: {
-            // Pulsing RGB color
-            float t = sin((_programStatusCounter - 90) * PI180);
-            t = (t + 1) / 2;
-            uint32_t pulseColor = _strip->Color(
-                round(_color->red() * (85 + round(170.0 * t)) / 255),
-                round(_color->green() * (85 + round(170.0 * t)) / 255),
-                round(_color->blue() * (85 + round(170.0 * t)) / 255));
-            for (uint16_t rainbowI = 0; rainbowI < _strip->numPixels();
-                 rainbowI++) {
-              _strip->setPixelColor(rainbowI, pulseColor);
-            }
-            _strip->show();
-            _programStatusCounter++;
-            if (_programStatusCounter >= 360) {
-              _programStatusCounter = 0;
-            }
-            break;
-          }
-          case 1: {
-            // Rainbow program, all pixel the same color
-            uint32_t wC = wheelColor((_programStatusCounter)&255);
-            for (uint16_t rainbowI = 0; rainbowI < _strip->numPixels();
-                 rainbowI++) {
-              _strip->setPixelColor(rainbowI, wC);
-            }
-            _strip->show();
-            _programStatusCounter++;
-            if (_programStatusCounter == 256 * 5) {
-              _programStatusCounter = 0;
-            }
-            break;
-          }
-          case 2: {
-            // Rainbow program, different colors
-            for (uint16_t rainbowI = 0; rainbowI < _strip->numPixels(); rainbowI++) {
-              _strip->setPixelColor(rainbowI, wheelColor(((rainbowI * 256 / _strip->numPixels()) + _programStatusCounter) & 255));
-            }
-            _strip->show();
-            _programStatusCounter++;
-            if (_programStatusCounter == 256 * 5) {
-              _programStatusCounter = 0;
-            }
-            break;
-          }
-        }
-        _lastUpdate = now;
-      }*/
-    }
   }
 
  protected:
@@ -313,7 +283,52 @@ class W2812Led : public WGpio {
 
   void _updateOn() {
     _needsUpdate = true;
+    //the rainbow starts at once, from its first color
+    if (isOn()) {
+      _programStatusCounter = 0;
+      _lastUpdate = 0;
+    }
   };
+
+  /** Every led has its own color of the wheel, the wheel turns on. */
+  void _runRainbow(unsigned long now) {
+    if ((_lastUpdate != 0) && (now - _lastUpdate < RAINBOW_INTERVAL)) return;
+    _lastUpdate = now;
+    uint16_t count = _strip->numPixels();
+    for (uint16_t i = 0; i < count; i++) {
+      _strip->setPixelColor(i, wheelColor(((i * 256 / count) + _programStatusCounter) & 255));
+    }
+    _strip->show();
+    _programStatusCounter = (_programStatusCounter + 1) & 255;
+    //the colors are shown, the next switching off has to clear them
+    _needsUpdate = true;
+  }
+
+  /**
+   * The four arrays have as many entries as there are leds. They are made
+   * again whenever the number changes: the loop and the setters walk them up to
+   * that number, so arrays of the number the object was made with (none, for
+   * one that is configured afterwards) would be overrun.
+   */
+  void _resize(byte numberOfLeds) {
+    if ((numberOfLeds == _countLeds) && (_colors != nullptr)) return;
+    delete[] _colors;
+    delete[] _alwaysOn;
+    delete[] _conditions;
+    delete[] _blinking;
+    _countLeds = numberOfLeds;
+    _colors = new uint32_t[numberOfLeds];
+    _alwaysOn = new bool[numberOfLeds];
+    _conditions = new TColorPicker[numberOfLeds];
+    _blinking = new bool[numberOfLeds];
+    for (byte b = 0; b < numberOfLeds; b++) {
+      _colors[b] = COLOR_DEFAULT;
+      _alwaysOn[b] = false;
+      _conditions[b] = nullptr;
+      _blinking[b] = false;
+    }
+    _needsUpdate = true;
+  }
 
   virtual bool isInitialized() { return ((WGpio::_isInitialized()) && (_numberOfLeds->asByte() > 0)); }
 
@@ -340,10 +355,10 @@ class W2812Led : public WGpio {
   unsigned long _lastUpdate;
   bool _needsUpdate = false;
   byte _countLeds = 0;
-  uint32_t* _colors;
-  bool* _alwaysOn;
-  TColorPicker* _conditions;
-  bool* _blinking;
+  uint32_t* _colors = nullptr;
+  bool* _alwaysOn = nullptr;
+  TColorPicker* _conditions = nullptr;
+  bool* _blinking = nullptr;
   unsigned short _onFor = 0;
   bool _blinkOn = false;
   unsigned long _lastBlinkOn = 0;

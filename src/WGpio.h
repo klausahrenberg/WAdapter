@@ -250,7 +250,7 @@ class WGroup : public WGpio {
 
   virtual void _updateOn() {
     if (_items != nullptr) {      
-      _items->forEach([this] (int index, WGpio* output, const char* id) { output->on(this->isOn()); } ); 
+      _items->forEach([this] (int index, WGpio* output, const char* id) { if (output->isOutput()) output->on(this->isOn()); } ); 
     }
   }
 
@@ -344,7 +344,6 @@ class WMode : public WGroup {
   virtual void _toJsonListOrMap(WJson* json) {
     if (_items != nullptr) {
       json->beginObject(WC_ITEMS);
-      json->beginArray(WC_ITEMS);
       _items->forEach([json] (int index, WGpio* item, const char* id) {
         json->beginObject(id); 
         item->toJson(json); 

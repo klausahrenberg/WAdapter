@@ -32,7 +32,6 @@ const char* VALUE_COOLING = "cooling";
 
 enum WPropertyVisibility { ALL,
                            NONE,
-                           MQTT,
                            WEBTHING };
 
 typedef std::function<void()> TOnPropertyChange;
@@ -224,8 +223,10 @@ class WProperty {
 
   virtual bool parse(const char* value, bool ignoreReadOnly = false) {
     if (_isWritingAllowed(ignoreReadOnly)) {
-      _changed = _value->parse(value) || _changed;
-      _notify();
+      if (_value->parse(value)) {
+        _changed = true;
+        _notify();
+      }
       return _changed;
     } else {
       return false;
@@ -241,8 +242,10 @@ class WProperty {
 
   WProperty* asBool(bool value, bool ignoreReadOnly = false) {
     if (_isWritingAllowed(ignoreReadOnly)) {
-      _changed = _value->asBool(value) || _changed;
-      _notify();
+      if (_value->asBool(value)) {
+        _changed = true;
+        _notify();
+      }
     }
     return this;
   }
@@ -254,8 +257,10 @@ class WProperty {
 
   WProperty* asString(const char* value, bool ignoreReadOnly = false) {
     if (_isWritingAllowed(ignoreReadOnly)) {
-      _changed = _value->asString(value) || _changed;
-      _notify();
+      if (_value->asString(value)) {
+        _changed = true;
+        _notify();
+      }
     }
     return this;
   }
@@ -277,8 +282,10 @@ class WProperty {
 
   WProperty* asInt(int value, bool ignoreReadOnly = false) {
     if (_isWritingAllowed(ignoreReadOnly)) {
-      _changed = _value->asInt(value) || _changed;
-      _notify();
+      if (_value->asInt(value)) {
+        _changed = true;
+        _notify();
+      }
     }
     return this;
   }
@@ -290,8 +297,10 @@ class WProperty {
 
   WProperty* asDouble(double value, bool ignoreReadOnly = false) {
     if (_isWritingAllowed(ignoreReadOnly)) {
-      _changed = _value->asDouble(value) || _changed;
-      _notify();
+      if (_value->asDouble(value)) {
+        _changed = true;
+        _notify();
+      }
     }
     return this;
   }
@@ -303,8 +312,10 @@ class WProperty {
 
   WProperty* asByte(byte value, bool ignoreReadOnly = false) {
     if (_isWritingAllowed(ignoreReadOnly)) {
-      _changed = _value->asByte(value) || _changed;
-      _notify();
+      if (_value->asByte(value)) {
+        _changed = true;
+        _notify();
+      }
     }
     return this;
   }
@@ -549,32 +560,8 @@ class WProperty {
     return this;
   }
 
-  void visibility(bool mqtt, bool webthing) {
-    if ((mqtt) && (webthing)) {
-      visibility(ALL);
-    } else if ((!mqtt) && (!webthing)) {
-      visibility(NONE);
-    } else if (mqtt) {
-      visibility(MQTT);
-    } else {
-      visibility(WEBTHING);
-    }
-  }
-
-  void visibilityMqtt(bool value) {
-    if ((value) && (_visibility != MQTT) && (_visibility != ALL)) {
-      visibility(_visibility == WEBTHING ? ALL : MQTT);
-    } else if ((!value) && (_visibility != NONE) && (_visibility != WEBTHING)) {
-      visibility(_visibility == ALL ? WEBTHING : NONE);
-    }
-  }
-
   void visibilityWebthing(bool value) {
-    if ((value) && (_visibility != WEBTHING) && (_visibility != ALL)) {
-      visibility(_visibility == MQTT ? ALL : WEBTHING);
-    } else if ((!value) && (_visibility != NONE) && (_visibility != MQTT)) {
-      visibility(_visibility == ALL ? MQTT : NONE);
-    }
+    visibility(value ? WEBTHING : NONE);
   }
 
   bool isVisible(WPropertyVisibility visibility) {
